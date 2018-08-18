@@ -73,7 +73,7 @@ artifacts:
 deploy:
   provider: GitHub
   auth_token:
-    secure: "CfI4VUu86RwI9MC8YoMfj9PJRiyoVkwD8AAyiUgKXpPU32Zw"
+    secure: DlRS0U90AATbPkzxigCLwaGe1vguHFeC3a0YhMZRA/OYEbLQ8+ybp2OGfqgwpbW4
   artifact: Halcyon-$(APPVEYOR_BUILD_VERSION)-$(APPVEYOR_REPO_BRANCH)-$(EDITION)
   draft: true
   prerelease: false
