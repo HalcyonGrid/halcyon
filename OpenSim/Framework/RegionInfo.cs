@@ -284,9 +284,6 @@ namespace OpenSim.Framework
         
         public string osSecret;
 
-        public UUID lastMapUUID = UUID.Zero;
-        public string lastMapRefresh = "0";
-
         private int m_physPrimMax = 0;
         private bool m_clampPrimSize = false;
         private int m_objectCapacity = 0;
@@ -799,10 +796,6 @@ namespace OpenSim.Framework
             configMember.addConfigurationOption("master_avatar_pass", ConfigurationOption.ConfigurationTypes.TYPE_STRING,
                                                 "(Sandbox Mode Only)Password for Master Avatar account",
                                                 MasterAvatarSandboxPassword, true);
-            configMember.addConfigurationOption("lastmap_uuid", ConfigurationOption.ConfigurationTypes.TYPE_UUID,
-                                                "Last Map UUID", lastMapUUID.ToString(), true);
-            configMember.addConfigurationOption("lastmap_refresh", ConfigurationOption.ConfigurationTypes.TYPE_STRING_NOT_EMPTY,
-                                                "Last Map Refresh", Util.UnixTimeSinceEpoch().ToString(), true);
 
             configMember.addConfigurationOption("nonphysical_prim_max", ConfigurationOption.ConfigurationTypes.TYPE_INT32,
                                                 "Maximum size for nonphysical prims", NonphysPrimMax.ToString(), true);
@@ -867,11 +860,6 @@ namespace OpenSim.Framework
                                                 "(Sandbox Mode Only)Password for Master Avatar account", "test", false,
                                                 (ConfigurationOption.ConfigurationOptionShouldBeAsked)
                                                 shouldMasterAvatarDetailsBeAsked);
-            configMember.addConfigurationOption("lastmap_uuid", ConfigurationOption.ConfigurationTypes.TYPE_UUID,
-                                    "Last Map UUID", lastMapUUID.ToString(), true);
-
-            configMember.addConfigurationOption("lastmap_refresh", ConfigurationOption.ConfigurationTypes.TYPE_STRING_NOT_EMPTY,
-                                                "Last Map Refresh", Util.UnixTimeSinceEpoch().ToString(), true);
             
             configMember.addConfigurationOption("nonphysical_prim_max", ConfigurationOption.ConfigurationTypes.TYPE_INT32,
                                                 "Maximum size for nonphysical prims", "0", true);
@@ -952,12 +940,6 @@ namespace OpenSim.Framework
                 case "master_avatar_pass":
                     MasterAvatarSandboxPassword = (string)configuration_result;
                     break;
-                case "lastmap_uuid":
-                    lastMapUUID = (UUID)configuration_result;
-                    break;
-                case "lastmap_refresh":
-                    lastMapRefresh = (string)configuration_result;
-                    break;
                 case "nonphysical_prim_max":
                     PrimLimitDefault = (int)configuration_result;
                     break;
@@ -1011,20 +993,6 @@ namespace OpenSim.Framework
             }
 
             return true;
-        }
-
-        public void SaveLastMapUUID(UUID mapUUID)
-        {
-            if (null == configMember) return;
-
-            lastMapUUID = mapUUID;
-            lastMapRefresh = Util.UnixTimeSinceEpoch().ToString();
-
-            Dictionary<string, string> options = new Dictionary<string, string>();
-            options.Add("lastmap_uuid", mapUUID.ToString());
-            options.Add("lastmap_refresh", lastMapRefresh);
-
-            configMember.forceUpdateConfigurationOptions(options);
         }
 
         public OSDMap PackRegionInfoData()
