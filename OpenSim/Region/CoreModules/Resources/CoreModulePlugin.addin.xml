@@ -9,7 +9,6 @@
 
     <Extension path = "/OpenSim/RegionModules">
         <RegionModule id="TerrainModule" type="OpenSim.Region.CoreModules.World.Terrain.TerrainModule" />
-        <RegionModule id="WorldMapModule" type="OpenSim.Region.CoreModules.World.WorldMap.WorldMapModule" />
         <RegionModule id="LocalUserServicesConnector" type="OpenSim.Region.CoreModules.ServiceConnectors.User.LocalUserServicesConnector" />
         <RegionModule id="RemoteUserServicesConnector" type="OpenSim.Region.CoreModules.ServiceConnectors.User.RemoteUserServicesConnector" />
         <RegionModule id="CoreAssetCache" type="OpenSim.Region.CoreModules.Asset.CoreAssetCache" />
