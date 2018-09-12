@@ -216,11 +216,13 @@ namespace InWorldz.Data.Assets.Stratus
             {
                 return asset;
             }
-            else
+
+            if ((_secondReadServer != null) && TryRequestAsset(assetID, _secondReadServer, out asset))
             {
-                TryRequestAsset(assetID, _secondReadServer, out asset);
                 return asset;
             }
+
+            return null;
         }
 
         /// <summary>
