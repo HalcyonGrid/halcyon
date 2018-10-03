@@ -458,7 +458,7 @@ namespace InWorldz.Data.Inventory.Cassandra
             InventoryItemBase itemCopy = _storage.GetItem(itemId, UUID.Zero);
             AssertItemEqual(itemCopy, item);
 
-            
+
         }
 
         [Test]
@@ -543,7 +543,7 @@ namespace InWorldz.Data.Inventory.Cassandra
             Assert.AreEqual(2, containingFolder.Version);
             Assert.AreEqual(1, containingFolder.Items.Count);
             AssertItemEqual(item, containingFolder.Items[0]);
-            
+
 
             InventoryFolderBase oldFolder = _storage.GetFolder(folder1.ID);
             Assert.AreEqual(0, oldFolder.Items.Count);
@@ -605,7 +605,7 @@ namespace InWorldz.Data.Inventory.Cassandra
                         _storage.PurgeItem(item);
 
                         var ex =
-                            Assert.Throws<InventoryObjectMissingException>(delegate()
+                            Assert.Throws<InventoryObjectMissingException>(delegate ()
                             {
                                 InventoryItemBase itemCopy = _storage.GetItem(itemId, UUID.Zero);
                             });
@@ -698,7 +698,7 @@ namespace InWorldz.Data.Inventory.Cassandra
                 //either the item should completely exist or not
                 if (newFolder.Items.Exists((InventoryItemBase litem) => { return litem.ID == itemId; }))
                 {
-                    Assert.DoesNotThrow(delegate()
+                    Assert.DoesNotThrow(delegate ()
                     {
                         InventoryItemBase itemCopy = _storage.GetItem(itemId, UUID.Zero);
                     });
@@ -709,7 +709,7 @@ namespace InWorldz.Data.Inventory.Cassandra
                 else
                 {
                     var ex =
-                        Assert.Throws<InventoryObjectMissingException>(delegate()
+                        Assert.Throws<InventoryObjectMissingException>(delegate ()
                         {
                             InventoryItemBase itemCopy = _storage.GetItem(itemId, UUID.Zero);
                         });
@@ -981,12 +981,12 @@ namespace InWorldz.Data.Inventory.Cassandra
             //verify none of the items are accessable anymore
             foreach (InventoryItemBase item in items)
             {
-                Assert.Throws<InventoryObjectMissingException>(delegate()
+                Assert.Throws<InventoryObjectMissingException>(delegate ()
                 {
                     _storage.GetItem(item.ID, UUID.Zero);
                 });
 
-                Assert.Throws<InventoryObjectMissingException>(delegate()
+                Assert.Throws<InventoryObjectMissingException>(delegate ()
                 {
                     _storage.GetItem(item.ID, item.Folder);
                 });
@@ -1107,7 +1107,7 @@ namespace InWorldz.Data.Inventory.Cassandra
             List<InventoryFolderBase> skel = _storage.GetInventorySkeleton(userId);
             Assert.AreEqual(1, skel.Count);
 
-            Assert.Throws<InventoryObjectMissingException>(delegate()
+            Assert.Throws<InventoryObjectMissingException>(delegate ()
             {
                 _storage.GetFolder(folder.ID);
             });
@@ -1148,7 +1148,7 @@ namespace InWorldz.Data.Inventory.Cassandra
 
             foreach (InventoryFolderBase folder in folders)
             {
-                Assert.Throws<InventoryObjectMissingException>(delegate()
+                Assert.Throws<InventoryObjectMissingException>(delegate ()
                 {
                     _storage.GetFolder(folder.ID);
                 });
@@ -1248,103 +1248,5 @@ namespace InWorldz.Data.Inventory.Cassandra
             Assert.AreEqual(i1.SalePrice, i2.SalePrice);
             Assert.AreEqual(i1.SaleType, i2.SaleType);
         }
-
-        [TestCase]
-        public void TestInvalidSubfolderIndexCleanup()
-        {
-            UUID userId = UUID.Random();
-
-            InventoryFolderBase parentFolder = new InventoryFolderBase();
-            parentFolder.ID = UUID.Random();
-            parentFolder.Name = "RootFolder";
-            parentFolder.Level = InventoryFolderBase.FolderLevel.Root;
-            parentFolder.Owner = userId;
-            parentFolder.Type = (short)OpenMetaverse.FolderType.Root;
-            parentFolder.ParentID = UUID.Zero;
-
-            InventoryFolderBase folder = new InventoryFolderBase();
-            folder.ID = UUID.Random();
-            folder.Name = "RandomFolder";
-            folder.Level = InventoryFolderBase.FolderLevel.TopLevel;
-            folder.Owner = userId;
-            folder.Type = (short)OpenMetaverse.AssetType.Unknown;
-            folder.ParentID = parentFolder.ID;
-
-            _storage.CreateFolder(parentFolder);
-            _storage.CreateFolder(folder);
-
-            InventoryFolderBase validChild = new InventoryFolderBase();
-            validChild.ID = UUID.Random();
-            validChild.Name = "ValidChild";
-            validChild.Level = InventoryFolderBase.FolderLevel.Leaf;
-            validChild.Owner = userId;
-            validChild.Type = (short)OpenMetaverse.AssetType.Unknown;
-            validChild.ParentID = folder.ID;
-
-            _storage.CreateFolder(validChild);
-
-            InventoryItemBase item = new InventoryItemBase
-            {
-                AssetID = UUID.Random(),
-                AssetType = (int)OpenMetaverse.AssetType.Texture,
-                BasePermissions = UInt32.MaxValue,
-                CreationDate = Util.UnixTimeSinceEpoch(),
-                CreatorId = userId.ToString(),
-                CurrentPermissions = unchecked((uint)-1),
-                Description = "Gesture",
-                EveryOnePermissions = Int32.MaxValue + (uint)1,
-                Flags = unchecked((uint)Int32.MinValue),
-                GroupID = UUID.Zero,
-                GroupOwned = false,
-                GroupPermissions = 0x123,
-                ID = UUID.Random(),
-                InvType = (int)OpenMetaverse.InventoryType.Gesture,
-                Name = "RandomItem",
-                NextPermissions = 0xF,
-                Owner = userId,
-                Folder = validChild.ID
-            };
-
-            _storage.SaveItem(item);
-
-            InventoryFolderBase invalidChild = new InventoryFolderBase();
-            invalidChild.ID = UUID.Random();
-            invalidChild.Name = "InvalidChild";
-            invalidChild.Level = InventoryFolderBase.FolderLevel.Leaf;
-            folder.Owner = userId;
-            folder.Type = (short)OpenMetaverse.AssetType.Unknown;
-            folder.ParentID = folder.ID;
-
-            _storage.UpdateParentWithNewChild(invalidChild, folder.ID.Guid, Guid.Empty, Util.UnixTimeSinceEpochInMicroseconds());
-
-            
-
-            //reread the folder
-            folder = _storage.GetFolder(folder.ID);
-
-            //ensure that the dud link exists
-            Assert.That(folder.SubFolders.Count == 2);
-
-            foreach (var subfolder in folder.SubFolders)
-            {
-                Assert.IsTrue(subfolder.ID == invalidChild.ID || subfolder.ID == validChild.ID);
-            }
-
-            //Run a repair
-            _storage.Maint_RepairSubfolderIndexes(userId);
-
-            //verify we got rid of the dud link, but everything else is in tact
-            folder = _storage.GetFolder(folder.ID);
-
-            Assert.That(folder.SubFolders.Count == 1);
-            Assert.AreEqual(folder.SubFolders.First().ID, validChild.ID);
-
-            validChild = _storage.GetFolder(validChild.ID);
-
-            Assert.AreEqual(validChild.Name, "ValidChild");
-            Assert.That(validChild.Items.Count == 1);
-
-            Assert.AreEqual(validChild.Items[0].Name, "RandomItem");
-        }
-    }   
+    }
 }

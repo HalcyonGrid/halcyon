@@ -28,10 +28,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using OpenMetaverse;
 using OpenSim.Framework;
 
@@ -121,13 +118,13 @@ namespace OpenSim.Data
         /// Caller must ensure it is already empty: no items or subfolders.
         /// </summary>
         /// <param name="folder">The folder to purge</param>
-        void PurgeEmptyFolder(InventoryFolderBase folder);
+//        void PurgeEmptyFolder(InventoryFolderBase folder);
 
         /// <summary>
         /// Purges all subfolders and items from the specified folders and then removes the folders
         /// </summary>
         /// <param name="folder">The folder to purge</param>
-        void PurgeFolders(IEnumerable<InventoryFolderBase> folders);
+//        void PurgeFolders(IEnumerable<InventoryFolderBase> folders);
 
         /// <summary>
         /// Returns an item fetched by the given id
@@ -182,7 +179,7 @@ namespace OpenSim.Data
         /// Purges multiple items from the inventory
         /// </summary>
         /// <param name="item">The item to purge</param>
-        void PurgeItems(IEnumerable<InventoryItemBase> items);
+//        void PurgeItems(IEnumerable<InventoryItemBase> items);
 
         /// <summary>
         /// Marks the given gesture items active
@@ -205,5 +202,6 @@ namespace OpenSim.Data
         /// <param name="userId">The ID for the user we want to search</param>
         /// <returns>A list or empty list of gestures</returns>
         List<InventoryItemBase> GetActiveGestureItems(UUID userId);
+
     }
 }

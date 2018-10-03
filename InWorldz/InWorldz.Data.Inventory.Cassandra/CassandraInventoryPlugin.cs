@@ -28,15 +28,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using OpenSim.Framework.Communications;
-using OpenSim.Framework;
 using OpenSim.Data;
-using OpenMetaverse;
-using Aquiles.Cassandra10;
+using OpenSim.Framework;
 
 namespace InWorldz.Data.Inventory.Cassandra
 {
@@ -44,26 +37,20 @@ namespace InWorldz.Data.Inventory.Cassandra
     {
         private InventoryStorage _storage;
         private LegacyMysqlInventoryStorage _legacyStorage;
-        private DelayedMutationManager _delayedMutationMgr;
-        private CassandraMigrationProviderSelector _storageSelector;
+        private SpensaProviderSelector _storageSelector;
 
         #region IInventoryStoragePlugin Members
 
         public void Initialize(ConfigSettings settings)
         {
-            AquilesHelper.Initialize();
             _storage = new InventoryStorage(settings.InventoryCluster);
-
-            _delayedMutationMgr = new DelayedMutationManager();
-            _delayedMutationMgr.Start();
-            _storage.DelayedMutationMgr = _delayedMutationMgr;
 
             if (settings.InventoryMigrationActive)
             {
                 _legacyStorage = new LegacyMysqlInventoryStorage(settings.LegacyInventorySource);
             }
 
-            _storageSelector = new CassandraMigrationProviderSelector(settings.InventoryMigrationActive, settings.CoreConnectionString,
+            _storageSelector = new SpensaProviderSelector(settings.InventoryMigrationActive, settings.CoreConnectionString,
                 _storage, _legacyStorage);
 
             ProviderRegistry.Instance.RegisterInterface<IInventoryProviderSelector>(_storageSelector);
@@ -80,7 +67,7 @@ namespace InWorldz.Data.Inventory.Cassandra
 
         public string Version
         {
-            get { return "1.0.0"; }
+            get { return "2.0.0"; }
         }
 
         public string Name

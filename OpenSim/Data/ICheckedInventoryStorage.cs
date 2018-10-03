@@ -121,7 +121,7 @@ namespace OpenSim.Data
         /// Purges all subfolders and items from the specified folders and then removes the folders
         /// </summary>
         /// <param name="folder">The folder to purge</param>
-        void PurgeFolders(UUID userId, IEnumerable<UUID> folders);
+//        void PurgeFolders(UUID userId, IEnumerable<UUID> folders);
 
         /// <summary>
         /// Returns an item fetched by the given id
@@ -183,7 +183,7 @@ namespace OpenSim.Data
         /// Purges multiple items from the inventory
         /// </summary>
         /// <param name="item">The item to purge</param>
-        void PurgeItems(UUID userId, IEnumerable<UUID> items);
+//        void PurgeItems(UUID userId, IEnumerable<UUID> items);
 
         /// <summary>
         /// Marks the given gesture items active
@@ -206,5 +206,6 @@ namespace OpenSim.Data
         /// <param name="userId">The ID for the user we want to search</param>
         /// <returns>A list or empty list of gestures</returns>
         List<InventoryItemBase> GetActiveGestureItems(UUID userId);
+
     }
 }

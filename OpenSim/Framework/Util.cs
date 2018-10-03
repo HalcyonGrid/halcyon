@@ -32,7 +32,6 @@ using System.Data;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
-using System.IO.Compression;
 using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
@@ -107,8 +106,6 @@ namespace OpenSim.Framework
         /// <summary>Thread pool used for Util.FireAndForget if
         /// FireAndForgetMethod.SmartThreadPool is used</summary>
         private static SmartThreadPool[] m_ThreadPool = new SmartThreadPool[Enum.GetValues(typeof(PoolSelection)).Length];
-
-        
 
         // Unix-epoch starts at January 1st 1970, 00:00:00 UTC. And all our times in the server are (or at least should be) in UTC.
         private static readonly DateTime unixEpoch =

@@ -47,8 +47,6 @@ namespace OpenSim.Data
             _storage = storage;
         }
 
-
-
         public List<InventoryFolderBase> GetInventorySkeleton(UUID userId)
         {
             return _storage.GetInventorySkeleton(userId);
@@ -162,6 +160,7 @@ namespace OpenSim.Data
             _storage.PurgeFolder(subjectFolder);
         }
 
+        /*
         public void PurgeFolders(UUID userId, IEnumerable<UUID> folderIds)
         {
             //this is a very uncommon operation, and normamly will only be executed
@@ -185,7 +184,7 @@ namespace OpenSim.Data
 
             _storage.PurgeFolders(folders);
         }
-
+*/
         public InventoryItemBase GetItem(UUID userId, UUID itemId, UUID parentFolderHint)
         {
             //verify this user owns the item
@@ -294,6 +293,7 @@ namespace OpenSim.Data
             _storage.PurgeItem(item);
         }
 
+        /*
         public void PurgeItems(UUID userId, IEnumerable<UUID> itemIds)
         {
             List<InventoryItemBase> items = _storage.GetItems(itemIds, false);
@@ -308,6 +308,7 @@ namespace OpenSim.Data
 
             _storage.PurgeItems(items);
         }
+        */
 
         public void ActivateGestures(UUID userId, IEnumerable<UUID> itemIds)
         {
@@ -323,5 +324,6 @@ namespace OpenSim.Data
         {
             return _storage.GetActiveGestureItems(userId);
         }
+
     }
 }

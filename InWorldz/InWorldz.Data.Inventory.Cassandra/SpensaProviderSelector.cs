@@ -38,7 +38,7 @@ using OpenSim.Framework;
 
 namespace InWorldz.Data.Inventory.Cassandra
 {
-    public class CassandraMigrationProviderSelector : IInventoryProviderSelector
+    public class SpensaProviderSelector : IInventoryProviderSelector
     {
         private bool _migrationActive;
 
@@ -54,7 +54,7 @@ namespace InWorldz.Data.Inventory.Cassandra
 
 
 
-        public CassandraMigrationProviderSelector(bool migrationActive,
+        public SpensaProviderSelector(bool migrationActive,
             string coreConnString,
             InventoryStorage cassandraStorage, LegacyMysqlInventoryStorage legacyStorage)
         {
