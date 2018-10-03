@@ -38,7 +38,7 @@ using OpenSim.Data;
 using OpenMetaverse;
 using OpenSim.Framework;
 
-namespace InWorldz.Data.Inventory.Cassandra
+namespace Halcyon.Data.Inventory.Spensa
 {
     /// <summary>
     /// IInventorystorage adapter to the old mysql inventory system

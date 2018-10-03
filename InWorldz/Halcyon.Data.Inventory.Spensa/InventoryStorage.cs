@@ -42,7 +42,7 @@ using OpenMetaverse;
 using OpenSim.Framework;
 using OpenSim.Data;
 
-namespace InWorldz.Data.Inventory.Cassandra
+namespace Halcyon.Data.Inventory.Spensa
 {
     public class InventoryStorage : IInventoryStorage
     {
@@ -140,7 +140,7 @@ namespace InWorldz.Data.Inventory.Cassandra
             }
             catch (Exception e)
             {
-                _log.ErrorFormat("[Inworldz.Data.Inventory.Cassandra] Unable to retrieve folder skeleton: {0}", e);
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Unable to retrieve folder skeleton: {0}", e);
                 throw new InventoryStorageException(e.Message, e);
             }
         }
@@ -169,7 +169,7 @@ namespace InWorldz.Data.Inventory.Cassandra
             }
             catch (Exception e)
             {
-                _log.ErrorFormat("[Inworldz.Data.Inventory.Cassandra] Unable to retrieve folder {0}: {1}", folder.ID, e);
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Unable to retrieve folder {0}: {1}", folder.ID, e);
                 throw new InventoryStorageException(e.Message, e);
             }
 
@@ -203,7 +203,7 @@ namespace InWorldz.Data.Inventory.Cassandra
             }
             catch (Exception e)
             {
-                _log.ErrorFormat("[Inworldz.Data.Inventory.Cassandra] Unable to retrieve folder {0}: {1}", folderId, e);
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Unable to retrieve folder {0}: {1}", folderId, e);
                 throw new InventoryStorageException(e.Message, e);
             }
 
@@ -232,7 +232,7 @@ namespace InWorldz.Data.Inventory.Cassandra
             }
             catch (Exception e)
             {
-                _log.ErrorFormat("[Inworldz.Data.Inventory.Cassandra] User {0} unable to create folder {1}: {2}", folder.Owner, folder.ID, e);
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] User {0} unable to create folder {1}: {2}", folder.Owner, folder.ID, e);
                 throw new InventoryStorageException(e.Message, e);
             }
         }
@@ -265,14 +265,14 @@ namespace InWorldz.Data.Inventory.Cassandra
             }
             catch (UnrecoverableInventoryStorageException e)
             {
-                _log.ErrorFormat("[Inworldz.Data.Inventory.Cassandra] Unrecoverable error caught while saving folder {0} for {1}: {2}",
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Unrecoverable error caught while saving folder {0} for {1}: {2}",
                     folder.ID, folder.Owner, e);
 
                 throw;
             }
             catch (Exception e)
             {
-                _log.ErrorFormat("[Inworldz.Data.Inventory.Cassandra] Exception caught while saving folder {0} for {1}: {2}",
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Exception caught while saving folder {0} for {1}: {2}",
                     folder.ID, folder.Owner, e);
             }
         }
@@ -287,7 +287,7 @@ namespace InWorldz.Data.Inventory.Cassandra
                 //to the same folder as its current parent, this can cause corruption
                 if (folder.ParentID == parentId)
                 {
-                    _log.WarnFormat("[Inworldz.Data.Inventory.Cassandra] Refusing to move folder {0} to new parent {1} for {2}. The source and destination are the same",
+                    _log.WarnFormat("[Halcyon.Data.Inventory.Spensa] Refusing to move folder {0} to new parent {1} for {2}. The source and destination are the same",
                         folder.ID, parentId, folder.Owner);
                     return;
                 }
@@ -295,7 +295,7 @@ namespace InWorldz.Data.Inventory.Cassandra
                 //don't do anything with a folder that wants to set its new parent to UUID.Zero
                 if (parentId == UUID.Zero)
                 {
-                    _log.WarnFormat("[Inworldz.Data.Inventory.Cassandra] Refusing to move folder {0} to new parent {1} for {2}. New parent has ID UUID.Zero",
+                    _log.WarnFormat("[Halcyon.Data.Inventory.Spensa] Refusing to move folder {0} to new parent {1} for {2}. New parent has ID UUID.Zero",
                         folder.ID, parentId, folder.Owner);
                     return;
                 }
@@ -305,13 +305,13 @@ namespace InWorldz.Data.Inventory.Cassandra
             }
             catch (UnrecoverableInventoryStorageException e)
             {
-                _log.ErrorFormat("[Inworldz.Data.Inventory.Cassandra] Exception caught while moving folder {0} for {1}: {2}",
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Exception caught while moving folder {0} for {1}: {2}",
                     folder.ID, folder.Owner, e);
                 throw;
             }
             catch (Exception e)
             {
-                _log.ErrorFormat("[Inworldz.Data.Inventory.Cassandra] Exception caught while moving folder {0} for {1}: {2}",
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Exception caught while moving folder {0} for {1}: {2}",
                     folder.ID, folder.Owner, e);
             }
         }
@@ -395,7 +395,7 @@ namespace InWorldz.Data.Inventory.Cassandra
             }
             catch (Exception e)
             {
-                _log.ErrorFormat("[Inworldz.Data.Inventory.Cassandra] Exception caught while sending folder {0} to trash for {1}: {2}",
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Exception caught while sending folder {0} to trash for {1}: {2}",
                     folder.ID, folder.Owner, e);
                 return UUID.Zero;
             }
@@ -462,13 +462,13 @@ namespace InWorldz.Data.Inventory.Cassandra
             }
             catch (UnrecoverableInventoryStorageException e)
             {
-                _log.ErrorFormat("[Inworldz.Data.Inventory.Cassandra] Unrecoverable error while purging contents in folder {0} for {1}: {2}",
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Unrecoverable error while purging contents in folder {0} for {1}: {2}",
                     folder.ID, folder.Owner, e);
                 throw;
             }
             catch (Exception e)
             {
-                _log.ErrorFormat("[Inworldz.Data.Inventory.Cassandra] Exception caught while sending folder {0} to trash for {1}: {2}",
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Exception caught while sending folder {0} to trash for {1}: {2}",
                     folder.ID, folder.Owner, e);
                 throw new InventoryStorageException("Could not purge folder contents for " + folder.ID.ToString() + ": " + e.Message, e);
             }
@@ -476,7 +476,7 @@ namespace InWorldz.Data.Inventory.Cassandra
 
         private void DebugFolderPurge(string method, InventoryFolderBase folder, StringBuilder debugFolderList)
         {
-            _log.DebugFormat("[Inworldz.Data.Inventory.Cassandra] About to purge from {0} {1}\n Objects:\n{2}",
+            _log.DebugFormat("[Halcyon.Data.Inventory.Spensa] About to purge from {0} {1}\n Objects:\n{2}",
                 folder.Name, folder.ID, debugFolderList.ToString());
         }
 
@@ -490,13 +490,13 @@ namespace InWorldz.Data.Inventory.Cassandra
             }
             catch (UnrecoverableInventoryStorageException e)
             {
-                _log.ErrorFormat("[Inworldz.Data.Inventory.Cassandra] Unrecoverable error while purging folder {0} for {1}: {2}",
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Unrecoverable error while purging folder {0} for {1}: {2}",
                     folder.ID, folder.Owner, e);
                 throw;
             }
             catch (Exception e)
             {
-                _log.ErrorFormat("[Inworldz.Data.Inventory.Cassandra] Exception caught while purging folder {0} for {1}: {2}",
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Exception caught while purging folder {0} for {1}: {2}",
                     folder.ID, folder.Owner, e);
 
                 throw new InventoryStorageException("Could not purge folder " + folder.ID.ToString() + ": " + e.Message, e);
@@ -637,13 +637,13 @@ namespace InWorldz.Data.Inventory.Cassandra
             }
             catch (UnrecoverableInventoryStorageException e)
             {
-                _log.ErrorFormat("[Inworldz.Data.Inventory.Cassandra] Unrecoverable error while purging empty folder {0} for {1}: {2}",
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Unrecoverable error while purging empty folder {0} for {1}: {2}",
                     folder.ID, folder.Owner, e);
                 throw;
             }
             catch (Exception e)
             {
-                _log.ErrorFormat("[Inworldz.Data.Inventory.Cassandra] Exception caught while purging empty folder {0} for {1}: {2}",
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Exception caught while purging empty folder {0} for {1}: {2}",
                     folder.ID, folder.Owner, e);
                 throw new InventoryStorageException("Could not purge empty folder " + folder.ID.ToString() + ": " + e.Message, e);
             }
@@ -659,12 +659,12 @@ namespace InWorldz.Data.Inventory.Cassandra
             }
             catch (UnrecoverableInventoryStorageException e)
             {
-                _log.ErrorFormat("[Inworldz.Data.Inventory.Cassandra] Unrecoverable error while purging folders: {0}", e);
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Unrecoverable error while purging folders: {0}", e);
                 throw;
             }
             catch (Exception e)
             {
-                _log.ErrorFormat("[Inworldz.Data.Inventory.Cassandra] Exception caught while purging folders: {0}", e);
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Exception caught while purging folders: {0}", e);
 
                 throw new InventoryStorageException("Could not purge folders: " + e.Message, e);
             }
@@ -695,7 +695,7 @@ namespace InWorldz.Data.Inventory.Cassandra
             {
                 //missing a folder is not a fatal exception, it could indicate a corrupted or temporarily
                 //inconsistent inventory state. this should not stop the remainder of the collection
-                _log.WarnFormat("[Inworldz.Data.Inventory.Cassandra] Found missing folder with subFolder index remaining in parent. Inventory may need subfolder index maintenance.");
+                _log.WarnFormat("[Halcyon.Data.Inventory.Spensa] Found missing folder with subFolder index remaining in parent. Inventory may need subfolder index maintenance.");
                 return;
             }
             catch (InventoryStorageException e)
@@ -704,7 +704,7 @@ namespace InWorldz.Data.Inventory.Cassandra
                 {
                     //not a fatal exception, it could indicate a corrupted or temporarily
                     //inconsistent inventory state. this should not stop the remainder of the collection
-                    _log.WarnFormat("[Inworldz.Data.Inventory.Cassandra] Found corrupt folder with subFolder index remaining in parent. User inventory needs subfolder index maintenance.");
+                    _log.WarnFormat("[Halcyon.Data.Inventory.Spensa] Found corrupt folder with subFolder index remaining in parent. User inventory needs subfolder index maintenance.");
                     return;
                 }
                 else
@@ -750,7 +750,7 @@ namespace InWorldz.Data.Inventory.Cassandra
                 }
                 else
                 {
-                    _log.WarnFormat("[Inworldz.Data.Inventory.Cassandra] Not recursing into folder {0} with parent {1}. Index is inconsistent", 
+                    _log.WarnFormat("[Halcyon.Data.Inventory.Spensa] Not recursing into folder {0} with parent {1}. Index is inconsistent", 
                         subFolder.ID, folder.ID);
                 }
             }
@@ -899,7 +899,7 @@ namespace InWorldz.Data.Inventory.Cassandra
             }
             catch (Exception e)
             {
-                _log.ErrorFormat("[Inworldz.Data.Inventory.Cassandra] Unable to retrieve item {0}: {1}", itemId, e);
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Unable to retrieve item {0}: {1}", itemId, e);
                 throw new InventoryStorageException(e.Message, e);
             }
         }
@@ -1008,7 +1008,7 @@ namespace InWorldz.Data.Inventory.Cassandra
             }
             catch (Exception e)
             {
-                _log.ErrorFormat("[Inworldz.Data.Inventory.Cassandra] Exception caught while creating item {0} for {1}: {2}",
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Exception caught while creating item {0} for {1}: {2}",
                     item.ID, item.Owner, e);
                 throw new InventoryStorageException("Could not create item " + item.ID.ToString()+ e.Message, e);
             }
@@ -1018,7 +1018,7 @@ namespace InWorldz.Data.Inventory.Cassandra
         {
             if (item.Folder == UUID.Zero)
             {
-                _log.WarnFormat("[Inworldz.Data.Inventory.Cassandra] Repairing parent folder ID for item {0} for {1}: Folder set to UUID.Zero", item.ID, item.Owner);
+                _log.WarnFormat("[Halcyon.Data.Inventory.Spensa] Repairing parent folder ID for item {0} for {1}: Folder set to UUID.Zero", item.ID, item.Owner);
                 item.Folder = this.FindFolderForType(item.Owner, (AssetType)FolderType.Root).ID;
             }
         }
@@ -1036,7 +1036,7 @@ namespace InWorldz.Data.Inventory.Cassandra
             }
             catch (Exception e)
             {
-                _log.ErrorFormat("[Inworldz.Data.Inventory.Cassandra] Exception caught while saving item {0} for {1}: {2}",
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Exception caught while saving item {0} for {1}: {2}",
                     item.ID, item.Owner, e);
 
                 throw new InventoryStorageException("Could not save item " + item.ID.ToString() + ": " + e.Message, e);
@@ -1058,7 +1058,7 @@ namespace InWorldz.Data.Inventory.Cassandra
                 //to its current parent. this can cause corruption
                 if (item.Folder == parentFolder.ID)
                 {
-                    _log.WarnFormat("[Inworldz.Data.Inventory.Cassandra] Refusing to move item {0} to new folder {1} for {2}. The source and destination folder are the same",
+                    _log.WarnFormat("[Halcyon.Data.Inventory.Spensa] Refusing to move item {0} to new folder {1} for {2}. The source and destination folder are the same",
                         item.ID, parentFolder.ID, item.Owner);
                     return;
                 }
@@ -1068,7 +1068,7 @@ namespace InWorldz.Data.Inventory.Cassandra
             }
             catch (Exception e)
             {
-                _log.ErrorFormat("[Inworldz.Data.Inventory.Cassandra] Exception caught while moving item {0} to folder {1}: {2}",
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Exception caught while moving item {0} to folder {1}: {2}",
                     item.ID, parentFolder.ID, e);
                 throw new InventoryStorageException("Could not move item " + item.ID.ToString() + " " + e.Message, e);
             }
@@ -1085,7 +1085,7 @@ namespace InWorldz.Data.Inventory.Cassandra
             }
             catch (Exception e)
             {
-                _log.ErrorFormat("[Inworldz.Data.Inventory.Cassandra] Exception caught while sending item {0} to trash for {1}: {2}",
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Exception caught while sending item {0} to trash for {1}: {2}",
                     item.ID, item.Owner, e);
                 throw new InventoryStorageException("Could not send item " + item.ID.ToString() + " to trash: " + e.Message, e);
             }
@@ -1106,13 +1106,13 @@ namespace InWorldz.Data.Inventory.Cassandra
                 else
                     invType = "type "+item.AssetType.ToString();
 
-                _log.WarnFormat("[Inworldz.Data.Inventory.Cassandra] Purge of {0} id={1} asset={2} '{3}' for user={4}", invType, item.ID, item.AssetID, item.Name, item.Owner);
+                _log.WarnFormat("[Halcyon.Data.Inventory.Spensa] Purge of {0} id={1} asset={2} '{3}' for user={4}", invType, item.ID, item.AssetID, item.Name, item.Owner);
                 //////////////////TODO////////////////
                 // PurgeItemInternal(item, timeStamp);
             }
             catch (Exception e)
             {
-                _log.ErrorFormat("[Inworldz.Data.Inventory.Cassandra] Exception caught while purging item {0}: {1}",
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Exception caught while purging item {0}: {1}",
                     item.ID, e);
                 throw new InventoryStorageException("Could not purge item " + item.ID.ToString() + ": " + e.Message, e);
             }
@@ -1129,7 +1129,7 @@ namespace InWorldz.Data.Inventory.Cassandra
             }
             catch (Exception e)
             {
-                _log.ErrorFormat("[Inworldz.Data.Inventory.Cassandra] Exception caught while purging items: {0}", e);
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Exception caught while purging items: {0}", e);
                 throw new InventoryStorageException("Could not purge items: " + e.Message, e);
             }
         }
@@ -1146,7 +1146,7 @@ namespace InWorldz.Data.Inventory.Cassandra
             }
             catch (Exception e)
             {
-                _log.ErrorFormat("[Inworldz.Data.Inventory.Cassandra] Unable to activate gestures for {0}: {1}",
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Unable to activate gestures for {0}: {1}",
                     userId, e);
 
                 throw new InventoryStorageException(String.Format("Unable to activate gestures for {0}: {1}", userId, e.Message), e);
@@ -1165,7 +1165,7 @@ namespace InWorldz.Data.Inventory.Cassandra
             }
             catch (Exception e)
             {
-                _log.ErrorFormat("[Inworldz.Data.Inventory.Cassandra] Unable to deactivate gestures for {0}: {1}",
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Unable to deactivate gestures for {0}: {1}",
                     userId, e);
 
                 throw new InventoryStorageException(String.Format("Unable to deactivate gestures for {0}: {1}", userId, e));

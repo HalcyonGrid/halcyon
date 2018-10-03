@@ -1,0 +1,13 @@
+<Addin id="Halcyon.Data.Inventory.Spensa" version="1.0">
+  <Runtime>
+      <Import assembly="Halcyon.Data.Inventory.Spensa.dll" />
+  </Runtime>
+  
+  <Dependencies>
+    <Addin id="OpenSim.Data" version="0.5" />  
+  </Dependencies>
+  
+  <Extension path = "/OpenSim/InventoryStorage">
+    <Plugin id="InWorldzCassandra" provider="Halcyon.Data.Inventory.Spensa.dll" type="Halcyon.Data.Inventory.Spensa.CassandraInventoryPlugin" />
+  </Extension>
+</Addin>

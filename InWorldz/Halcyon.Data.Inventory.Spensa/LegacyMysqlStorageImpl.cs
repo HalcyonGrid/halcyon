@@ -34,7 +34,7 @@ using OpenSim.Framework;
 using OpenSim.Data.SimpleDB;
 using System.Data;
 
-namespace InWorldz.Data.Inventory.Cassandra
+namespace Halcyon.Data.Inventory.Spensa
 {
     /// <summary>
     /// A MySQL interface for the inventory server

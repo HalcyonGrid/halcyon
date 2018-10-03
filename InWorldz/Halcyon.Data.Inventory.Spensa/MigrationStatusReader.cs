@@ -32,44 +32,49 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using OpenMetaverse;
+using OpenSim.Data.SimpleDB;
+using System.Data;
 
-namespace InWorldz.Data.Inventory.Cassandra
+namespace Halcyon.Data.Inventory.Spensa
 {
-    internal class DelayedMutation : IComparable<DelayedMutation>
+    /// <summary>
+    /// Checks the central database for the inventory migration status of the given user
+    /// </summary>
+    internal class MigrationStatusReader
     {
-        public delegate void DelayedMutationDelegate();
+        private string _coreConnStr;
+        private ConnectionFactory _connFactory;
 
-        public string Identifier;
-        public DateTime ReadyOn;
-        public int RetryCount;
-
-        private DelayedMutationDelegate _delegate;
-
-        public int CompareTo(DelayedMutation other)
+        public MigrationStatusReader(string coreConnStr)
         {
-            if (ReadyOn < other.ReadyOn)
-            {
-                return -1;
-            }
-            else if (ReadyOn > other.ReadyOn)
-            {
-                return 1;
-            }
-            else
-            {
-                return 0;
-            }
+            _coreConnStr = coreConnStr;
+            _connFactory = new ConnectionFactory("MySQL", _coreConnStr);
         }
 
-        public DelayedMutation(DelayedMutationDelegate mutDelegate, string identifier)
+        public MigrationStatus GetUserMigrationStatus(UUID userId)
         {
-            _delegate = mutDelegate;
-            Identifier = identifier;
-        }
+            using (ISimpleDB conn = _connFactory.GetConnection())
+            {
+                const string query = "SELECT status FROM InventoryMigrationStatus WHERE user_id = ?userId";
 
-        public void Execute()
-        {
-            _delegate();
+                Dictionary<string, object> parms = new Dictionary<string, object>();
+                parms.Add("?userId", userId);
+
+                using (IDataReader reader = conn.QueryAndUseReader(query, parms))
+                {
+                    if (reader.Read())
+                    {
+                        short status = Convert.ToInt16(reader["status"]);
+                        MigrationStatus retStatus = (MigrationStatus)status;
+                        return retStatus;
+                    }
+                    else
+                    {
+                        return MigrationStatus.Unmigrated;
+                    }
+                }
+            }
         }
     }
 }

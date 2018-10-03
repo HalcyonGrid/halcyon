@@ -33,31 +33,43 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace InWorldz.Data.Inventory.Cassandra
+namespace Halcyon.Data.Inventory.Spensa
 {
-    internal class ByteArrayValueComparer : IEqualityComparer<byte[]>
+    internal class DelayedMutation : IComparable<DelayedMutation>
     {
-        public bool Equals(byte[] left, byte[] right)
+        public delegate void DelayedMutationDelegate();
+
+        public string Identifier;
+        public DateTime ReadyOn;
+        public int RetryCount;
+
+        private DelayedMutationDelegate _delegate;
+
+        public int CompareTo(DelayedMutation other)
         {
-            if (left == null || right == null)
+            if (ReadyOn < other.ReadyOn)
             {
-                return left == right;
+                return -1;
             }
-            return left.SequenceEqual(right);
+            else if (ReadyOn > other.ReadyOn)
+            {
+                return 1;
+            }
+            else
+            {
+                return 0;
+            }
         }
 
-        public int GetHashCode(byte[] key)
+        public DelayedMutation(DelayedMutationDelegate mutDelegate, string identifier)
         {
-            if (key == null)
-                throw new ArgumentNullException("key");
-
-            int total = 0;
-            for (int i = 0; i < key.Length; i++)
-            {
-                total += key[i];
-            }
-
-            return total;
+            _delegate = mutDelegate;
+            Identifier = identifier;
         }
-    } 
+
+        public void Execute()
+        {
+            _delegate();
+        }
+    }
 }

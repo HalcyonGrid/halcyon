@@ -32,49 +32,32 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using OpenMetaverse;
-using OpenSim.Data.SimpleDB;
-using System.Data;
 
-namespace InWorldz.Data.Inventory.Cassandra
+namespace Halcyon.Data.Inventory.Spensa
 {
-    /// <summary>
-    /// Checks the central database for the inventory migration status of the given user
-    /// </summary>
-    internal class MigrationStatusReader
+    internal class ByteArrayValueComparer : IEqualityComparer<byte[]>
     {
-        private string _coreConnStr;
-        private ConnectionFactory _connFactory;
-
-        public MigrationStatusReader(string coreConnStr)
+        public bool Equals(byte[] left, byte[] right)
         {
-            _coreConnStr = coreConnStr;
-            _connFactory = new ConnectionFactory("MySQL", _coreConnStr);
-        }
-
-        public MigrationStatus GetUserMigrationStatus(UUID userId)
-        {
-            using (ISimpleDB conn = _connFactory.GetConnection())
+            if (left == null || right == null)
             {
-                const string query = "SELECT status FROM InventoryMigrationStatus WHERE user_id = ?userId";
-
-                Dictionary<string, object> parms = new Dictionary<string, object>();
-                parms.Add("?userId", userId);
-
-                using (IDataReader reader = conn.QueryAndUseReader(query, parms))
-                {
-                    if (reader.Read())
-                    {
-                        short status = Convert.ToInt16(reader["status"]);
-                        MigrationStatus retStatus = (MigrationStatus)status;
-                        return retStatus;
-                    }
-                    else
-                    {
-                        return MigrationStatus.Unmigrated;
-                    }
-                }
+                return left == right;
             }
+            return left.SequenceEqual(right);
         }
-    }
+
+        public int GetHashCode(byte[] key)
+        {
+            if (key == null)
+                throw new ArgumentNullException("key");
+
+            int total = 0;
+            for (int i = 0; i < key.Length; i++)
+            {
+                total += key[i];
+            }
+
+            return total;
+        }
+    } 
 }

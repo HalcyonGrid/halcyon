@@ -36,7 +36,7 @@ using NUnit.Framework;
 using OpenSim.Framework;
 using OpenMetaverse;
 
-namespace InWorldz.Data.Inventory.Cassandra
+namespace Halcyon.Data.Inventory.Spensa
 {
     [TestFixture]
     class UnitTests

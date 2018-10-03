@@ -36,7 +36,7 @@ using System.Threading;
 using log4net;
 using System.Reflection;
 
-namespace InWorldz.Data.Inventory.Cassandra
+namespace Halcyon.Data.Inventory.Spensa
 {
     /// <summary>
     /// Manages retries for batches of mutations. This is to conver cases of transient down time
@@ -123,14 +123,14 @@ namespace InWorldz.Data.Inventory.Cassandra
                 }
                 catch (Exception e)
                 {
-                    _log.ErrorFormat("[Inworldz.Data.Inventory.Cassandra] Error while applying mutation {0} on retry {1}: {2}", 
+                    _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Error while applying mutation {0} on retry {1}: {2}", 
                         mut.Identifier, mut.RetryCount + 1, e);
 
                     mut.RetryCount++;
 
                     if (mut.RetryCount == MAX_RETRIES)
                     {
-                        _log.ErrorFormat("[Inworldz.Data.Inventory.Cassandra] CRITICAL: Retry limit reached, discarding mutation {0}",
+                        _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] CRITICAL: Retry limit reached, discarding mutation {0}",
                             mut.Identifier);
                     }
                     else
@@ -153,7 +153,7 @@ namespace InWorldz.Data.Inventory.Cassandra
         private void ScheduleMutationRetry(DelayedMutation mut)
         {
             mut.ReadyOn = DateTime.Now + RETRY_DELAYS[mut.RetryCount];
-            _log.InfoFormat("[Inworldz.Data.Inventory.Cassandra] Mutation {0} will be retried at {1}", mut.Identifier, mut.ReadyOn);
+            _log.InfoFormat("[Halcyon.Data.Inventory.Spensa] Mutation {0} will be retried at {1}", mut.Identifier, mut.ReadyOn);
 
             lock (_delayedMutations)
             {

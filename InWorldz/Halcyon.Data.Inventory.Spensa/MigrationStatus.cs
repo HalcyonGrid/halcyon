@@ -28,67 +28,17 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-using OpenSim.Data;
-using OpenSim.Framework;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 
-namespace InWorldz.Data.Inventory.Cassandra
+namespace Halcyon.Data.Inventory.Spensa
 {
-    public class CassandraInventoryPlugin : IInventoryStoragePlugin
+    public enum MigrationStatus
     {
-        private InventoryStorage _storage;
-        private LegacyMysqlInventoryStorage _legacyStorage;
-        private SpensaProviderSelector _storageSelector;
-
-        #region IInventoryStoragePlugin Members
-
-        public void Initialize(ConfigSettings settings)
-        {
-            _storage = new InventoryStorage(settings.InventoryCluster);
-
-            if (settings.InventoryMigrationActive)
-            {
-                _legacyStorage = new LegacyMysqlInventoryStorage(settings.LegacyInventorySource);
-            }
-
-            _storageSelector = new SpensaProviderSelector(settings.InventoryMigrationActive, settings.CoreConnectionString,
-                _storage, _legacyStorage);
-
-            ProviderRegistry.Instance.RegisterInterface<IInventoryProviderSelector>(_storageSelector);
-        }
-
-        public IInventoryStorage GetStorage()
-        {
-            return _storage;
-        }
-
-        #endregion
-
-        #region IPlugin Members
-
-        public string Version
-        {
-            get { return "2.0.0"; }
-        }
-
-        public string Name
-        {
-            get { return "InWorldz.Data.Inventory.Cassandra";  }
-        }
-
-        public void Initialize()
-        {
-            
-        }
-
-        #endregion
-
-        #region IDisposable Members
-
-        public void Dispose()
-        {
-            
-        }
-
-        #endregion
+        Unmigrated = 0,
+        InProgress = 1,
+        Migrated = 10
     }
 }
