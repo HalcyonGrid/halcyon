@@ -9,7 +9,7 @@
     </ApplicationIcon>
     <AssemblyKeyContainerName>
     </AssemblyKeyContainerName>
-    <AssemblyName>InWorldz.Data.Inventory.Cassandra</AssemblyName>
+    <AssemblyName>Halcyon.Data.Inventory.Spensa</AssemblyName>
     <DefaultClientScript>JScript</DefaultClientScript>
     <DefaultHTMLPageLayout>Grid</DefaultHTMLPageLayout>
     <DefaultTargetSchema>IE50</DefaultTargetSchema>
@@ -18,7 +18,7 @@
     <OutputType>Library</OutputType>
     <AppDesignerFolder>
     </AppDesignerFolder>
-    <RootNamespace>InWorldz.Data.Inventory.Cassandra</RootNamespace>
+    <RootNamespace>Halcyon.Data.Inventory.Spensa</RootNamespace>
     <StartupObject>
     </StartupObject>
     <StartArguments>
@@ -222,7 +222,7 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="Resources\InWorldz.Data.Inventory.Cassandra.addin.xml">
+    <EmbeddedResource Include="Resources\Halcyon.Data.Inventory.Spensa.addin.xml">
     </EmbeddedResource>
     <Compile Include="ByteArrayValueComparer.cs">
       <SubType>Code</SubType>

@@ -8,6 +8,6 @@
   </Dependencies>
   
   <Extension path = "/OpenSim/InventoryStorage">
-    <Plugin id="InWorldzCassandra" provider="Halcyon.Data.Inventory.Spensa.dll" type="Halcyon.Data.Inventory.Spensa.CassandraInventoryPlugin" />
+    <Plugin id="HalcyonSpensa" provider="Halcyon.Data.Inventory.Spensa.dll" type="Halcyon.Data.Inventory.Spensa.CassandraInventoryPlugin" />
   </Extension>
 </Addin>

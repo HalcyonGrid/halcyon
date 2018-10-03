@@ -10,7 +10,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InWorldz.Arbiter", "InWorld
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InWorldz.Data.Assets.Stratus", "InWorldz\InWorldz.Data.Assets.Stratus\InWorldz.Data.Assets.Stratus.csproj", "{6C18EAD6-0000-0000-0000-000000000000}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Halcyon.Data.Inventory.Spensa", "InWorldz\InWorldz.Data.Inventory.Cassandra\Halcyon.Data.Inventory.Spensa.csproj", "{62DC97F5-0000-0000-0000-000000000000}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Halcyon.Data.Inventory.Spensa", "InWorldz\Halcyon.Data.Inventory.Spensa\Halcyon.Data.Inventory.Spensa.csproj", "{62DC97F5-0000-0000-0000-000000000000}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InWorldz.JWT", "InWorldz\JWT\InWorldz.JWT.csproj", "{D4CA6D90-0000-0000-0000-000000000000}"
 EndProject
