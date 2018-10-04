@@ -1025,6 +1025,7 @@ CREATE TABLE `prims` (
   `CollisionSound` char(36) NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000',
   `CollisionSoundVolume` double NOT NULL DEFAULT '0',
   `LinkNumber` int(11) NOT NULL DEFAULT '0',
+  `ServerFlags` int(11) NOT NULL DEFAULT '0',	
   PRIMARY KEY (`UUID`),
   KEY `prims_regionuuid` (`RegionUUID`),
   KEY `prims_scenegroupid` (`SceneGroupID`)
