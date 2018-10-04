@@ -212,6 +212,8 @@ namespace OpenSim.Framework
 
         public string InventoryPlugin;
         public string InventoryCluster;
+        public string InventoryCredentialsUsername;
+        public string InventoryCredentialsPassword;
         public string LegacyInventorySource;
         public bool InventoryMigrationActive;
 

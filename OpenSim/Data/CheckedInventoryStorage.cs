@@ -42,7 +42,7 @@ namespace OpenSim.Data
     {
         private IInventoryStorage _storage;
 
-        public CheckedInventoryStorage(IInventoryStorage storage)
+        public CheckedInventoryStorage(IInventoryStorage storage, string storageUsername, string storagePassword)
         {
             _storage = storage;
         }

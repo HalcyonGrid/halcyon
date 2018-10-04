@@ -43,14 +43,16 @@ namespace Halcyon.Data.Inventory.Spensa
 
         public void Initialize(ConfigSettings settings)
         {
-            _storage = new InventoryStorage(settings.InventoryCluster);
+            _storage = new InventoryStorage(settings.InventoryCluster, settings.InventoryCredentialsUsername, settings.InventoryCredentialsPassword);
 
             if (settings.InventoryMigrationActive)
             {
                 _legacyStorage = new LegacyMysqlInventoryStorage(settings.LegacyInventorySource);
             }
 
-            _storageSelector = new SpensaProviderSelector(settings.InventoryMigrationActive, settings.CoreConnectionString,
+            _storageSelector = new SpensaProviderSelector(
+                settings.InventoryMigrationActive, settings.CoreConnectionString,
+                settings.InventoryCredentialsUsername, settings.InventoryCredentialsPassword,
                 _storage, _legacyStorage);
 
             ProviderRegistry.Instance.RegisterInterface<IInventoryProviderSelector>(_storageSelector);

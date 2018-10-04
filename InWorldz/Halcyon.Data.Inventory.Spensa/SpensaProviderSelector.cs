@@ -43,6 +43,8 @@ namespace Halcyon.Data.Inventory.Spensa
         private bool _migrationActive;
 
         private InventoryStorage _cassandraStorage;
+        private string _storageUsername;
+        private string _storagePassword;
         private LegacyMysqlInventoryStorage _legacyStorage;
 
         private ICheckedInventoryStorage _checkedCassandraStorage;
@@ -54,16 +56,18 @@ namespace Halcyon.Data.Inventory.Spensa
 
 
 
-        public SpensaProviderSelector(bool migrationActive,
-            string coreConnString,
+        public SpensaProviderSelector(bool migrationActive, string coreConnString,
+            string storageUsername, string storagePassword,
             InventoryStorage cassandraStorage, LegacyMysqlInventoryStorage legacyStorage)
         {
             _migrationActive = migrationActive;
             _cassandraStorage = cassandraStorage;
+            _storageUsername = storageUsername;
+            _storagePassword = storagePassword;
             _legacyStorage = legacyStorage;
 
-            _checkedCassandraStorage = new CheckedInventoryStorage(_cassandraStorage);
-            _checkedLegacyStorage = new CheckedInventoryStorage(_legacyStorage);
+            _checkedCassandraStorage = new CheckedInventoryStorage(_cassandraStorage, _storageUsername, _storagePassword);
+            _checkedLegacyStorage = new CheckedInventoryStorage(_legacyStorage, _storageUsername, _storagePassword);
             _migrationStatusChecker = new MigrationStatusReader(coreConnString);
         }
 

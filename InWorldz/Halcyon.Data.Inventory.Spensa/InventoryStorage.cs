@@ -69,11 +69,10 @@ namespace Halcyon.Data.Inventory.Spensa
 
         private const string KEYSPACE = "inventory";
 
-        private const string FOLDERS_CF = "Folders";
-        private const string ITEMPARENTS_CF = "ItemParents";
-        private const string USERFOLDERS_CF = "UserFolders";
-        private const string USERACTIVEGESTURES_CF = "UserActiveGestures";
+        private const string FOLDERS = "Folders";
+        private const string SUBFOLDERS = "Subfolders";
         private const string FOLDERVERSIONS_CF = "FolderVersions";
+        private const string USERACTIVEGESTURES_CF = "UserActiveGestures";
 
         private const int FOLDER_INDEX_CHUNK_SZ = 1024;
         private const int FOLDER_VERSION_CHUNK_SZ = 1024;
@@ -84,24 +83,42 @@ namespace Halcyon.Data.Inventory.Spensa
         private static readonly ILog _log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
 
         private string _clusterName;
+        private string _storageUsername;
+        private string _storagePassword;
         private Cluster _cluster = null;
         ISession _session = null;
 
-        public InventoryStorage(string clusterName)
+        public InventoryStorage(string clusterName, string storageUsername, string storagePassword)
         {
             _clusterName = clusterName;
+            _storageUsername = storageUsername;
+            _storagePassword = storagePassword;
+            InitCluster();
         }
 
         private void InitCluster()
         {
             if (_cluster == null)
             {
-                _cluster = Cluster.Builder().AddContactPoints(_clusterName).Build();
+                _cluster = Cluster.Builder()
+                    .AddContactPoints(_clusterName)
+                    .WithCredentials(_storageUsername, _storagePassword)
+                    .Build();
                 _session = _cluster.Connect(KEYSPACE);
             }
         }
 
         #region IInventoryStorage Members
+
+        public class FolderRow
+        {
+            public Guid ownerid;
+            public Guid folderid;
+            public Guid parentid;
+            public string name;
+            public short type;
+            public short level;
+        }
 
         public List<InventoryFolderBase> GetInventorySkeleton(UUID userId)
         {
@@ -122,21 +139,32 @@ namespace Halcyon.Data.Inventory.Spensa
                 IMapper mapper = new Mapper(_session);
                 Dictionary<Guid, InventoryFolderBase> index = new Dictionary<Guid, InventoryFolderBase>();
 
-                /***
-                var statement = session.Prepare("SELECT * FROM :k.:t where OwnerID = :u");
-                var rs = session.Execute(statement.Bind(new { k = KEYSPACE, t = "Folders", u = ownerId }));
-                foreach (var row in rs)
+                /**
+                // var statement = _session.Prepare($"SELECT * FROM { KEYSPACE}.{ SUBFOLDERS} WHERE ownerID = :u AND parentID=00000000-0000-0000-0000-000000000000");
+                var statement = _session.Prepare($"SELECT * FROM { KEYSPACE}.{ SUBFOLDERS} WHERE ownerID = :u");
+                var rs = _session.Execute(statement.Bind(new { u = ownerId.Guid }));
+                foreach (var folderRow in rs)
                 {
-                ***/
+                    var folderID = new UUID(folderRow.GetValue<Guid>("FolderID"));
+                    var parentID = new UUID(folderRow.GetValue<Guid>("ParentID"));
+                    var folderType = folderRow.GetValue<int>("type");
+                    var name = folderRow.GetValue<string>("name");
+                    var newFolder = new InventoryFolderBase(folderID, name, ownerId, parentID);
+                    index.Add(folderID.Guid, newFolder);
+                }
+                **/
 
-                IEnumerable<InventoryFolderBase> folderRows = mapper.Fetch<InventoryFolderBase>(
-                    "SELECT * FROM inventory.folders WHERE ownerID = ? AND parentID = ?", ownerGuid, Guid.Empty);
+                IEnumerable<FolderRow> folderRows = mapper.Fetch<FolderRow>(
+                        // $"SELECT * FROM {KEYSPACE}.{SUBFOLDERS} WHERE ownerID = ? AND parentID=?", ownerId, Guid.Empty);
+                        $"SELECT * FROM {KEYSPACE}.{SUBFOLDERS} WHERE ownerID = ? AND parentID=00000000-0000-0000-0000-000000000000", ownerGuid);
                 foreach (var folderRow in folderRows)
                 {
-                    index.Add(folderRow.ID.Guid, folderRow);
+                    ushort version = 1;
+                    var newFolder = new InventoryFolderBase(new UUID(folderRow.folderid), folderRow.name, new UUID(folderRow.ownerid), folderRow.type, new UUID(folderRow.parentid), version);
+                    index.Add(folderRow.folderid, newFolder);
                 }
 
-                return new Dictionary<Guid, InventoryFolderBase>();
+                return index;
             }
             catch (Exception e)
             {

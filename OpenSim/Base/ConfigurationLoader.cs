@@ -329,6 +329,8 @@ namespace OpenSim
             {
                 m_configSettings.InventoryPlugin = inventoryConfig.GetString("inventory_plugin");
                 m_configSettings.InventoryCluster = inventoryConfig.GetString("inventory_cluster");
+                m_configSettings.InventoryCredentialsUsername = inventoryConfig.GetString("inventory_username");
+                m_configSettings.InventoryCredentialsPassword = inventoryConfig.GetString("inventory_password");
                 m_configSettings.LegacyInventorySource = inventoryConfig.GetString("legacy_inventory_source");
                 m_configSettings.InventoryMigrationActive = inventoryConfig.GetBoolean("migration_active");
             }

@@ -255,3 +255,7 @@ bin/blacklist.txt
 *.pid
 
 OpenSim/Framework/Servers/VersionInfo\.cs
+
+bin/UserServer_Config\.Login\.xml
+
+bin/UserServer_Config\.VM\.xml

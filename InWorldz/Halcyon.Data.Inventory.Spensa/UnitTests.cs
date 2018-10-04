@@ -46,7 +46,7 @@ namespace Halcyon.Data.Inventory.Spensa
         [SetUp]
         public void Setup()
         {
-            _storage = new InventoryStorage("inworldzbeta");
+            _storage = new InventoryStorage("inworldzbeta", "invroot", "invpassword");
         }
 
         [TestCase]
