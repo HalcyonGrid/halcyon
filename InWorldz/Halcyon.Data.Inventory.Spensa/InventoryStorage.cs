@@ -33,6 +33,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Threading.Tasks;
 
 using log4net;
 using Cassandra;
@@ -71,12 +72,9 @@ namespace Halcyon.Data.Inventory.Spensa
 
         private const string FOLDERS = "Folders";
         private const string SUBFOLDERS = "Subfolders";
-        private const string FOLDERVERSIONS_CF = "FolderVersions";
-        private const string USERACTIVEGESTURES_CF = "UserActiveGestures";
-
-        private const int FOLDER_INDEX_CHUNK_SZ = 1024;
-        private const int FOLDER_VERSION_CHUNK_SZ = 1024;
-        private const int FOLDER_CONTENTS_CHUNK_SZ = 512;
+        private const string FOLDERVERSIONS = "FolderVersions";
+        private const string ITEMS = "Items";
+        private const string USERACTIVEGESTURES = "UserActiveGestures";
 
         private const ConsistencyLevel DEFAULT_CONSISTENCY_LEVEL = ConsistencyLevel.Quorum;
 
@@ -93,19 +91,13 @@ namespace Halcyon.Data.Inventory.Spensa
             _clusterName = clusterName;
             _storageUsername = storageUsername;
             _storagePassword = storagePassword;
-            InitCluster();
-        }
 
-        private void InitCluster()
-        {
-            if (_cluster == null)
-            {
-                _cluster = Cluster.Builder()
-                    .AddContactPoints(_clusterName)
-                    .WithCredentials(_storageUsername, _storagePassword)
-                    .Build();
-                _session = _cluster.Connect(KEYSPACE);
-            }
+            _cluster = Cluster.Builder()
+                .AddContactPoints(_clusterName)
+                .WithCredentials(_storageUsername, _storagePassword)
+                .Build();
+
+            _session = _cluster.Connect(KEYSPACE);
         }
 
         #region IInventoryStorage Members
@@ -117,62 +109,97 @@ namespace Halcyon.Data.Inventory.Spensa
             public Guid parentid;
             public string name;
             public short type;
-            public short level;
+            public InventoryFolderBase.FolderLevel level;
         }
 
-        public List<InventoryFolderBase> GetInventorySkeleton(UUID userId)
+        public enum SubfoldersMode { SingleFolder, Recursive };
+
+        private void AddRowsToIndex(List<InventoryFolderBase> index, IEnumerable<FolderRow> folderRows)
         {
-            return GetFolderIndex(userId).Values.ToList<InventoryFolderBase>();
+            foreach (var folderRow in folderRows)
+            {
+                ushort version = 1;
+                var folderId = new UUID(folderRow.folderid);
+                var newFolder = new InventoryFolderBase(folderId, folderRow.name, new UUID(folderRow.ownerid), folderRow.type, new UUID(folderRow.parentid), version);
+                newFolder.Level = folderRow.level;
+                index.Add(newFolder);
+            }
         }
 
-        /// <summary>
-        /// Retrieves the index of all folders owned by this user
-        /// </summary>
-        /// <param name="ownerId"></param>
-        /// <returns></returns>
-        private Dictionary<Guid, InventoryFolderBase> GetFolderIndex(UUID ownerId)
+        private void AddFolderIndexByParent(List<InventoryFolderBase> index, UUID ownerId, UUID parentId)
         {
             try
             {
-                Guid ownerGuid = ownerId.Guid;
-
                 IMapper mapper = new Mapper(_session);
-                Dictionary<Guid, InventoryFolderBase> index = new Dictionary<Guid, InventoryFolderBase>();
-
-                /**
-                // var statement = _session.Prepare($"SELECT * FROM { KEYSPACE}.{ SUBFOLDERS} WHERE ownerID = :u AND parentID=00000000-0000-0000-0000-000000000000");
-                var statement = _session.Prepare($"SELECT * FROM { KEYSPACE}.{ SUBFOLDERS} WHERE ownerID = :u");
-                var rs = _session.Execute(statement.Bind(new { u = ownerId.Guid }));
-                foreach (var folderRow in rs)
-                {
-                    var folderID = new UUID(folderRow.GetValue<Guid>("FolderID"));
-                    var parentID = new UUID(folderRow.GetValue<Guid>("ParentID"));
-                    var folderType = folderRow.GetValue<int>("type");
-                    var name = folderRow.GetValue<string>("name");
-                    var newFolder = new InventoryFolderBase(folderID, name, ownerId, parentID);
-                    index.Add(folderID.Guid, newFolder);
-                }
-                **/
-
                 IEnumerable<FolderRow> folderRows = mapper.Fetch<FolderRow>(
-                        // $"SELECT * FROM {KEYSPACE}.{SUBFOLDERS} WHERE ownerID = ? AND parentID=?", ownerId, Guid.Empty);
-                        $"SELECT * FROM {KEYSPACE}.{SUBFOLDERS} WHERE ownerID = ? AND parentID=00000000-0000-0000-0000-000000000000", ownerGuid);
-                foreach (var folderRow in folderRows)
-                {
-                    ushort version = 1;
-                    var newFolder = new InventoryFolderBase(new UUID(folderRow.folderid), folderRow.name, new UUID(folderRow.ownerid), folderRow.type, new UUID(folderRow.parentid), version);
-                    index.Add(folderRow.folderid, newFolder);
-                }
-
-                return index;
+                        $"SELECT * FROM {KEYSPACE}.{SUBFOLDERS} WHERE ownerID = ? AND parentID=?", ownerId.Guid, parentId.Guid);
+                AddRowsToIndex(index, folderRows);
             }
             catch (Exception e)
             {
-                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Unable to retrieve folder skeleton: {0}", e);
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa]: Unable to retrieve folder skeleton: {0}", e);
                 throw new InventoryStorageException(e.Message, e);
             }
         }
 
+        private List<InventoryFolderBase> GetFolderIndexByParent(UUID ownerId, UUID parentId)
+        {
+            try
+            {
+                List<InventoryFolderBase> index = new List<InventoryFolderBase>();
+                AddFolderIndexByParent(index, ownerId, parentId);
+                return index;
+            }
+            catch (Exception e)
+            {
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa]: Unable to retrieve folder index: {0}", e);
+                throw new InventoryStorageException(e.Message, e);
+            }
+        }
+
+        public InventoryFolderBase GetRootFolder(UUID ownerId)
+        {
+            List<InventoryFolderBase> index = GetFolderIndexByParent(ownerId, UUID.Zero);
+            if (index.Count > 1)
+                throw new InventoryStorageException($"User {ownerId} has {index.Count} root folders!");
+            if (index.Count < 1)
+                throw new InventoryStorageException($"User {ownerId} root folder not found!");
+
+            return index.First();
+        }
+
+        void AddSubfoldersToIndex(List<InventoryFolderBase> index, UUID ownerId, UUID parentId, SubfoldersMode mode)
+        {
+            List<InventoryFolderBase> folderIndex = GetFolderIndexByParent(ownerId, parentId);
+            foreach (var folder in folderIndex)
+            {
+                if (mode == SubfoldersMode.Recursive)
+                {
+                    index.Add(folder);
+                    AddSubfoldersToIndex(index, ownerId, folder.ID, mode);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Returns a copy of all user inventory folders with subfolders and items excluded
+        /// </summary>
+        /// <returns>A list of all folders that belong to this user</returns>
+        public List<InventoryFolderBase> GetInventorySkeleton(UUID ownerId)
+        {
+            List<InventoryFolderBase> index = new List<InventoryFolderBase>();
+            InventoryFolderBase rootFolder = GetRootFolder(ownerId);
+
+            // Add the parent folder first so that it is known when the viewer encounters the subfolders.
+            index.Add(rootFolder);
+
+            // Fetch subfolders recursively.
+            AddSubfoldersToIndex(index, ownerId, rootFolder.ID, SubfoldersMode.Recursive);
+
+            return index;
+        }
+
+        // This function fetches and fills the Subfolders member of the folder parameter.
         public InventoryFolderBase GetSubfolders(InventoryFolderBase folder)
         {
             if (folder.ID == UUID.Zero)
@@ -180,87 +207,119 @@ namespace Halcyon.Data.Inventory.Spensa
 
             try
             {
-                IMapper mapper = new Mapper(_session);
-                Dictionary<Guid, InventoryFolderBase> subfolders = new Dictionary<Guid, InventoryFolderBase>();
-
-                IEnumerable<InventoryFolderBase> folderRows = mapper.Fetch<InventoryFolderBase>(
-                    "SELECT * FROM inventory.folders WHERE parentID = ?", folder.ID.Guid);
-                foreach (var folderRow in folderRows)
+                List<InventoryFolderBase> index = new List<InventoryFolderBase>();
+                AddSubfoldersToIndex(index, folder.Owner, folder.ID, SubfoldersMode.SingleFolder);
+                foreach (var subfolder in index)
                 {
-                    InventorySubFolderBase subfolder = new InventorySubFolderBase();
-                    subfolder.ID = folderRow.ID;
-                    subfolder.Name = folderRow.Name;
-                    subfolder.Owner = folderRow.Owner;
-                    subfolder.Type = folderRow.Type;
-                    folder.SubFolders.Add(subfolder);
+                    folder.SubFolders.Add(new InventorySubFolderBase
+                        { ID = subfolder.ID, Name = subfolder.Name, Owner = subfolder.Owner, Type = subfolder.Type });
                 }
             }
             catch (Exception e)
             {
-                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Unable to retrieve folder {0}: {1}", folder.ID, e);
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa]: Unable to retrieve folder subfolders {0}: {1}", folder.ID, e);
                 throw new InventoryStorageException(e.Message, e);
             }
 
             return folder;
         }
 
-        public InventoryFolderBase GetFolder(UUID folderId)
+        /// <summary>
+        /// Returns a copy of the requested folder's properties. Excludes items and subfolder ids.
+        /// </summary>
+        /// <param name="folderId">The ID of the folder to retrieve</param>
+        /// <returns>The folder that was found</returns>
+        public InventoryFolderBase GetFolderAttributes(UUID folderId)
         {
-            if (folderId == UUID.Zero) throw new InventorySecurityException("Not returning folder with ID UUID.Zero");
-
-            InventoryFolderBase folder = null;
             try
             {
                 IMapper mapper = new Mapper(_session);
-                Dictionary<Guid, InventoryFolderBase> index = new Dictionary<Guid, InventoryFolderBase>();
-                if (index.Count == 0)
-                {
-                    return new InventoryFolderBase();
-                }
-
-                IEnumerable<InventoryFolderBase> folderRows = mapper.Fetch<InventoryFolderBase>(
-                    "SELECT * FROM inventory.folders WHERE folderID = ?", folderId.Guid);
-                foreach (var folderRow in folderRows)
-                {
-                    folder = folderRow;
-                    break;  // there must only be one
-                }
-
-                if (folder == null)
-                    return new InventoryFolderBase();
+                FolderRow folderRow = mapper.Single<FolderRow>(
+                        $"SELECT * FROM {KEYSPACE}.{FOLDERS} WHERE folderid=?", folderId.Guid);
+                _log.Info($"GetFolderAttributes: returning '{folderRow.name} ({folderRow.type}) [{folderRow.folderid}]");
+                ushort version = 1;
+                return new InventoryFolderBase(folderId, folderRow.name, new UUID(folderRow.ownerid), folderRow.type, new UUID(folderRow.parentid), version);
             }
             catch (Exception e)
             {
-                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Unable to retrieve folder {0}: {1}", folderId, e);
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa]: Unable to retrieve folder skeleton: {0}", e);
+                throw new InventoryStorageException(e.Message, e);
+            }
+        }
+
+        /// <summary>
+        /// Returns a full copy of the requested folder including items and sub folder ids
+        /// </summary>
+        /// <param name="folderId">The ID of the folder to retrieve</param>
+        /// <returns>The folder that was found</returns>
+        public InventoryFolderBase GetFolder(UUID folderId)
+        {
+            InventoryFolderBase folder;
+            if (folderId == UUID.Zero) throw new InventorySecurityException("Not returning folder with ID UUID.Zero");
+
+            try
+            {
+                folder = GetFolderAttributes(folderId);
+                GetSubfolders(folder);
+            }
+            catch (Exception e)
+            {
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa]: Unable to retrieve folder {0}: {1}", folderId, e);
                 throw new InventoryStorageException(e.Message, e);
             }
 
             return folder;
         }
 
-        public InventoryFolderBase GetFolderAttributes(UUID folderId)
+        private async void _doAsync2(BoundStatement q1, BoundStatement q2)
         {
-            if (folderId == UUID.Zero) throw new InventorySecurityException("Not returning folder with ID UUID.Zero");
-
-            return GetFolder(folderId);
+            Task t1 = _session.ExecuteAsync(q1);
+            Task t2 = _session.ExecuteAsync(q2);
+            await Task.WhenAll(t1, t2);
         }
 
+        private async void _doAsync4(BoundStatement q1, BoundStatement q2, BoundStatement q3, BoundStatement q4)
+        {
+            Task t1 = _session.ExecuteAsync(q1);
+            Task t2 = _session.ExecuteAsync(q2);
+            Task t3 = _session.ExecuteAsync(q3);
+            Task t4 = _session.ExecuteAsync(q4);
+            await Task.WhenAll(t1, t2, t3, t4);
+            _log.Info("Async create complete.");
+        }
+
+        /// <summary>
+        /// Creates a new folder and sets its parent correctly as well as other properties
+        /// </summary>
+        /// <param name="folder"></param>
         public void CreateFolder(InventoryFolderBase folder)
         {
             long timeStamp = Util.UnixTimeSinceEpochInMicroseconds();
 
             if (folder.ID == UUID.Zero) throw new InventorySecurityException("Not creating folder with ID UUID.Zero");
 
+            _log.Info($"CreateFolder: creating '{folder.Name}' ({folder.Type}) [{folder.ID}]");
+
+            var pq1 = _session.Prepare($"INSERT INTO {KEYSPACE}.{FOLDERS} (OwnerID, FolderID, ParentID, Level, Name, Type) VALUES(?,?,?,?,?,?) IF NOT EXISTS");
+            var q1 = pq1.Bind(folder.Owner.Guid, folder.ID.Guid, folder.ParentID.Guid, (int)folder.Level, folder.Name, (int)folder.Type);
+
+            var pq2 = _session.Prepare($"INSERT INTO {KEYSPACE}.{SUBFOLDERS} (OwnerID, FolderID, ParentID, Level, Name, Type) VALUES(?,?,?,?,?,?)");
+            var q2 = pq2.Bind(folder.Owner.Guid, folder.ID.Guid, folder.ParentID.Guid, (int)folder.Level, folder.Name, (int)folder.Type);
+
+            var pq3 = _session.Prepare($"UPDATE {KEYSPACE}.{FOLDERVERSIONS} SET Version = Version + 1 WHERE FolderID =?");
+            var q3 = pq3.Bind(folder.ID.Guid);
+
+            var pq4 = _session.Prepare($"UPDATE {KEYSPACE}.{FOLDERVERSIONS} SET Version = Version + 1 WHERE FolderID =?");
+            var q4 = pq4.Bind(folder.ParentID.Guid);
+
             try
             {
-                var statement = _session.Prepare("INSERT INTO inventory.folders (owner, id, name, parent, level, type) VALUES(?, ?, ?, ?, ?, ?) IF NOT EXISTS");
-                var bound = statement.Bind(folder.Owner, folder.ID, folder.Name, folder.ParentID, folder.Level, folder.Type);
-                var rs = _session.Execute(bound);
+                _doAsync4(q1, q2, q3, q4);
                 _log.InfoFormat("User {0} inserted folder {1} [{2}] under [{3}]", folder.Owner, folder.Name, folder.ID, folder.ParentID);
             }
             catch (Exception e)
             {
-                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] User {0} unable to create folder {1}: {2}", folder.Owner, folder.ID, e);
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa]: User {0} unable to create folder {1}: {2}", folder.Owner, folder.ID, e);
                 throw new InventoryStorageException(e.Message, e);
             }
         }
@@ -283,39 +342,76 @@ namespace Halcyon.Data.Inventory.Spensa
             }
         }
 
+        /// <summary>
+        /// Stores changes made to the base properties of the folder. Can not be used to reassign a new
+        /// parent
+        /// </summary>
+        /// <param name="folder">The folder to save</param>
         public void SaveFolder(InventoryFolderBase folder)
         {
             long timeStamp = Util.UnixTimeSinceEpochInMicroseconds();
 
             try
             {
-                //////////////////TODO////////////////
+                InventoryFolderBase update = GetFolderAttributes(folder.ID);
+                update.Name = String.Copy(folder.Name);
+                update.Type = folder.Type;
+                var pq1 = _session.Prepare($"UPDATE INTO {KEYSPACE}.{FOLDERS} SET Name=?, Type=? WHERE FolderID=?");
+                var q1 = pq1.Bind(update.Name, (int)update.Type, update.ID.Guid);
+                var pq2 = _session.Prepare($"UPDATE {KEYSPACE}.{FOLDERVERSIONS} SET Version = Version + 1 WHERE FolderID =?");
+                var q2 = pq2.Bind(folder.ID.Guid);
+
+                _doAsync2(q1, q2);
+                _log.InfoFormat("User {0} updated folder {1} [{2}]", folder.Owner, folder.Name, folder.ID);
+                return;
             }
             catch (UnrecoverableInventoryStorageException e)
             {
-                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Unrecoverable error caught while saving folder {0} for {1}: {2}",
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa]: Unrecoverable error caught while saving folder {0} for {1}: {2}",
                     folder.ID, folder.Owner, e);
 
                 throw;
             }
             catch (Exception e)
             {
-                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Exception caught while saving folder {0} for {1}: {2}",
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa]: Exception caught while saving folder {0} for {1}: {2}",
                     folder.ID, folder.Owner, e);
             }
         }
 
+
+
+        private void MoveFolderInternal(InventoryFolderBase folder, UUID parentId)
+        {
+            if (parentId == folder.ID)
+            {
+                throw new UnrecoverableInventoryStorageException(String.Format("The parent for folder {0} can not be set to itself", folder.ID));
+            }
+
+            var pq1 = _session.Prepare($"UPDATE {KEYSPACE}.{FOLDERS} SET ParentID=? WHERE FolderID=?");
+            var q1 = pq1.Bind(parentId.Guid, folder.ID.Guid);
+            var pq2 = _session.Prepare($"UPDATE {KEYSPACE}.{SUBFOLDERS} SET ParentID=? WHERE FolderID=?");
+            var q2 = pq2.Bind(parentId.Guid, folder.ID.Guid);
+            var pq3 = _session.Prepare($"UPDATE {KEYSPACE}.{FOLDERVERSIONS} SET Version = Version + 1 FolderID =?");
+            var q3 = pq3.Bind(folder.ID.Guid);
+            _doAsync2(q1, q2);
+            folder.ParentID = parentId;
+        }
+        
+        /// <summary>
+        /// Moves the specified folder to the new parent
+        /// </summary>
+        /// <param name="folder">The folder to move</param>
+        /// <param name="parentId">The destination folder to move the folder into</param>
         public void MoveFolder(InventoryFolderBase folder, UUID parentId)
         {
-            long timeStamp = Util.UnixTimeSinceEpochInMicroseconds();
-
             try
             {
                 //don't do anything with a folder that wants to set its new parent
                 //to the same folder as its current parent, this can cause corruption
                 if (folder.ParentID == parentId)
                 {
-                    _log.WarnFormat("[Halcyon.Data.Inventory.Spensa] Refusing to move folder {0} to new parent {1} for {2}. The source and destination are the same",
+                    _log.WarnFormat("[Halcyon.Data.Inventory.Spensa]: Refusing to move folder {0} to new parent {1} for {2}. The source and destination are the same",
                         folder.ID, parentId, folder.Owner);
                     return;
                 }
@@ -323,74 +419,81 @@ namespace Halcyon.Data.Inventory.Spensa
                 //don't do anything with a folder that wants to set its new parent to UUID.Zero
                 if (parentId == UUID.Zero)
                 {
-                    _log.WarnFormat("[Halcyon.Data.Inventory.Spensa] Refusing to move folder {0} to new parent {1} for {2}. New parent has ID UUID.Zero",
+                    _log.WarnFormat("[Halcyon.Data.Inventory.Spensa]: Refusing to move folder {0} to new parent {1} for {2}. New parent has ID UUID.Zero",
                         folder.ID, parentId, folder.Owner);
                     return;
                 }
 
-                //////////////////TODO////////////////
-                // MoveFolderInternal(folder, parentId, timeStamp);
+                MoveFolderInternal(folder, parentId);
             }
             catch (UnrecoverableInventoryStorageException e)
             {
-                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Exception caught while moving folder {0} for {1}: {2}",
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa]: Exception caught while moving folder {0} for {1}: {2}",
                     folder.ID, folder.Owner, e);
                 throw;
             }
             catch (Exception e)
             {
-                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Exception caught while moving folder {0} for {1}: {2}",
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa]: Exception caught while moving folder {0} for {1}: {2}",
                     folder.ID, folder.Owner, e);
             }
         }
 
+        /// <summary>
+        /// Finds the best root folder to hold the given type
+        /// </summary>
+        /// <param name="type"></param>
+        /// <returns>The best folder to put an object</returns>
         public InventoryFolderBase FindFolderForType(UUID owner, AssetType type)
         {
-            Dictionary<Guid, InventoryFolderBase> folderIndex = this.GetFolderIndex(owner);
+            InventoryFolderBase rootFolder = this.GetRootFolder(owner);
+            if (((short)type == (short)FolderType.Root) || ((short)type == (short)FolderType.OldRoot))
+                return rootFolder;
 
-            foreach (KeyValuePair<Guid, InventoryFolderBase> indexInfo in folderIndex)
+            List<InventoryFolderBase> folderIndex = this.GetFolderIndexByParent(owner, rootFolder.ID);
+            foreach (InventoryFolderBase folder in folderIndex)
             {
-                if (indexInfo.Value.Level == InventoryFolderBase.FolderLevel.TopLevel ||
-                    indexInfo.Value.Level == InventoryFolderBase.FolderLevel.Root)
+                if (folder.Level == InventoryFolderBase.FolderLevel.TopLevel ||
+                    folder.Level == InventoryFolderBase.FolderLevel.Root)
                 {
-                    if ((short)type == indexInfo.Value.Type)
-                        return indexInfo.Value;
-                    if (((short)type == (short)FolderType.Root) && (indexInfo.Value.Type == (short)FolderType.OldRoot)) // old AssetType.RootFolder == 9
-                        return indexInfo.Value; // consider 9 to be FolderType.Root too
+                    if ((short)type == folder.Type)
+                        return folder;
+                    if (((short)type == (short)FolderType.Root) && (folder.Type == (short)FolderType.OldRoot)) // old AssetType.RootFolder == 9
+                        return folder; // consider 9 to be FolderType.Root too
                 }
             }
 
             throw new InventoryStorageException(String.Format("Unable to find a suitable folder for type {0} and user {1}", type, owner));
         }
 
-        // Searches the parentage tree for an ancestor folder with a matching type (e.g. Trash)
+        /// <summary>
+        /// Searches the parentage tree for an ancestor folder with a matching type (e.g. Trash)
+        /// </summary>
+        /// <param name="type"></param>
+        /// <returns>The top-level parent folder</returns>
         public InventoryFolderBase FindTopLevelFolderFor(UUID owner, UUID folderID)
         {
-            Dictionary<Guid, InventoryFolderBase> folderIndex = this.GetFolderIndex(owner);
+            InventoryFolderBase rootFolder = this.GetRootFolder(owner);
+            InventoryFolderBase folder = this.GetFolderAttributes(rootFolder.ID);
 
-            Guid parentFolderID = folderID.Guid;
-            InventoryFolderBase parentFolder = null;
-
-            while ((parentFolderID != Guid.Empty) && folderIndex.ContainsKey(parentFolderID))
+            do
             {
-                parentFolder = folderIndex[parentFolderID];
-                if ((parentFolder.Level == InventoryFolderBase.FolderLevel.TopLevel) || (parentFolder.Level == InventoryFolderBase.FolderLevel.Root))
-                    return parentFolder;    // found it
-
-                // otherwise we need to walk farther up the parentage chain
-                parentFolderID = parentFolder.ParentID.Guid;
-            }
+                if (folder.ParentID == rootFolder.ID)
+                    return folder;
+                if (folder.ParentID == UUID.Zero)
+                    return null;
+                folder = this.GetFolderAttributes(folder.ParentID);
+            } while (folder != null);
 
             // No top-level/root folder found for this folder.
             return null;
         }
 
-        private UUID SendFolderToTrashInternal(InventoryFolderBase folder, UUID trashFolderHint, long timeStamp)
+        private UUID SendFolderToTrashInternal(InventoryFolderBase folder, UUID trashFolderHint)
         {
             if (trashFolderHint != UUID.Zero)
             {
-                //////////////////TODO////////////////
-                // this.MoveFolderInternal(folder, trashFolderHint, timeStamp);
+                this.MoveFolderInternal(folder, trashFolderHint);
                 return trashFolderHint;
             }
             else
@@ -406,38 +509,33 @@ namespace Halcyon.Data.Inventory.Spensa
                     throw new InventoryStorageException(String.Format("Trash folder could not be found for user {0}: {1}", folder.Owner, e), e);
                 }
 
-                //////////////////TODO////////////////
-                // this.MoveFolderInternal(folder, trashFolder.ID, timeStamp);
+                this.MoveFolderInternal(folder, trashFolder.ID);
                 return trashFolder.ID;
             }
         }
 
         public UUID SendFolderToTrash(InventoryFolderBase folder, UUID trashFolderHint)
         {
-            long timeStamp = Util.UnixTimeSinceEpochInMicroseconds();
-
             try
             {
-                //////////////////TODO////////////////
-                return SendFolderToTrashInternal(folder, trashFolderHint, timeStamp);
+                return SendFolderToTrashInternal(folder, trashFolderHint);
             }
             catch (Exception e)
             {
-                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Exception caught while sending folder {0} to trash for {1}: {2}",
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa]: Exception caught while sending folder {0} to trash for {1}: {2}",
                     folder.ID, folder.Owner, e);
                 return UUID.Zero;
             }
         }
 
-        private void PurgeFolderContentsInternal(InventoryFolderBase folder, long timeStamp)
+        /*
+        private void PurgeFolderContentsInternal(InventoryFolderBase folder)
         {
             //block all deletion requests for a folder with a 0 id
             if (folder.ID == UUID.Zero)
             {
                 throw new UnrecoverableInventoryStorageException("Refusing to allow the purge of the inventory ZERO root folder");
             }
-
-            //////////////////TODO////////////////
 
             //to purge a folder, we have to find all subfolders and items inside a folder
             //for each of the sub folders folders they choose, we need to recurse into all
@@ -478,7 +576,9 @@ namespace Halcyon.Data.Inventory.Spensa
             //delete the ItemParents folder references for the removed items...
 
             //increment the version of the purged folder
+
         }
+        */
 
         public void PurgeFolderContents(InventoryFolderBase folder)
         {
@@ -486,17 +586,18 @@ namespace Halcyon.Data.Inventory.Spensa
 
             try
             {
-                PurgeFolderContentsInternal(folder, timeStamp);
+                return;
+                // PurgeFolderContentsInternal(folder, timeStamp);
             }
             catch (UnrecoverableInventoryStorageException e)
             {
-                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Unrecoverable error while purging contents in folder {0} for {1}: {2}",
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa]: Unrecoverable error while purging contents in folder {0} for {1}: {2}",
                     folder.ID, folder.Owner, e);
                 throw;
             }
             catch (Exception e)
             {
-                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Exception caught while sending folder {0} to trash for {1}: {2}",
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa]: Exception caught while sending folder {0} to trash for {1}: {2}",
                     folder.ID, folder.Owner, e);
                 throw new InventoryStorageException("Could not purge folder contents for " + folder.ID.ToString() + ": " + e.Message, e);
             }
@@ -504,7 +605,7 @@ namespace Halcyon.Data.Inventory.Spensa
 
         private void DebugFolderPurge(string method, InventoryFolderBase folder, StringBuilder debugFolderList)
         {
-            _log.DebugFormat("[Halcyon.Data.Inventory.Spensa] About to purge from {0} {1}\n Objects:\n{2}",
+            _log.DebugFormat("[Halcyon.Data.Inventory.Spensa]: About to purge from {0} {1}\n Objects:\n{2}",
                 folder.Name, folder.ID, debugFolderList.ToString());
         }
 
@@ -514,17 +615,18 @@ namespace Halcyon.Data.Inventory.Spensa
 
             try
             {
-                PurgeFolderInternal(folder, timeStamp);
+                return;
+                // PurgeFolderInternal(folder, timeStamp);
             }
             catch (UnrecoverableInventoryStorageException e)
             {
-                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Unrecoverable error while purging folder {0} for {1}: {2}",
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa]: Unrecoverable error while purging folder {0} for {1}: {2}",
                     folder.ID, folder.Owner, e);
                 throw;
             }
             catch (Exception e)
             {
-                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Exception caught while purging folder {0} for {1}: {2}",
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa]: Exception caught while purging folder {0} for {1}: {2}",
                     folder.ID, folder.Owner, e);
 
                 throw new InventoryStorageException("Could not purge folder " + folder.ID.ToString() + ": " + e.Message, e);
@@ -540,6 +642,7 @@ namespace Halcyon.Data.Inventory.Spensa
             }
 
             //////////////////TODO////////////////
+            return;
             /*
             //to purge a folder, we have to find all subfolders and items inside a folder
             //for each of the sub folders folders they choose, we need to recurse into all
@@ -619,6 +722,7 @@ namespace Halcyon.Data.Inventory.Spensa
             }
 
             //////////////////TODO////////////////
+            return;
             /*
             Dictionary<byte[], Dictionary<string, List<Mutation>>> muts = new Dictionary<byte[], Dictionary<string, List<Mutation>>>();
 
@@ -658,6 +762,8 @@ namespace Halcyon.Data.Inventory.Spensa
 
             try
             {
+                return;
+
                 if ((folder.Items.Count != 0) || (folder.SubFolders.Count != 0))
                     throw new UnrecoverableInventoryStorageException("Refusing to PurgeEmptyFolder for folder that is not empty");
 
@@ -665,13 +771,13 @@ namespace Halcyon.Data.Inventory.Spensa
             }
             catch (UnrecoverableInventoryStorageException e)
             {
-                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Unrecoverable error while purging empty folder {0} for {1}: {2}",
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa]: Unrecoverable error while purging empty folder {0} for {1}: {2}",
                     folder.ID, folder.Owner, e);
                 throw;
             }
             catch (Exception e)
             {
-                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Exception caught while purging empty folder {0} for {1}: {2}",
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa]: Exception caught while purging empty folder {0} for {1}: {2}",
                     folder.ID, folder.Owner, e);
                 throw new InventoryStorageException("Could not purge empty folder " + folder.ID.ToString() + ": " + e.Message, e);
             }
@@ -683,16 +789,17 @@ namespace Halcyon.Data.Inventory.Spensa
 
             try
             {
+                return;
                 PurgeFoldersInternal(folders, timeStamp);
             }
             catch (UnrecoverableInventoryStorageException e)
             {
-                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Unrecoverable error while purging folders: {0}", e);
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa]: Unrecoverable error while purging folders: {0}", e);
                 throw;
             }
             catch (Exception e)
             {
-                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Exception caught while purging folders: {0}", e);
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa]: Exception caught while purging folders: {0}", e);
 
                 throw new InventoryStorageException("Could not purge folders: " + e.Message, e);
             }
@@ -700,12 +807,14 @@ namespace Halcyon.Data.Inventory.Spensa
 
         private void PurgeFoldersInternal(IEnumerable<InventoryFolderBase> folders, long timeStamp)
         {
+            return;
             foreach (InventoryFolderBase folder in folders)
             {
                 this.PurgeFolderInternal(folder, timeStamp);
             }
         }
 
+        /*
         private void RecursiveCollectSubfoldersAndItems(UUID id, UUID ownerId, List<UUID> allFolders, List<UUID> allItems, C5.HashSet<UUID> rootItems, C5.HashSet<UUID> rootFolders, bool isRoot,
             Dictionary<Guid, InventoryFolderBase> index, StringBuilder debugFolderList)
         {
@@ -723,7 +832,7 @@ namespace Halcyon.Data.Inventory.Spensa
             {
                 //missing a folder is not a fatal exception, it could indicate a corrupted or temporarily
                 //inconsistent inventory state. this should not stop the remainder of the collection
-                _log.WarnFormat("[Halcyon.Data.Inventory.Spensa] Found missing folder with subFolder index remaining in parent. Inventory may need subfolder index maintenance.");
+                _log.WarnFormat("[Halcyon.Data.Inventory.Spensa]: Found missing folder with subFolder index remaining in parent. Inventory may need subfolder index maintenance.");
                 return;
             }
             catch (InventoryStorageException e)
@@ -732,7 +841,7 @@ namespace Halcyon.Data.Inventory.Spensa
                 {
                     //not a fatal exception, it could indicate a corrupted or temporarily
                     //inconsistent inventory state. this should not stop the remainder of the collection
-                    _log.WarnFormat("[Halcyon.Data.Inventory.Spensa] Found corrupt folder with subFolder index remaining in parent. User inventory needs subfolder index maintenance.");
+                    _log.WarnFormat("[Halcyon.Data.Inventory.Spensa]: Found corrupt folder with subFolder index remaining in parent. User inventory needs subfolder index maintenance.");
                     return;
                 }
                 else
@@ -778,11 +887,12 @@ namespace Halcyon.Data.Inventory.Spensa
                 }
                 else
                 {
-                    _log.WarnFormat("[Halcyon.Data.Inventory.Spensa] Not recursing into folder {0} with parent {1}. Index is inconsistent", 
+                    _log.WarnFormat("[Halcyon.Data.Inventory.Spensa]: Not recursing into folder {0} with parent {1}. Index is inconsistent", 
                         subFolder.ID, folder.ID);
                 }
             }
         }
+        */
 
         /// <summary>
         /// Makes sure that both the index and subfolder index agree that the given subfolder
@@ -927,7 +1037,7 @@ namespace Halcyon.Data.Inventory.Spensa
             }
             catch (Exception e)
             {
-                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Unable to retrieve item {0}: {1}", itemId, e);
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa]: Unable to retrieve item {0}: {1}", itemId, e);
                 throw new InventoryStorageException(e.Message, e);
             }
         }
@@ -1036,7 +1146,7 @@ namespace Halcyon.Data.Inventory.Spensa
             }
             catch (Exception e)
             {
-                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Exception caught while creating item {0} for {1}: {2}",
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa]: Exception caught while creating item {0} for {1}: {2}",
                     item.ID, item.Owner, e);
                 throw new InventoryStorageException("Could not create item " + item.ID.ToString()+ e.Message, e);
             }
@@ -1046,7 +1156,7 @@ namespace Halcyon.Data.Inventory.Spensa
         {
             if (item.Folder == UUID.Zero)
             {
-                _log.WarnFormat("[Halcyon.Data.Inventory.Spensa] Repairing parent folder ID for item {0} for {1}: Folder set to UUID.Zero", item.ID, item.Owner);
+                _log.WarnFormat("[Halcyon.Data.Inventory.Spensa]: Repairing parent folder ID for item {0} for {1}: Folder set to UUID.Zero", item.ID, item.Owner);
                 item.Folder = this.FindFolderForType(item.Owner, (AssetType)FolderType.Root).ID;
             }
         }
@@ -1064,7 +1174,7 @@ namespace Halcyon.Data.Inventory.Spensa
             }
             catch (Exception e)
             {
-                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Exception caught while saving item {0} for {1}: {2}",
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa]: Exception caught while saving item {0} for {1}: {2}",
                     item.ID, item.Owner, e);
 
                 throw new InventoryStorageException("Could not save item " + item.ID.ToString() + ": " + e.Message, e);
@@ -1086,7 +1196,7 @@ namespace Halcyon.Data.Inventory.Spensa
                 //to its current parent. this can cause corruption
                 if (item.Folder == parentFolder.ID)
                 {
-                    _log.WarnFormat("[Halcyon.Data.Inventory.Spensa] Refusing to move item {0} to new folder {1} for {2}. The source and destination folder are the same",
+                    _log.WarnFormat("[Halcyon.Data.Inventory.Spensa]: Refusing to move item {0} to new folder {1} for {2}. The source and destination folder are the same",
                         item.ID, parentFolder.ID, item.Owner);
                     return;
                 }
@@ -1096,7 +1206,7 @@ namespace Halcyon.Data.Inventory.Spensa
             }
             catch (Exception e)
             {
-                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Exception caught while moving item {0} to folder {1}: {2}",
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa]: Exception caught while moving item {0} to folder {1}: {2}",
                     item.ID, parentFolder.ID, e);
                 throw new InventoryStorageException("Could not move item " + item.ID.ToString() + " " + e.Message, e);
             }
@@ -1113,7 +1223,7 @@ namespace Halcyon.Data.Inventory.Spensa
             }
             catch (Exception e)
             {
-                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Exception caught while sending item {0} to trash for {1}: {2}",
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa]: Exception caught while sending item {0} to trash for {1}: {2}",
                     item.ID, item.Owner, e);
                 throw new InventoryStorageException("Could not send item " + item.ID.ToString() + " to trash: " + e.Message, e);
             }
@@ -1134,13 +1244,13 @@ namespace Halcyon.Data.Inventory.Spensa
                 else
                     invType = "type "+item.AssetType.ToString();
 
-                _log.WarnFormat("[Halcyon.Data.Inventory.Spensa] Purge of {0} id={1} asset={2} '{3}' for user={4}", invType, item.ID, item.AssetID, item.Name, item.Owner);
+                _log.WarnFormat("[Halcyon.Data.Inventory.Spensa]: Purge of {0} id={1} asset={2} '{3}' for user={4}", invType, item.ID, item.AssetID, item.Name, item.Owner);
                 //////////////////TODO////////////////
                 // PurgeItemInternal(item, timeStamp);
             }
             catch (Exception e)
             {
-                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Exception caught while purging item {0}: {1}",
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa]: Exception caught while purging item {0}: {1}",
                     item.ID, e);
                 throw new InventoryStorageException("Could not purge item " + item.ID.ToString() + ": " + e.Message, e);
             }
@@ -1157,7 +1267,7 @@ namespace Halcyon.Data.Inventory.Spensa
             }
             catch (Exception e)
             {
-                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Exception caught while purging items: {0}", e);
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa]: Exception caught while purging items: {0}", e);
                 throw new InventoryStorageException("Could not purge items: " + e.Message, e);
             }
         }
@@ -1174,7 +1284,7 @@ namespace Halcyon.Data.Inventory.Spensa
             }
             catch (Exception e)
             {
-                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Unable to activate gestures for {0}: {1}",
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa]: Unable to activate gestures for {0}: {1}",
                     userId, e);
 
                 throw new InventoryStorageException(String.Format("Unable to activate gestures for {0}: {1}", userId, e.Message), e);
@@ -1193,7 +1303,7 @@ namespace Halcyon.Data.Inventory.Spensa
             }
             catch (Exception e)
             {
-                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa] Unable to deactivate gestures for {0}: {1}",
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa]: Unable to deactivate gestures for {0}: {1}",
                     userId, e);
 
                 throw new InventoryStorageException(String.Format("Unable to deactivate gestures for {0}: {1}", userId, e));
