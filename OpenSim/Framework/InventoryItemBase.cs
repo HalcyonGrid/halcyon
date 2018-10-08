@@ -257,7 +257,7 @@ namespace OpenSim.Framework
         /// <value>
         ///
         /// </value>
-        public uint EveryOnePermissions 
+        public uint EveryonePermissions 
         { 
             get
             {
@@ -468,7 +468,7 @@ namespace OpenSim.Framework
             contents["owner_mask"] = this.CurrentPermissions;
             contents["creator_id"] = this.CreatorIdAsUuid;
             contents["base_mask"] = this.BasePermissions;
-            contents["everyone_mask"] = this.EveryOnePermissions;
+            contents["everyone_mask"] = this.EveryonePermissions;
             contents.WriteEndMap(/*Permissions*/);
 
             contents.WriteKey("sale_info"); //Start save kvp

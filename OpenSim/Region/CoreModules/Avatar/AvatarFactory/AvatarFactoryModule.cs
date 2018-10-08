@@ -252,7 +252,7 @@ namespace OpenSim.Region.CoreModules.Avatar.AvatarFactory
                         item.BasePermissions = (uint)(PermissionMask.All | PermissionMask.Export);
                         item.CurrentPermissions = (uint)(PermissionMask.All | PermissionMask.Export);
                         item.GroupPermissions = (uint)PermissionMask.None;
-                        item.EveryOnePermissions = (uint)PermissionMask.None;
+                        item.EveryonePermissions = (uint)PermissionMask.None;
                         item.NextPermissions = (uint)PermissionMask.All;
 
                         userInfo.AddItem(item); 

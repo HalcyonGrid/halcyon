@@ -63,7 +63,7 @@ namespace InWorldz.Region.Data.Thoosa.Serialization
             {
                 BasePermissions = itemPermissionBlock.BasePermissions,
                 NextPermissions = itemPermissionBlock.NextPermissions,
-                EveryonePermissions = itemPermissionBlock.EveryOnePermissions,
+                EveryonePermissions = itemPermissionBlock.EveryonePermissions,
                 GroupPermissions = itemPermissionBlock.GroupPermissions,
                 CurrentPermissions = itemPermissionBlock.CurrentPermissions
             };
@@ -75,7 +75,7 @@ namespace InWorldz.Region.Data.Thoosa.Serialization
             {
                 BasePermissions = this.BasePermissions,
                 CurrentPermissions = this.CurrentPermissions,
-                EveryOnePermissions = this.EveryonePermissions,
+                EveryonePermissions = this.EveryonePermissions,
                 GroupPermissions = this.GroupPermissions,
                 ItemId = itemId,
                 NextPermissions = this.NextPermissions

@@ -861,7 +861,7 @@ namespace OpenSim.Region.CoreModules.Avatar.Friends
             item.CreatorId = creator.ToString();
             item.CurrentPermissions = item.BasePermissions;
             item.Description = String.Empty;
-            item.EveryOnePermissions = (uint)PermissionMask.None;
+            item.EveryonePermissions = (uint)PermissionMask.None;
             item.Flags = 0;
             item.Folder = folder;
             item.GroupID = UUID.Zero;
@@ -869,7 +869,7 @@ namespace OpenSim.Region.CoreModules.Avatar.Friends
             item.ID = UUID.Random();
             item.InvType = (int)InventoryType.CallingCard;
             item.Name = name;
-            item.NextPermissions = item.EveryOnePermissions;
+            item.NextPermissions = item.EveryonePermissions;
             item.Owner = client.AgentId;
             item.SalePrice = 10;
             item.SaleType = (byte)SaleType.Not;

@@ -130,9 +130,8 @@ namespace OpenSim.Data
         /// Returns an item fetched by the given id
         /// </summary>
         /// <param name="itemId">The item id</param>
-        /// <param name="parentFolderHint">An optional hint to the parent folder that contains the item. If unknown pass UUID.Zero</param>
         /// <returns>The item that matches the id, or null if none found</returns>
-        InventoryItemBase GetItem(UUID itemId, UUID parentFolderHint);
+        InventoryItemBase GetItem(UUID itemId);
 
         /// <summary>
         /// Retrieves the given items by ID
@@ -141,7 +140,7 @@ namespace OpenSim.Data
         /// <param name="throwOnNotFound">Whether or not to throw an exception if one or more items cant be found</param>
         /// <returns>The items that were found</returns>
         /// <remarks>THIS IS A CONVENIENCE FUNCTION. IT IS NOT GUARANTEED TO BE NETWORK EFFICIENT</remarks>
-        List<InventoryItemBase> GetItems(IEnumerable<UUID> itemIds, bool throwOnNotFound);
+        // List<InventoryItemBase> GetItems(IEnumerable<UUID> itemIds, bool throwOnNotFound);
 
         /// <summary>
         /// Creates a new item in the given folder

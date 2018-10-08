@@ -188,7 +188,7 @@ namespace OpenSim.Data
         public InventoryItemBase GetItem(UUID userId, UUID itemId, UUID parentFolderHint)
         {
             //verify this user owns the item
-            InventoryItemBase subjectItem = _storage.GetItem(itemId, parentFolderHint);
+            InventoryItemBase subjectItem = _storage.GetItem(itemId);
 
             if (subjectItem != null && subjectItem.Owner != userId)
             {
@@ -198,6 +198,7 @@ namespace OpenSim.Data
             return subjectItem;
         }
 
+        /*
         public List<InventoryItemBase> GetItems(UUID userId, List<UUID> itemIds, bool throwOnNotFound)
         {
             //verify this user owns the item
@@ -213,6 +214,7 @@ namespace OpenSim.Data
 
             return subjectItems;
         }
+        */
 
         public void CreateItem(UUID userId, InventoryItemBase item)
         {
@@ -236,7 +238,7 @@ namespace OpenSim.Data
 
         public void MoveItem(UUID userId, UUID itemId, UUID parentFolderId)
         {
-            InventoryItemBase item = _storage.GetItem(itemId, UUID.Zero);
+            InventoryItemBase item = _storage.GetItem(itemId);
             InventoryFolderBase folder = _storage.GetFolderAttributes(parentFolderId);
 
             if (item == null)
@@ -271,7 +273,7 @@ namespace OpenSim.Data
 
         public UUID SendItemToTrash(UUID userId, UUID itemId, UUID trashFolderHint)
         {
-            InventoryItemBase item = _storage.GetItem(itemId, UUID.Zero);
+            InventoryItemBase item = _storage.GetItem(itemId);
 
             if (item.Owner != userId)
             {
@@ -283,7 +285,7 @@ namespace OpenSim.Data
 
         public void PurgeItem(UUID userId, UUID itemId)
         {
-            InventoryItemBase item = _storage.GetItem(itemId, UUID.Zero);
+            InventoryItemBase item = _storage.GetItem(itemId);
 
             if (item.Owner != userId)
             {

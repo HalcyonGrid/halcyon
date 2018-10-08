@@ -333,7 +333,7 @@ namespace OpenSim.Region.CoreModules.Agent.BotManager
 
                 IInventoryProviderSelector inventorySelect = ProviderRegistry.Instance.Get<IInventoryProviderSelector>();
                 var provider = inventorySelect.GetProvider(originalOwner);
-                InventoryItemBase item = provider.GetItem(origItemID, UUID.Zero);
+                InventoryItemBase item = provider.GetItem(origItemID);
 
                 SceneObjectGroup grp = m_scene.GetObjectFromItem(item);
                 if (grp != null)
@@ -373,7 +373,7 @@ namespace OpenSim.Region.CoreModules.Agent.BotManager
                 {
                     IInventoryProviderSelector inventorySelect = ProviderRegistry.Instance.Get<IInventoryProviderSelector>();
                     var provider = inventorySelect.GetProvider(originalOwner);
-                    InventoryItemBase item = provider.GetItem(origItemID, UUID.Zero);
+                    InventoryItemBase item = provider.GetItem(origItemID);
                     if ((item.CurrentPermissions & (uint)PermissionMask.Copy) != (uint)PermissionMask.Copy)
                     {
                         if (ownerSP == null)

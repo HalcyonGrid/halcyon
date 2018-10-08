@@ -131,6 +131,7 @@ namespace OpenSim.Data
         /// <returns>The item that matches the id, or null if none found</returns>
         InventoryItemBase GetItem(UUID userId, UUID itemId, UUID parentFolderHint);
 
+        /*
         /// <summary>
         /// Retrieves the given items by ID
         /// </summary>
@@ -139,6 +140,7 @@ namespace OpenSim.Data
         /// <returns>The items that were found</returns>
         /// <remarks>THIS IS A CONVENIENCE FUNCTION. IT IS NOT GUARANTEED TO BE NETWORK EFFICIENT</remarks>
         List<InventoryItemBase> GetItems(UUID userId, List<UUID> itemIds, bool throwOnNotFound);
+        */
 
         /// <summary>
         /// Creates a new item in the given folder

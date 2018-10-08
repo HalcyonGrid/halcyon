@@ -185,14 +185,6 @@ namespace OpenSim.Framework
             }
         }
 
-        /// <summary>
-        /// Added to support IInventoryItem
-        /// </summary>
-        public uint EveryOnePermissions
-        {
-            get { return EveryonePermissions; }
-        }
-
         public uint Flags {
             get {
                 return _flags;

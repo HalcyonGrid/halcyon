@@ -158,7 +158,7 @@ namespace OpenSim.Region.Framework.Scenes
                             item.NextPermissions;
                     taskItem.CurrentPermissions = item.CurrentPermissions &
                             item.NextPermissions;
-                    taskItem.EveryonePermissions = item.EveryOnePermissions &
+                    taskItem.EveryonePermissions = item.EveryonePermissions &
                             item.NextPermissions;
                     taskItem.GroupPermissions = item.GroupPermissions &
                             item.NextPermissions;
@@ -166,7 +166,7 @@ namespace OpenSim.Region.Framework.Scenes
                 } else {
                     taskItem.BasePermissions = item.BasePermissions;
                     taskItem.CurrentPermissions = item.CurrentPermissions;
-                    taskItem.EveryonePermissions = item.EveryOnePermissions;
+                    taskItem.EveryonePermissions = item.EveryonePermissions;
                     taskItem.GroupPermissions = item.GroupPermissions;
                     taskItem.NextPermissions = item.NextPermissions;
                 }

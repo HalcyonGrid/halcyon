@@ -83,7 +83,7 @@ namespace OpenSim.Framework.Communications.Cache
             item.BasePermissions = (uint)(PermissionMask.All | PermissionMask.Export);
             item.CurrentPermissions = (uint)(PermissionMask.All | PermissionMask.Export);
             item.GroupPermissions = (uint)PermissionMask.None;
-            item.EveryOnePermissions = (uint)(PermissionMask.All | PermissionMask.Export);
+            item.EveryonePermissions = (uint)(PermissionMask.All | PermissionMask.Export);
             item.NextPermissions = (uint)(PermissionMask.All | PermissionMask.Export);
             return item;
         }
@@ -171,7 +171,7 @@ namespace OpenSim.Framework.Communications.Cache
             item.BasePermissions = (uint)config.GetLong("basePermissions", (uint)(PermissionMask.All | PermissionMask.Export));
             item.CurrentPermissions = (uint)config.GetLong("currentPermissions", (uint)(PermissionMask.All | PermissionMask.Export));
             item.GroupPermissions = (uint)config.GetLong("groupPermissions", (uint)PermissionMask.None);
-            item.EveryOnePermissions = (uint)config.GetLong("everyonePermissions", (uint)(PermissionMask.All | PermissionMask.Export));
+            item.EveryonePermissions = (uint)config.GetLong("everyonePermissions", (uint)(PermissionMask.All | PermissionMask.Export));
             item.NextPermissions = (uint)config.GetLong("nextPermissions", (uint)(PermissionMask.All | PermissionMask.Export));
 
             if (libraryFolders.ContainsKey(item.Folder))

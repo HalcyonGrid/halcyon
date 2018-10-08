@@ -309,7 +309,7 @@ namespace Halcyon.Data.Inventory.Spensa
                 CreatorId = userId.ToString(),
                 CurrentPermissions = 0xFFF,
                 Description = "A good item, of goodness",
-                EveryOnePermissions = 0xFFFF,
+                EveryonePermissions = 0xFFFF,
                 Flags = 0x12,
                 Folder = folder.ID,
                 GroupID = UUID.Zero,
@@ -326,7 +326,7 @@ namespace Halcyon.Data.Inventory.Spensa
 
             _storage.CreateItem(item);
 
-            InventoryItemBase itemCopy = _storage.GetItem(itemId, UUID.Zero);
+            InventoryItemBase itemCopy = _storage.GetItem(itemId);
             AssertItemEqual(itemCopy, item);
 
             InventoryFolderBase folderWithItem = _storage.GetFolder(folder.ID);
@@ -362,7 +362,7 @@ namespace Halcyon.Data.Inventory.Spensa
                 CreatorId = userId.ToString(),
                 CurrentPermissions = 0xFFF,
                 Description = "A good item, of goodness",
-                EveryOnePermissions = 0xFFFF,
+                EveryonePermissions = 0xFFFF,
                 Flags = 0x12,
                 Folder = folder.ID,
                 GroupID = UUID.Zero,
@@ -379,7 +379,7 @@ namespace Halcyon.Data.Inventory.Spensa
 
             _storage.CreateItem(item);
 
-            InventoryItemBase itemCopy = _storage.GetItem(itemId, UUID.Zero);
+            InventoryItemBase itemCopy = _storage.GetItem(itemId);
             AssertItemEqual(itemCopy, item);
 
             item.AssetID = assetId;
@@ -389,7 +389,7 @@ namespace Halcyon.Data.Inventory.Spensa
             item.CreatorId = userId.ToString();
             item.CurrentPermissions = 0xAAA;
             item.Description = "A good itemddddd";
-            item.EveryOnePermissions = 0xAAAA;
+            item.EveryonePermissions = 0xAAAA;
             item.Flags = 0x24;
             item.Folder = folder.ID;
             item.GroupID = UUID.Random();
@@ -405,7 +405,7 @@ namespace Halcyon.Data.Inventory.Spensa
 
             _storage.SaveItem(item);
 
-            itemCopy = _storage.GetItem(itemId, UUID.Zero);
+            itemCopy = _storage.GetItem(itemId);
             AssertItemEqual(itemCopy, item);
 
             InventoryFolderBase folderCopy = _storage.GetFolderAttributes(folder.ID);
@@ -438,7 +438,7 @@ namespace Halcyon.Data.Inventory.Spensa
                 CreatorId = userId.ToString(),
                 CurrentPermissions = unchecked((uint)-1),
                 Description = "A good item, of goodness",
-                EveryOnePermissions = Int32.MaxValue + (uint)1,
+                EveryonePermissions = Int32.MaxValue + (uint)1,
                 Flags = unchecked((uint)Int32.MinValue),
                 Folder = folder.ID,
                 GroupID = UUID.Zero,
@@ -455,7 +455,7 @@ namespace Halcyon.Data.Inventory.Spensa
 
             _storage.CreateItem(item);
 
-            InventoryItemBase itemCopy = _storage.GetItem(itemId, UUID.Zero);
+            InventoryItemBase itemCopy = _storage.GetItem(itemId);
             AssertItemEqual(itemCopy, item);
 
 
@@ -499,7 +499,7 @@ namespace Halcyon.Data.Inventory.Spensa
                 CreatorId = userId.ToString(),
                 CurrentPermissions = unchecked((uint)-1),
                 Description = "A good item, of goodness",
-                EveryOnePermissions = Int32.MaxValue + (uint)1,
+                EveryonePermissions = Int32.MaxValue + (uint)1,
                 Flags = unchecked((uint)Int32.MinValue),
                 Folder = folder1.ID,
                 GroupID = UUID.Zero,
@@ -533,7 +533,7 @@ namespace Halcyon.Data.Inventory.Spensa
 
             _storage.MoveItem(item, folder2);
 
-            InventoryItemBase itemCopy = _storage.GetItem(itemId, UUID.Zero);
+            InventoryItemBase itemCopy = _storage.GetItem(itemId);
 
             AssertItemEqual(item, itemCopy);
 
@@ -583,7 +583,7 @@ namespace Halcyon.Data.Inventory.Spensa
                             CreatorId = userId.ToString(),
                             CurrentPermissions = unchecked((uint)-1),
                             Description = "A good item, of goodness",
-                            EveryOnePermissions = Int32.MaxValue + (uint)1,
+                            EveryonePermissions = Int32.MaxValue + (uint)1,
                             Flags = unchecked((uint)Int32.MinValue),
                             Folder = folder1.ID,
                             GroupID = UUID.Zero,
@@ -607,7 +607,7 @@ namespace Halcyon.Data.Inventory.Spensa
                         var ex =
                             Assert.Throws<InventoryObjectMissingException>(delegate ()
                             {
-                                InventoryItemBase itemCopy = _storage.GetItem(itemId, UUID.Zero);
+                                InventoryItemBase itemCopy = _storage.GetItem(itemId);
                             });
 
                         Assert.AreEqual("Item was not found in the index", ex.ErrorDetails);
@@ -659,7 +659,7 @@ namespace Halcyon.Data.Inventory.Spensa
                     CreatorId = userId.ToString(),
                     CurrentPermissions = unchecked((uint)-1),
                     Description = "A good item, of goodness",
-                    EveryOnePermissions = Int32.MaxValue + (uint)1,
+                    EveryonePermissions = Int32.MaxValue + (uint)1,
                     Flags = unchecked((uint)Int32.MinValue),
                     Folder = folder1.ID,
                     GroupID = UUID.Zero,
@@ -700,7 +700,7 @@ namespace Halcyon.Data.Inventory.Spensa
                 {
                     Assert.DoesNotThrow(delegate ()
                     {
-                        InventoryItemBase itemCopy = _storage.GetItem(itemId, UUID.Zero);
+                        InventoryItemBase itemCopy = _storage.GetItem(itemId);
                     });
 
                     //cleanup
@@ -711,7 +711,7 @@ namespace Halcyon.Data.Inventory.Spensa
                     var ex =
                         Assert.Throws<InventoryObjectMissingException>(delegate ()
                         {
-                            InventoryItemBase itemCopy = _storage.GetItem(itemId, UUID.Zero);
+                            InventoryItemBase itemCopy = _storage.GetItem(itemId);
                         });
 
                     Assert.AreEqual("Item was not found in the index", ex.ErrorDetails);
@@ -760,7 +760,7 @@ namespace Halcyon.Data.Inventory.Spensa
                 CreatorId = userId.ToString(),
                 CurrentPermissions = unchecked((uint)-1),
                 Description = "A good item, of goodness",
-                EveryOnePermissions = Int32.MaxValue + (uint)1,
+                EveryonePermissions = Int32.MaxValue + (uint)1,
                 Flags = unchecked((uint)Int32.MinValue),
                 Folder = folder1.ID,
                 GroupID = UUID.Zero,
@@ -788,7 +788,7 @@ namespace Halcyon.Data.Inventory.Spensa
             Assert.AreEqual(0, newFolder1.Items.Count);
             Assert.AreEqual(1, newFolder2.Items.Count);
 
-            InventoryItemBase newItem = _storage.GetItem(item.ID, UUID.Zero);
+            InventoryItemBase newItem = _storage.GetItem(item.ID);
             item.Folder = newFolder2.ID;
 
             AssertItemEqual(item, newItem);
@@ -829,7 +829,7 @@ namespace Halcyon.Data.Inventory.Spensa
                 CreatorId = userId.ToString(),
                 CurrentPermissions = unchecked((uint)-1),
                 Description = "A good item, of goodness",
-                EveryOnePermissions = Int32.MaxValue + (uint)1,
+                EveryonePermissions = Int32.MaxValue + (uint)1,
                 Flags = unchecked((uint)Int32.MinValue),
                 Folder = rootFolder.ID,
                 GroupID = UUID.Zero,
@@ -846,7 +846,7 @@ namespace Halcyon.Data.Inventory.Spensa
 
             _storage.SendItemToTrash(item, UUID.Zero);
 
-            InventoryItemBase trashedItem = _storage.GetItem(item.ID, UUID.Zero);
+            InventoryItemBase trashedItem = _storage.GetItem(item.ID);
             Assert.AreEqual(trashedItem.Folder, trashFolder.ID);
 
             AssertItemEqual(item, trashedItem);
@@ -917,7 +917,7 @@ namespace Halcyon.Data.Inventory.Spensa
                     CreatorId = userId.ToString(),
                     CurrentPermissions = unchecked((uint)-1),
                     Description = "A good item, of goodness",
-                    EveryOnePermissions = Int32.MaxValue + (uint)1,
+                    EveryonePermissions = Int32.MaxValue + (uint)1,
                     Flags = unchecked((uint)Int32.MinValue),
                     GroupID = UUID.Zero,
                     GroupOwned = false,
@@ -983,12 +983,7 @@ namespace Halcyon.Data.Inventory.Spensa
             {
                 Assert.Throws<InventoryObjectMissingException>(delegate ()
                 {
-                    _storage.GetItem(item.ID, UUID.Zero);
-                });
-
-                Assert.Throws<InventoryObjectMissingException>(delegate ()
-                {
-                    _storage.GetItem(item.ID, item.Folder);
+                    _storage.GetItem(item.ID);
                 });
             }
 
@@ -1040,7 +1035,7 @@ namespace Halcyon.Data.Inventory.Spensa
                     CreatorId = userId.ToString(),
                     CurrentPermissions = unchecked((uint)-1),
                     Description = "A good item, of goodness",
-                    EveryOnePermissions = Int32.MaxValue + (uint)1,
+                    EveryonePermissions = Int32.MaxValue + (uint)1,
                     Flags = unchecked((uint)Int32.MinValue),
                     GroupID = UUID.Zero,
                     GroupOwned = false,
@@ -1185,7 +1180,7 @@ namespace Halcyon.Data.Inventory.Spensa
                     CreatorId = userId.ToString(),
                     CurrentPermissions = unchecked((uint)-1),
                     Description = "Gesture",
-                    EveryOnePermissions = Int32.MaxValue + (uint)1,
+                    EveryonePermissions = Int32.MaxValue + (uint)1,
                     Flags = unchecked((uint)Int32.MinValue),
                     GroupID = UUID.Zero,
                     GroupOwned = false,
@@ -1234,7 +1229,7 @@ namespace Halcyon.Data.Inventory.Spensa
             Assert.AreEqual(i1.CreatorIdAsUuid, i2.CreatorIdAsUuid);
             Assert.AreEqual(i1.CurrentPermissions, i2.CurrentPermissions);
             Assert.AreEqual(i1.Description, i2.Description);
-            Assert.AreEqual(i1.EveryOnePermissions, i2.EveryOnePermissions);
+            Assert.AreEqual(i1.EveryonePermissions, i2.EveryonePermissions);
             Assert.AreEqual(i1.Flags, i2.Flags);
             Assert.AreEqual(i1.Folder, i2.Folder);
             Assert.AreEqual(i1.GroupID, i2.GroupID);

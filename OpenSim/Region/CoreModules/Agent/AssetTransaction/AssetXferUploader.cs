@@ -308,7 +308,7 @@ namespace OpenSim.Region.CoreModules.Agent.AssetTransaction
                 item.BasePermissions = (uint)(PermissionMask.All | PermissionMask.Export);
                 item.CurrentPermissions = (uint)(PermissionMask.All | PermissionMask.Export);
                 item.GroupPermissions = (uint)PermissionMask.None;
-                item.EveryOnePermissions = (uint)PermissionMask.None;
+                item.EveryonePermissions = (uint)PermissionMask.None;
                 item.NextPermissions = nextPerm;
                 item.Flags = (uint)wearableType;
 

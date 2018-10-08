@@ -79,7 +79,7 @@ namespace OpenSim.Framework.Serialization.External
             item.SalePrice              = Convert.ToInt32(  xtr.ReadElementString("SalePrice"));
             item.BasePermissions        = Convert.ToUInt32( xtr.ReadElementString("BasePermissions"));
             item.CurrentPermissions     = Convert.ToUInt32( xtr.ReadElementString("CurrentPermissions"));
-            item.EveryOnePermissions    = Convert.ToUInt32( xtr.ReadElementString("EveryOnePermissions"));
+            item.EveryonePermissions    = Convert.ToUInt32( xtr.ReadElementString("EveryonePermissions"));
             item.NextPermissions        = Convert.ToUInt32( xtr.ReadElementString("NextPermissions"));
             item.Flags                  = Convert.ToUInt32( xtr.ReadElementString("Flags"));
             item.GroupID                = UUID.Parse(       xtr.ReadElementString("GroupID"));
@@ -141,8 +141,8 @@ namespace OpenSim.Framework.Serialization.External
             writer.WriteStartElement("CurrentPermissions");
             writer.WriteString(inventoryItem.CurrentPermissions.ToString());
             writer.WriteEndElement();
-            writer.WriteStartElement("EveryOnePermissions");
-            writer.WriteString(inventoryItem.EveryOnePermissions.ToString());
+            writer.WriteStartElement("EveryonePermissions");
+            writer.WriteString(inventoryItem.EveryonePermissions.ToString());
             writer.WriteEndElement();
             writer.WriteStartElement("NextPermissions");
             writer.WriteString(inventoryItem.NextPermissions.ToString());

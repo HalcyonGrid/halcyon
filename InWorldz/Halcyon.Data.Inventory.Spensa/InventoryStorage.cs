@@ -74,6 +74,7 @@ namespace Halcyon.Data.Inventory.Spensa
         private const string SUBFOLDERS = "Subfolders";
         private const string FOLDERVERSIONS = "FolderVersions";
         private const string ITEMS = "Items";
+        private const string SUBITEMS = "Subitems";
         private const string USERACTIVEGESTURES = "UserActiveGestures";
 
         private const ConsistencyLevel DEFAULT_CONSISTENCY_LEVEL = ConsistencyLevel.Quorum;
@@ -234,9 +235,10 @@ namespace Halcyon.Data.Inventory.Spensa
             try
             {
                 IMapper mapper = new Mapper(_session);
-                FolderRow folderRow = mapper.Single<FolderRow>(
+                FolderRow folderRow = mapper.SingleOrDefault<FolderRow>(
                         $"SELECT * FROM {KEYSPACE}.{FOLDERS} WHERE folderid=?", folderId.Guid);
-                _log.Info($"GetFolderAttributes: returning '{folderRow.name} ({folderRow.type}) [{folderRow.folderid}]");
+                if (folderRow == null) return null;
+                _log.Info($"[GetFolderAttributes]: returning [{folderRow.folderid}] ({folderRow.type}) {folderRow.name}");
                 ushort version = 1;
                 return new InventoryFolderBase(folderId, folderRow.name, new UUID(folderRow.ownerid), folderRow.type, new UUID(folderRow.parentid), version);
             }
@@ -278,6 +280,14 @@ namespace Halcyon.Data.Inventory.Spensa
             await Task.WhenAll(t1, t2);
         }
 
+        private async void _doAsync3(BoundStatement q1, BoundStatement q2, BoundStatement q3)
+        {
+            Task t1 = _session.ExecuteAsync(q1);
+            Task t2 = _session.ExecuteAsync(q2);
+            Task t3 = _session.ExecuteAsync(q3);
+            await Task.WhenAll(t1, t2, t3);
+        }
+
         private async void _doAsync4(BoundStatement q1, BoundStatement q2, BoundStatement q3, BoundStatement q4)
         {
             Task t1 = _session.ExecuteAsync(q1);
@@ -285,7 +295,6 @@ namespace Halcyon.Data.Inventory.Spensa
             Task t3 = _session.ExecuteAsync(q3);
             Task t4 = _session.ExecuteAsync(q4);
             await Task.WhenAll(t1, t2, t3, t4);
-            _log.Info("Async create complete.");
         }
 
         /// <summary>
@@ -294,11 +303,9 @@ namespace Halcyon.Data.Inventory.Spensa
         /// <param name="folder"></param>
         public void CreateFolder(InventoryFolderBase folder)
         {
-            long timeStamp = Util.UnixTimeSinceEpochInMicroseconds();
-
             if (folder.ID == UUID.Zero) throw new InventorySecurityException("Not creating folder with ID UUID.Zero");
 
-            _log.Info($"CreateFolder: creating '{folder.Name}' ({folder.Type}) [{folder.ID}]");
+            _log.Info($"[CreateFolder]: Creating [{folder.ID}] ({folder.Type}) {folder.Name}");
 
             var pq1 = _session.Prepare($"INSERT INTO {KEYSPACE}.{FOLDERS} (OwnerID, FolderID, ParentID, Level, Name, Type) VALUES(?,?,?,?,?,?) IF NOT EXISTS");
             var q1 = pq1.Bind(folder.Owner.Guid, folder.ID.Guid, folder.ParentID.Guid, (int)folder.Level, folder.Name, (int)folder.Type);
@@ -315,7 +322,7 @@ namespace Halcyon.Data.Inventory.Spensa
             try
             {
                 _doAsync4(q1, q2, q3, q4);
-                _log.InfoFormat("User {0} inserted folder {1} [{2}] under [{3}]", folder.Owner, folder.Name, folder.ID, folder.ParentID);
+                _log.InfoFormat("[CreateFolder]: User {0} inserted folder {1} [{2}] under [{3}]", folder.Owner, folder.Name, folder.ID, folder.ParentID);
             }
             catch (Exception e)
             {
@@ -349,8 +356,6 @@ namespace Halcyon.Data.Inventory.Spensa
         /// <param name="folder">The folder to save</param>
         public void SaveFolder(InventoryFolderBase folder)
         {
-            long timeStamp = Util.UnixTimeSinceEpochInMicroseconds();
-
             try
             {
                 InventoryFolderBase update = GetFolderAttributes(folder.ID);
@@ -362,7 +367,7 @@ namespace Halcyon.Data.Inventory.Spensa
                 var q2 = pq2.Bind(folder.ID.Guid);
 
                 _doAsync2(q1, q2);
-                _log.InfoFormat("User {0} updated folder {1} [{2}]", folder.Owner, folder.Name, folder.ID);
+                _log.InfoFormat("[SaveFolder]: User {0} updated folder {1} [{2}]", folder.Owner, folder.Name, folder.ID);
                 return;
             }
             catch (UnrecoverableInventoryStorageException e)
@@ -379,8 +384,6 @@ namespace Halcyon.Data.Inventory.Spensa
             }
         }
 
-
-
         private void MoveFolderInternal(InventoryFolderBase folder, UUID parentId)
         {
             if (parentId == folder.ID)
@@ -394,7 +397,7 @@ namespace Halcyon.Data.Inventory.Spensa
             var q2 = pq2.Bind(parentId.Guid, folder.ID.Guid);
             var pq3 = _session.Prepare($"UPDATE {KEYSPACE}.{FOLDERVERSIONS} SET Version = Version + 1 FolderID =?");
             var q3 = pq3.Bind(folder.ID.Guid);
-            _doAsync2(q1, q2);
+            _doAsync3(q1, q2, q3);
             folder.ParentID = parentId;
         }
         
@@ -582,8 +585,6 @@ namespace Halcyon.Data.Inventory.Spensa
 
         public void PurgeFolderContents(InventoryFolderBase folder)
         {
-            long timeStamp = Util.UnixTimeSinceEpochInMicroseconds();
-
             try
             {
                 return;
@@ -611,8 +612,6 @@ namespace Halcyon.Data.Inventory.Spensa
 
         public void PurgeFolder(InventoryFolderBase folder)
         {
-            long timeStamp = Util.UnixTimeSinceEpochInMicroseconds();
-
             try
             {
                 return;
@@ -633,7 +632,7 @@ namespace Halcyon.Data.Inventory.Spensa
             }
         }
 
-        private void PurgeFolderInternal(InventoryFolderBase folder, long timeStamp)
+        private void PurgeFolderInternal(InventoryFolderBase folder)
         {
             //block all deletion requests for a folder with a 0 id
             if (folder.ID == UUID.Zero)
@@ -713,7 +712,7 @@ namespace Halcyon.Data.Inventory.Spensa
 
         // This is an optimized PurgeFolderInternal that does not refetch the tree
         // but assumes the caller knows that the ID specified has no items or subfolders.
-        private void PurgeEmptyFolderInternal(UUID ownerID, long timeStamp, UUID folderID, UUID parentID)
+        private void PurgeEmptyFolderInternal(UUID ownerID, UUID folderID, UUID parentID)
         {
             //block all deletion requests for a folder with a 0 id
             if (folderID == UUID.Zero)
@@ -758,8 +757,6 @@ namespace Halcyon.Data.Inventory.Spensa
         // but assumes the caller knows that the ID specified has no items or subfolders.
         public void PurgeEmptyFolder(InventoryFolderBase folder)
         {
-            long timeStamp = Util.UnixTimeSinceEpochInMicroseconds();
-
             try
             {
                 return;
@@ -767,7 +764,7 @@ namespace Halcyon.Data.Inventory.Spensa
                 if ((folder.Items.Count != 0) || (folder.SubFolders.Count != 0))
                     throw new UnrecoverableInventoryStorageException("Refusing to PurgeEmptyFolder for folder that is not empty");
 
-                PurgeEmptyFolderInternal(folder.Owner, timeStamp, folder.ID, folder.ParentID);
+                PurgeEmptyFolderInternal(folder.Owner, folder.ID, folder.ParentID);
             }
             catch (UnrecoverableInventoryStorageException e)
             {
@@ -785,12 +782,10 @@ namespace Halcyon.Data.Inventory.Spensa
 
         public void PurgeFolders(IEnumerable<InventoryFolderBase> folders)
         {
-            long timeStamp = Util.UnixTimeSinceEpochInMicroseconds();
-
             try
             {
                 return;
-                PurgeFoldersInternal(folders, timeStamp);
+                PurgeFoldersInternal(folders);
             }
             catch (UnrecoverableInventoryStorageException e)
             {
@@ -805,12 +800,12 @@ namespace Halcyon.Data.Inventory.Spensa
             }
         }
 
-        private void PurgeFoldersInternal(IEnumerable<InventoryFolderBase> folders, long timeStamp)
+        private void PurgeFoldersInternal(IEnumerable<InventoryFolderBase> folders)
         {
             return;
             foreach (InventoryFolderBase folder in folders)
             {
-                this.PurgeFolderInternal(folder, timeStamp);
+                this.PurgeFolderInternal(folder);
             }
         }
 
@@ -915,240 +910,139 @@ namespace Halcyon.Data.Inventory.Spensa
             return false;
         }
 
-        /// <summary>
-        /// Retrieves a set of items in the same folder. This should be efficient compared to
-        /// retrieving each item separately regardless of parent. This will be mostly used
-        /// for gestures which are usually all in the same folder anyways
-        /// </summary>
-        /// <param name="folderId"></param>
-        /// <param name="itemIds"></param>
-        /// <returns></returns>
-        private List<InventoryItemBase> GetItemsInSameFolder(UUID folderId, IEnumerable<UUID> itemIds, bool throwOnItemMissing)
+        public class ItemRow
         {
-            List<InventoryItemBase> retItems = new List<InventoryItemBase>();
-            /*
-            foreach (ColumnOrSuperColumn superCol in itemCols)
-            {
-                if (throwOnItemMissing && itemCols.Count != pred.Column_names.Count)
-                {
-                    throw new InventoryObjectMissingException("One or more items requested could not be found");
-                }
+            // OwnerID UUID, ParentID UUID, ItemID UUID, Name text, InvType int, Creator UUID, Description text, 
+            // NextPermissions int, CurrentPermissions int, BasePermissions int, EveryonePermissions int, GroupPermissions int, 
+            // AssetType int, AssetID UUID, GroupID UUID, GroupOwned boolean, SalePrice int, SaleType int, Flags int, CreationDate date
+            public Guid ownerid;
+            public Guid parentid;
+            public Guid itemid;
+            public string name;
+            public Guid creator;
+            public string desc;
+            public int nextperms;
+            public int currentperms;
+            public int baseperms;
+            public int everyoneperms;
+            public int groupperms;
+            public int invtype;
+            public int assettype;
+            public Guid assetid;
+            public Guid groupid;
+            public bool groupowned;
+            public bool containsmultiple;
+            public int saleprice;
+            public int saletype;
+            public int flags;
+            public int creationdate;
+        }
 
-                Guid itemId = ByteEncoderHelper.GuidEncoder.FromByteArray(superCol.Super_column.Name);
-                InventoryItemBase item = this.DecodeInventoryItem(superCol.Super_column.Columns, itemId, folderId.Guid);
-                retItems.Add(item);
+
+        private InventoryItemBase ItemRowToItem(UUID itemId, ItemRow itemRow)
+        {
+            var item = new InventoryItemBase(itemId, new UUID(itemRow.ownerid));
+
+            item.ID = itemId;
+            item.AssetID = new UUID(itemRow.assetid);
+            item.AssetType = itemRow.assettype;
+            item.BasePermissions = (uint)itemRow.baseperms;
+            item.CurrentPermissions = (uint)itemRow.currentperms;
+            item.NextPermissions = (uint)itemRow.nextperms;
+            item.GroupPermissions = (uint)itemRow.groupperms;
+            item.EveryonePermissions = (uint)itemRow.everyoneperms;
+            item.CreationDate = itemRow.creationdate;
+            item.CreatorIdAsUuid = new UUID(itemRow.creator);
+            item.CreatorId = itemRow.creator.ToString();
+            item.Description = itemRow.desc;
+            item.Flags = (uint)itemRow.flags;
+            item.Folder = new UUID(itemRow.parentid);
+            item.GroupID = new UUID(itemRow.groupid);
+            item.GroupOwned = itemRow.groupowned;
+            item.InvType = itemRow.invtype;
+            item.Name = String.Copy(itemRow.name);
+            item.Owner = new UUID(itemRow.ownerid);
+            item.SalePrice = itemRow.saleprice;
+            item.SaleType = (byte)itemRow.saletype;
+
+            return item;
+        }
+
+        private void AddItemRowsToIndex(List<InventoryItemBase> index, IEnumerable<ItemRow> itemRows)
+        {
+            foreach (var itemRow in itemRows)
+            {
+                var item = ItemRowToItem(new UUID(itemRow.itemid), itemRow);
+                index.Add(item);
             }
-            */
-            return retItems;
         }
 
-        private InventoryItemBase DecodeInventoryItem(Row itemCols, Guid itemId, Guid folderId)
+        public InventoryItemBase GetItem(UUID itemId)
         {
-            Dictionary<string, Object> itemPropsMap = new Dictionary<string, Object>(); // this.IndexColumnsByUTF8Name(itemCols);
-
-            return DecodeInventoryItemFromIndexedCols(itemId, folderId, itemPropsMap);
-        }
-
-        private static InventoryItemBase DecodeInventoryItemFromIndexedCols(Guid itemId, Guid folderId, Dictionary<string, Object> itemPropsMap)
-        {
-            InventoryItemBase retItem = new InventoryItemBase
-            {
-                /*
-                AssetID = new UUID(ByteEncoderHelper.GuidEncoder.FromByteArray(itemPropsMap["asset_id"].Value)),
-                AssetType = ByteEncoderHelper.LittleEndianInt32Encoder.FromByteArray(itemPropsMap["asset_type"].Value),
-                BasePermissions = (uint)ByteEncoderHelper.LittleEndianInt32Encoder.FromByteArray(itemPropsMap["base_permissions"].Value),
-                CreationDate = ByteEncoderHelper.LittleEndianInt32Encoder.FromByteArray(itemPropsMap["creation_date"].Value),
-                CreatorId = new UUID(ByteEncoderHelper.GuidEncoder.FromByteArray(itemPropsMap["creator_id"].Value)).ToString(),
-                CurrentPermissions = unchecked((uint)ByteEncoderHelper.LittleEndianInt32Encoder.FromByteArray(itemPropsMap["current_permissions"].Value)),
-                Description = ByteEncoderHelper.UTF8Encoder.FromByteArray(itemPropsMap["description"].Value),
-                EveryOnePermissions = unchecked((uint)ByteEncoderHelper.LittleEndianInt32Encoder.FromByteArray(itemPropsMap["everyone_permissions"].Value)),
-                Flags = unchecked((uint)ByteEncoderHelper.LittleEndianInt32Encoder.FromByteArray(itemPropsMap["flags"].Value)),
-                Folder = new UUID(folderId),
-                GroupID = new UUID(ByteEncoderHelper.GuidEncoder.FromByteArray(itemPropsMap["group_id"].Value)),
-                GroupOwned = itemPropsMap["group_owned"].Value[0] == 0 ? false : true,
-                GroupPermissions = unchecked((uint)ByteEncoderHelper.LittleEndianInt32Encoder.FromByteArray(itemPropsMap["group_permissions"].Value)),
-                ID = new UUID(itemId),
-                InvType = ByteEncoderHelper.LittleEndianInt32Encoder.FromByteArray(itemPropsMap["inventory_type"].Value),
-                Name = ByteEncoderHelper.UTF8Encoder.FromByteArray(itemPropsMap["name"].Value),
-                NextPermissions = unchecked((uint)ByteEncoderHelper.LittleEndianInt32Encoder.FromByteArray(itemPropsMap["next_permissions"].Value)),
-                Owner = new UUID(ByteEncoderHelper.GuidEncoder.FromByteArray(itemPropsMap["owner_id"].Value)),
-                SalePrice = ByteEncoderHelper.LittleEndianInt32Encoder.FromByteArray(itemPropsMap["sale_price"].Value),
-                SaleType = itemPropsMap["sale_type"].Value[0]
-                */
-            };
-
-            return retItem;
-        }
-
-        public InventoryItemBase GetItem(UUID itemId, UUID parentFolderHint)
-        {
-            //Retrieving an item requires a lookup of the parent folder followed by 
-            //a retrieval of the item. This was a consious decision made since the 
-            //inventory item data currently takes up the most space and a
-            //duplication of this data to prevent the index lookup 
-            //would be expensive in terms of space required
-
             try
             {
-                Guid parentId;
-                
-                if (parentFolderHint != UUID.Zero)
-                {
-                    parentId = parentFolderHint.Guid;
-                }
-                else
-                {
-                    parentId = FindItemParentFolderId(itemId);
-                }
-
-                if (parentId == Guid.Empty)
-                {
-                    throw new InventoryObjectMissingException(String.Format("Item with ID {0} could not be found", itemId), "Item was not found in the index");
-                }
-
-                //try to retrieve the item. note that even though we have an index there is a chance we will
-                //not have the item data due to a race condition between index mutation and item mutation
-
-                /*
-                object itemDataObj =
-                    _cluster.Execute(new ExecutionBlock(delegate(Apache.Cassandra.Cassandra.Client client)
-                    {
-                        return client.get_slice(folderIdBytes, columnParent, pred, DEFAULT_CONSISTENCY_LEVEL);
-
-                    }), KEYSPACE);
-
-                List<ColumnOrSuperColumn> itemCols = (List<ColumnOrSuperColumn>)itemDataObj;
-
-                if (itemCols.Count == 0)
-                {
-                    throw new InventoryObjectMissingException(String.Format("Item with ID {0} could not be found", itemId), "Item was not found in its folder");
-                }
-                */
-
-                //////////////////TODO////////////////
-                Row row = new Row();
-                InventoryItemBase item = this.DecodeInventoryItem(row, itemId.Guid, parentId);
-
-                return item;
-            }
-            catch (InventoryStorageException)
-            {
-                throw;
+                IMapper mapper = new Mapper(_session);
+                ItemRow itemRow = mapper.SingleOrDefault<ItemRow>(
+                        $"SELECT * FROM {KEYSPACE}.{ITEMS} WHERE itemid=?", itemId.Guid);
+                if (itemRow == null) return null;
+                _log.Info($"[GetFolderAttributes]: returning [{itemRow.itemid}] ({itemRow.invtype}) {itemRow.name}");
+                return ItemRowToItem(itemId, itemRow);
             }
             catch (Exception e)
             {
-                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa]: Unable to retrieve item {0}: {1}", itemId, e);
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa]: Unable to retrieve folder skeleton: {0}", e);
                 throw new InventoryStorageException(e.Message, e);
             }
         }
 
-        public List<InventoryItemBase> GetItems(IEnumerable<UUID> itemIds, bool throwOnNotFound)
-        {
-            // Dictionary<UUID, List<UUID>> folderItemMapping = this.FindItemParentFolderIds(itemIds);
-
-            List<InventoryItemBase> foundItems = new List<InventoryItemBase>();
-            return foundItems;
-        }
-
         public Guid FindItemParentFolderId(UUID itemId)
         {
-            /*
-            byte[] itemIdArray = ByteEncoderHelper.GuidEncoder.ToByteArray(itemId.Guid);
-
-            ICluster cluster = AquilesHelper.RetrieveCluster(_clusterName);
-
-            object val = 
-                cluster.Execute(new ExecutionBlock(delegate(Apache.Cassandra.Cassandra.Client client)
-                {
-                    return client.get_slice(itemIdArray, columnParent, pred, DEFAULT_CONSISTENCY_LEVEL);
-
-                }), KEYSPACE);
-
-            List<ColumnOrSuperColumn> indexCols = (List<ColumnOrSuperColumn>)val;
-
-            //no index means the item doesnt exist
-            if (indexCols.Count == 0)
+            try
+            {
+                InventoryItemBase item = GetItem(itemId);
+                return item.Folder.Guid;
+            }
+            catch (Exception)
             {
                 return Guid.Empty;
             }
-
-            var indexedColsByName = this.IndexColumnsByUTF8Name(indexCols);
-
-            return ByteEncoderHelper.GuidEncoder.FromByteArray(indexedColsByName["parent"].Value);
-            */
-            return Guid.Empty;
         }
-
-        /*
-        /// <summary>
-        /// Returns a dictionary of parents with a list of items Dictionary[FolderID, List[Items]] 
-        /// </summary>
-        /// <param name="itemIds"></param>
-        /// <returns></returns>
-        public Dictionary<UUID, List<UUID>> FindItemParentFolderIds(IEnumerable<UUID> itemIds)
-        {
-            ColumnParent columnParent = new ColumnParent();
-            columnParent.Column_family = ITEMPARENTS_CF;
-
-            SlicePredicate pred = new SlicePredicate();
-            pred.Column_names = new List<byte[]>();
-            pred.Column_names.Add(ByteEncoderHelper.UTF8Encoder.ToByteArray("parent"));
-
-            List<byte[]> allItemIdBytes = new List<byte[]>();
-            foreach (UUID id in itemIds)
-            {
-                allItemIdBytes.Add(ByteEncoderHelper.GuidEncoder.ToByteArray(id.Guid));
-            }
-
-            ICluster cluster = AquilesHelper.RetrieveCluster(_clusterName);
-
-            object val =
-                cluster.Execute(new ExecutionBlock(delegate(Apache.Cassandra.Cassandra.Client client)
-                {
-                    return client.multiget_slice(allItemIdBytes, columnParent, pred, DEFAULT_CONSISTENCY_LEVEL);
-
-                }), KEYSPACE);
-
-            Dictionary<byte[], List<ColumnOrSuperColumn>> itemParentCols = (Dictionary<byte[], List<ColumnOrSuperColumn>>)val;
-            Dictionary<UUID, List<UUID>> retParents = new Dictionary<UUID, List<UUID>>();
-
-            foreach (KeyValuePair<byte[], List<ColumnOrSuperColumn>> kvp in itemParentCols)
-            {
-                if (kvp.Value.Count == 1)
-                {
-                    Column col = kvp.Value[0].Column;
-
-                    UUID parentId = new UUID(ByteEncoderHelper.GuidEncoder.FromByteArray(col.Value));
-
-                    if (!retParents.ContainsKey(parentId))
-                    {
-                        retParents.Add(parentId, new List<UUID>());
-                    }
-
-                    retParents[parentId].Add(new UUID(ByteEncoderHelper.GuidEncoder.FromByteArray(kvp.Key)));
-                }
-            }
-
-            return retParents;
-        }
-        */
 
         public void CreateItem(InventoryItemBase item)
         {
-            long timeStamp = Util.UnixTimeSinceEpochInMicroseconds();
-
             CheckAndFixItemParentFolder(item);
+
+            _log.Info($"[CreateItem]: Creating '{item.Name}' ({item.InvType}) [{item.Folder}]");
+
+            var pq1 = _session.Prepare($"INSERT INTO {KEYSPACE}.{ITEMS} (OwnerID,ParentID,ItemID,Name,InvType,Creator,Description,"
+                + "NextPermissions,CurrentPermissions,BasePermissions,EveryonePermissions,GroupPermissions,"
+                + "AssetType,AssetID,GroupID,GroupOwned,SalePrice,SaleType,Flags,CreationDate)"
+                + "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) IF NOT EXISTS");
+            var q1 = pq1.Bind(item.Owner.Guid, item.Folder.Guid, item.ID.Guid, item.Name, item.InvType, item.CreatorIdAsUuid.Guid, item.Description,
+                        (int)item.NextPermissions, (int)item.CurrentPermissions, (int)item.BasePermissions, (int)item.EveryonePermissions, (int)item.GroupPermissions,
+                        item.AssetType, item.AssetID.Guid, item.GroupID.Guid, item.GroupOwned, item.SalePrice, (int)item.SaleType, (int)item.Flags, item.CreationDate);
+
+            var pq2 = _session.Prepare($"INSERT INTO {KEYSPACE}.{SUBITEMS} (OwnerID,ParentID,ItemID,Name,InvType,Creator,Description,"
+                + "NextPermissions,CurrentPermissions,BasePermissions,EveryonePermissions,GroupPermissions,"
+                + "AssetType,AssetID,GroupID,GroupOwned,SalePrice,SaleType,Flags,CreationDate)"
+                + "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) IF NOT EXISTS");
+            var q2 = pq2.Bind(item.Owner.Guid, item.Folder.Guid, item.ID.Guid, item.Name, item.InvType, item.CreatorIdAsUuid.Guid, item.Description,
+                        (int)item.NextPermissions, (int)item.CurrentPermissions, (int)item.BasePermissions, (int)item.EveryonePermissions, (int)item.GroupPermissions,
+                        item.AssetType, item.AssetID.Guid, item.GroupID.Guid, item.GroupOwned, item.SalePrice, (int)item.SaleType, (int)item.Flags, item.CreationDate);
+
+            var pq3 = _session.Prepare($"UPDATE {KEYSPACE}.{FOLDERVERSIONS} SET Version = Version + 1 WHERE FolderID =?");
+            var q3 = pq3.Bind(item.Folder.Guid);
 
             try
             {
-                //////////////////TODO////////////////
-                // CreateItemInternal(item, timeStamp);
+                _doAsync3(q1, q2, q3);
+                _log.InfoFormat("[CreateItem]: User {0} inserted item {1} [{2}] under [{3}]", item.Owner, item.Name, item.ID, item.Folder);
             }
             catch (Exception e)
             {
                 _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa]: Exception caught while creating item {0} for {1}: {2}",
                     item.ID, item.Owner, e);
-                throw new InventoryStorageException("Could not create item " + item.ID.ToString()+ e.Message, e);
+                throw new InventoryStorageException("Could not create item " + item.ID.ToString() + e.Message, e);
             }
         }
 
@@ -1163,14 +1057,12 @@ namespace Halcyon.Data.Inventory.Spensa
 
         public void SaveItem(InventoryItemBase item)
         {
-            long timeStamp = Util.UnixTimeSinceEpochInMicroseconds();
-
             CheckAndFixItemParentFolder(item);
 
             try
             {
                 //////////////////TODO////////////////
-                // SaveItemInternal(item, timeStamp);
+                // SaveItemInternal(item);
             }
             catch (Exception e)
             {
@@ -1183,8 +1075,6 @@ namespace Halcyon.Data.Inventory.Spensa
 
         public void MoveItem(InventoryItemBase item, InventoryFolderBase parentFolder)
         {
-            long timeStamp = Util.UnixTimeSinceEpochInMicroseconds();
-
             if (parentFolder.ID == UUID.Zero)
             {
                 throw new InventoryStorageException("Not moving item to new folder. Destination folder has ID UUID.Zero");
@@ -1202,7 +1092,7 @@ namespace Halcyon.Data.Inventory.Spensa
                 }
 
                 //////////////////TODO////////////////
-                // MoveItemInternal(item, parentFolder.ID, timeStamp);
+                // MoveItemInternal(item, parentFolder.ID);
             }
             catch (Exception e)
             {
@@ -1214,12 +1104,10 @@ namespace Halcyon.Data.Inventory.Spensa
 
         public UUID SendItemToTrash(InventoryItemBase item, UUID trashFolderHint)
         {
-            long timeStamp = Util.UnixTimeSinceEpochInMicroseconds();
-
             try
             {
                 //////////////////TODO////////////////
-                return UUID.Zero;   // SendItemToTrashInternal(item, trashFolderHint, timeStamp);
+                return UUID.Zero;   // SendItemToTrashInternal(item, trashFolderHint);
             }
             catch (Exception e)
             {
@@ -1231,8 +1119,6 @@ namespace Halcyon.Data.Inventory.Spensa
 
         public void PurgeItem(InventoryItemBase item)
         {
-            long timeStamp = Util.UnixTimeSinceEpochInMicroseconds();
-
             try
             {
                 string invType;
@@ -1246,7 +1132,7 @@ namespace Halcyon.Data.Inventory.Spensa
 
                 _log.WarnFormat("[Halcyon.Data.Inventory.Spensa]: Purge of {0} id={1} asset={2} '{3}' for user={4}", invType, item.ID, item.AssetID, item.Name, item.Owner);
                 //////////////////TODO////////////////
-                // PurgeItemInternal(item, timeStamp);
+                // PurgeItemInternal(item);
             }
             catch (Exception e)
             {
@@ -1258,12 +1144,10 @@ namespace Halcyon.Data.Inventory.Spensa
 
         public void PurgeItems(IEnumerable<InventoryItemBase> items)
         {
-            long timeStamp = Util.UnixTimeSinceEpochInMicroseconds();
-
             try
             {
                 //////////////////TODO////////////////
-                // PurgeItemsInternal(items, timeStamp);
+                // PurgeItemsInternal(items);
             }
             catch (Exception e)
             {
@@ -1274,13 +1158,11 @@ namespace Halcyon.Data.Inventory.Spensa
 
         public void ActivateGestures(UUID userId, IEnumerable<UUID> itemIds)
         {
-            long timeStamp = Util.UnixTimeSinceEpochInMicroseconds();
-
             //failed gesture de/activation is not really fatal nor do we want to retry
             //so we don't bother to run it through the delayed mutation manager
             try
             {
-                // ActivateGesturesInternal(userId, itemIds, timeStamp);
+                // ActivateGesturesInternal(userId, itemIds);
             }
             catch (Exception e)
             {
@@ -1293,13 +1175,11 @@ namespace Halcyon.Data.Inventory.Spensa
 
         public void DeactivateGestures(UUID userId, IEnumerable<UUID> itemIds)
         {
-            long timeStamp = Util.UnixTimeSinceEpochInMicroseconds();
-
             //failed gesture de/activation is not really fatal nor do we want to retry
             //so we don't bother to run it through the delayed mutation manager
             try
             {
-                // DeactivateGesturesInternal(userId, itemIds, timeStamp);
+                // DeactivateGesturesInternal(userId, itemIds);
             }
             catch (Exception e)
             {
@@ -1331,11 +1211,6 @@ namespace Halcyon.Data.Inventory.Spensa
                 throw new InventoryStorageException(e.Message, e);
             }
         }
-
-        private void RemoveFromIndex(Guid userId, Guid folderId, long timeStamp)
-        {
-        }
-
         #endregion
         
     }

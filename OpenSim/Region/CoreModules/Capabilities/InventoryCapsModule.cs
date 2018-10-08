@@ -639,7 +639,7 @@ namespace OpenSim.Region.CoreModules.Capabilities
                 item.BasePermissions = (uint)(PermissionMask.All | PermissionMask.Export);
                 item.CurrentPermissions = (uint)(PermissionMask.All | PermissionMask.Export);
                 item.GroupPermissions = (uint)groupPerm;
-                item.EveryOnePermissions = (uint)everyonePerm;
+                item.EveryonePermissions = (uint)everyonePerm;
                 item.NextPermissions = (uint)nextOwnerPerm;
 
                 m_Scene.AddInventoryItem(m_Caps.AgentID, item);
@@ -703,7 +703,7 @@ namespace OpenSim.Region.CoreModules.Capabilities
                             BasePermissions = (uint)(PermissionMask.All | PermissionMask.Export),
                             CurrentPermissions = (uint)(PermissionMask.All | PermissionMask.Export),
                             GroupPermissions = (uint)PermissionMask.None,
-                            EveryOnePermissions = (uint)PermissionMask.None,
+                            EveryonePermissions = (uint)PermissionMask.None,
                             NextPermissions =  (uint)PermissionMask.All
                         };
 
@@ -1364,7 +1364,7 @@ namespace OpenSim.Region.CoreModules.Capabilities
                     // else its in inventory directly
                     else
                     {
-                        notecardItem = inventoryService.GetItem(notecardID, UUID.Zero);
+                        notecardItem = inventoryService.GetItem(notecardID);
                     }
 
                     if ((notecardItem != null) && (notecardItem.Owner == m_agentID))
@@ -1398,7 +1398,7 @@ namespace OpenSim.Region.CoreModules.Capabilities
                                     item.BasePermissions = (uint)(PermissionMask.All | PermissionMask.Export);
                                     item.CurrentPermissions = (uint)(PermissionMask.All | PermissionMask.Export);
                                     item.GroupPermissions = (uint)PermissionMask.None;
-                                    item.EveryOnePermissions = (uint)PermissionMask.None;
+                                    item.EveryonePermissions = (uint)PermissionMask.None;
                                     item.NextPermissions = (uint)PermissionMask.All;
                                     break;
                                 }
@@ -1499,7 +1499,7 @@ namespace OpenSim.Region.CoreModules.Capabilities
                 llsdItem.permissions = new LLSDPermissions();
                 llsdItem.permissions.creator_id = invItem.CreatorIdAsUuid;
                 llsdItem.permissions.base_mask = (int)invItem.CurrentPermissions;
-                llsdItem.permissions.everyone_mask = (int)invItem.EveryOnePermissions;
+                llsdItem.permissions.everyone_mask = (int)invItem.EveryonePermissions;
                 llsdItem.permissions.group_id = invItem.GroupID;
                 llsdItem.permissions.group_mask = (int)invItem.GroupPermissions;
                 llsdItem.permissions.is_owner_group = invItem.GroupOwned;

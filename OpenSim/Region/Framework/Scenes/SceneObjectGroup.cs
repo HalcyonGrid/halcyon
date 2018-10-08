@@ -4499,7 +4499,7 @@ namespace OpenSim.Region.Framework.Scenes
                 newItem.BasePermissions = eperms & this.RootPart.NextOwnerMask;
                 newItem.CurrentPermissions = eperms & nperms;
                 newItem.NextPermissions = eperms & nperms;
-                newItem.EveryOnePermissions = 0;
+                newItem.EveryonePermissions = 0;
                 newItem.GroupPermissions = 0;
             }
             else
@@ -4507,7 +4507,7 @@ namespace OpenSim.Region.Framework.Scenes
                 newItem.BasePermissions = eperms;
                 newItem.CurrentPermissions = eperms;
                 newItem.NextPermissions = eperms & nperms;
-                newItem.EveryOnePermissions = eperms & this.RootPart.EveryoneMask;
+                newItem.EveryonePermissions = eperms & this.RootPart.EveryoneMask;
                 newItem.GroupPermissions = eperms & this.RootPart.GroupMask;
             }
 

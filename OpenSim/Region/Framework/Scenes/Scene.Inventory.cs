@@ -361,7 +361,7 @@ namespace OpenSim.Region.Framework.Scenes
 
         bool ChangingInventoryItemPerms(InventoryItemBase itemOrig, InventoryItemBase itemUpd)
         {
-            if (itemOrig.EveryOnePermissions != itemUpd.EveryOnePermissions)
+            if (itemOrig.EveryonePermissions != itemUpd.EveryonePermissions)
                 return true;
             if (itemOrig.GroupPermissions != itemUpd.GroupPermissions)
                 return true;
@@ -491,10 +491,10 @@ namespace OpenSim.Region.Framework.Scenes
             item.Description = itemUpd.Description;
 
             // Limit perms updates to base permissions (0 means no change?)
-            if (itemUpd.EveryOnePermissions == 0)
-                itemUpd.EveryOnePermissions = item.EveryOnePermissions;
+            if (itemUpd.EveryonePermissions == 0)
+                itemUpd.EveryonePermissions = item.EveryonePermissions;
             else
-                itemUpd.EveryOnePermissions &= item.BasePermissions;
+                itemUpd.EveryonePermissions &= item.BasePermissions;
             if (itemUpd.GroupPermissions == 0)
                 itemUpd.GroupPermissions &= item.GroupPermissions;
             else
@@ -524,7 +524,7 @@ namespace OpenSim.Region.Framework.Scenes
                 }
 
                 // Perform the actual permissions update now.
-                item.EveryOnePermissions = itemUpd.EveryOnePermissions;
+                item.EveryonePermissions = itemUpd.EveryonePermissions;
                 item.GroupPermissions = itemUpd.GroupPermissions;
                 item.NextPermissions = itemUpd.NextPermissions;
                 if (item.InvType == (int)InventoryType.Object)
@@ -700,7 +700,7 @@ namespace OpenSim.Region.Framework.Scenes
                 // on a transferbase is limited to the next perms
                 itemCopy.BasePermissions = item.BasePermissions & item.NextPermissions;
                 itemCopy.NextPermissions = item.NextPermissions;
-                itemCopy.EveryOnePermissions = 0;
+                itemCopy.EveryonePermissions = 0;
                 itemCopy.GroupPermissions = 0;
 
                 // Apply next perms to the inventory item copy
@@ -723,14 +723,14 @@ namespace OpenSim.Region.Framework.Scenes
 
             // Copy the remaining perms from the existing item to the new one
             itemCopy.NextPermissions = item.NextPermissions;
-            itemCopy.EveryOnePermissions = item.EveryOnePermissions;
+            itemCopy.EveryonePermissions = item.EveryonePermissions;
             itemCopy.GroupPermissions = item.GroupPermissions;
             itemCopy.GroupID = item.GroupID;
 
             // On a transfer, clear group/everyone perms
             if (isOwnerTransfer)
             {
-                itemCopy.EveryOnePermissions = 0;
+                itemCopy.EveryonePermissions = 0;
                 itemCopy.GroupPermissions = 0;
                 itemCopy.GroupID = UUID.Zero;
             }
@@ -743,7 +743,7 @@ namespace OpenSim.Region.Framework.Scenes
                 // on a transferbase is limited to the next perms
                 itemCopy.BasePermissions = item.BasePermissions & item.NextPermissions;
                 itemCopy.NextPermissions = item.NextPermissions;
-                itemCopy.EveryOnePermissions = 0;
+                itemCopy.EveryonePermissions = 0;
                 itemCopy.GroupPermissions = 0;
 
                 // Apply next perms to the inventory item copy
@@ -766,7 +766,7 @@ namespace OpenSim.Region.Framework.Scenes
 
             // Copy the remaining perms from the existing item to the new one
             itemCopy.NextPermissions = item.NextPermissions;
-            itemCopy.EveryOnePermissions = 0;
+            itemCopy.EveryonePermissions = 0;
             itemCopy.GroupPermissions = item.GroupPermissions;
             itemCopy.GroupID = item.GroupID;
 
@@ -1032,13 +1032,13 @@ namespace OpenSim.Region.Framework.Scenes
             {
                 CreateNewInventoryItem(
                     remoteClient, newFolderID, newName, item.Flags, callbackID, item.AssetID, (AssetType)item.AssetType, item.Description, (sbyte)item.InvType,
-                    item.BasePermissions, item.CurrentPermissions, item.EveryOnePermissions, item.NextPermissions, item.GroupPermissions, Util.UnixTimeSinceEpoch(), item.CreatorId.ToString());
+                    item.BasePermissions, item.CurrentPermissions, item.EveryonePermissions, item.NextPermissions, item.GroupPermissions, Util.UnixTimeSinceEpoch(), item.CreatorId.ToString());
             }
             else
             {
                 CreateNewInventoryItem(
                     remoteClient, newFolderID, newName, item.Flags, callbackID, item.AssetID, (AssetType)item.AssetType, item.Description, (sbyte)item.InvType,
-                    item.NextPermissions, item.NextPermissions, item.EveryOnePermissions & item.NextPermissions, item.NextPermissions, item.GroupPermissions, Util.UnixTimeSinceEpoch(), item.CreatorId.ToString());
+                    item.NextPermissions, item.NextPermissions, item.EveryonePermissions & item.NextPermissions, item.NextPermissions, item.GroupPermissions, Util.UnixTimeSinceEpoch(), item.CreatorId.ToString());
             }
         }
 
@@ -1222,7 +1222,7 @@ namespace OpenSim.Region.Framework.Scenes
                 item.Folder = folderID;
                 item.CurrentPermissions = currentMask;
                 item.NextPermissions = nextOwnerMask;
-                item.EveryOnePermissions = everyoneMask;
+                item.EveryonePermissions = everyoneMask;
                 item.GroupPermissions = groupMask;
                 item.BasePermissions = baseMask;
                 item.CreationDate = creationDate;
@@ -2183,7 +2183,7 @@ namespace OpenSim.Region.Framework.Scenes
                 taskItem.CreatorID = itemBase.CreatorIdAsUuid;
                 taskItem.BasePermissions = itemBase.BasePermissions;
                 taskItem.CurrentPermissions = itemBase.CurrentPermissions;
-                taskItem.EveryonePermissions = itemBase.EveryOnePermissions;
+                taskItem.EveryonePermissions = itemBase.EveryonePermissions;
                 taskItem.GroupPermissions = itemBase.GroupPermissions;
                 taskItem.NextPermissions = itemBase.NextPermissions;
                 taskItem.GroupID = itemBase.GroupID;
@@ -3526,7 +3526,7 @@ namespace OpenSim.Region.Framework.Scenes
                     {    // enforce slam bit, apply item perms to the group parts
                         foreach (SceneObjectPart part in partList)
                         {
-                            part.EveryoneMask = item.EveryOnePermissions;
+                            part.EveryoneMask = item.EveryonePermissions;
                             part.NextOwnerMask = item.NextPermissions;
                             part.GroupMask = 0; // DO NOT propagate here
                         }
@@ -3548,7 +3548,7 @@ namespace OpenSim.Region.Framework.Scenes
                 }
                 else if (((itemPermissions.CurrentPermissions & ScenePermBits.SLAM) != 0) && (!attachment)) // Slam!
                 {
-                    part.EveryoneMask = itemPermissions.EveryOnePermissions;
+                    part.EveryoneMask = itemPermissions.EveryonePermissions;
                     part.NextOwnerMask = itemPermissions.NextPermissions;
 
                     part.GroupMask = 0; // DO NOT propagate here

@@ -44,7 +44,7 @@ namespace OpenSim.Framework
         public UUID ItemId;
         public uint BasePermissions;
         public uint NextPermissions;
-        public uint EveryOnePermissions;
+        public uint EveryonePermissions;
         public uint GroupPermissions;
         public uint CurrentPermissions;
 
@@ -57,7 +57,7 @@ namespace OpenSim.Framework
         {
             other.BasePermissions = this.BasePermissions;
             other.NextPermissions = this.NextPermissions;
-            other.EveryOnePermissions = this.EveryOnePermissions;
+            other.EveryonePermissions = this.EveryonePermissions;
             other.GroupPermissions = this.GroupPermissions;
             other.CurrentPermissions = this.CurrentPermissions;
         }
@@ -80,7 +80,7 @@ namespace OpenSim.Framework
             resultPermissions.BasePermissions = (uint)(PermissionMask.All | PermissionMask.Export);
             resultPermissions.CurrentPermissions = (uint)(PermissionMask.All | PermissionMask.Export);
             resultPermissions.GroupPermissions = (uint)PermissionMask.All;
-            resultPermissions.EveryOnePermissions = (uint)(PermissionMask.All | PermissionMask.Export);
+            resultPermissions.EveryonePermissions = (uint)(PermissionMask.All | PermissionMask.Export);
             resultPermissions.NextPermissions = (uint)(PermissionMask.All | PermissionMask.Export);
 
             //we want to grab the minimum permissions for each object for each permission class
@@ -89,14 +89,14 @@ namespace OpenSim.Framework
                 resultPermissions.BasePermissions &= permBlock.BasePermissions;
                 resultPermissions.CurrentPermissions &= permBlock.CurrentPermissions;
                 resultPermissions.GroupPermissions &= permBlock.GroupPermissions;
-                resultPermissions.EveryOnePermissions &= permBlock.EveryOnePermissions;
+                resultPermissions.EveryonePermissions &= permBlock.EveryonePermissions;
                 resultPermissions.NextPermissions &= permBlock.NextPermissions;
             }
 
             // Now don't let any of these exceed the calculated BasePermissions.
             resultPermissions.CurrentPermissions &= resultPermissions.BasePermissions;
             resultPermissions.GroupPermissions &= resultPermissions.BasePermissions;
-            resultPermissions.EveryOnePermissions &= resultPermissions.BasePermissions;
+            resultPermissions.EveryonePermissions &= resultPermissions.BasePermissions;
             resultPermissions.NextPermissions &= resultPermissions.BasePermissions;
 
             return resultPermissions;
@@ -107,7 +107,7 @@ namespace OpenSim.Framework
             ItemPermissionBlock newBlock = new ItemPermissionBlock();
             newBlock.BasePermissions = other.BasePermissions;
             newBlock.NextPermissions = other.NextPermissions;
-            newBlock.EveryOnePermissions = other.EveryOnePermissions;
+            newBlock.EveryonePermissions = other.EveryonePermissions;
             newBlock.GroupPermissions = other.GroupPermissions;
             newBlock.CurrentPermissions = other.CurrentPermissions;
 

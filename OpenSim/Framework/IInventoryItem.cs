@@ -41,7 +41,7 @@ namespace OpenSim.Framework
         OpenMetaverse.UUID Folder { get; }
 
         uint BasePermissions { get; }
-        uint EveryOnePermissions { get; }
+        uint EveryonePermissions { get; }
         uint NextPermissions { get; }
         uint GroupPermissions { get; }
         uint CurrentPermissions { get; }

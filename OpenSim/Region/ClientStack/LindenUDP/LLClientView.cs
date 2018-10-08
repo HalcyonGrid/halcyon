@@ -2145,7 +2145,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                 newBlock.BaseMask = basemask;
                 newBlock.OwnerMask = basemask & item.CurrentPermissions;
                 newBlock.GroupMask = basemask & item.GroupPermissions;
-                newBlock.EveryoneMask = basemask & item.EveryOnePermissions;
+                newBlock.EveryoneMask = basemask & item.EveryonePermissions;
                 newBlock.NextOwnerMask = basemask & item.NextPermissions;
             }
             else
@@ -2154,7 +2154,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                 newBlock.BaseMask = item.BasePermissions;
                 newBlock.OwnerMask = item.CurrentPermissions;
                 newBlock.GroupMask = item.GroupPermissions;
-                newBlock.EveryoneMask = item.EveryOnePermissions;
+                newBlock.EveryoneMask = item.EveryonePermissions;
                 newBlock.NextOwnerMask = item.NextPermissions;
             }
 
@@ -2276,7 +2276,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                 inventoryReply.InventoryData[0].BaseMask = basemask;
                 inventoryReply.InventoryData[0].OwnerMask = basemask & item.CurrentPermissions;
                 inventoryReply.InventoryData[0].GroupMask = basemask & item.GroupPermissions;
-                inventoryReply.InventoryData[0].EveryoneMask = basemask & item.EveryOnePermissions;
+                inventoryReply.InventoryData[0].EveryoneMask = basemask & item.EveryonePermissions;
                 inventoryReply.InventoryData[0].NextOwnerMask = basemask & item.NextPermissions;
             }
             else
@@ -2285,7 +2285,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                 inventoryReply.InventoryData[0].BaseMask = item.BasePermissions;
                 inventoryReply.InventoryData[0].OwnerMask = item.CurrentPermissions;
                 inventoryReply.InventoryData[0].GroupMask = item.GroupPermissions;
-                inventoryReply.InventoryData[0].EveryoneMask = item.EveryOnePermissions;
+                inventoryReply.InventoryData[0].EveryoneMask = item.EveryonePermissions;
                 inventoryReply.InventoryData[0].NextOwnerMask = item.NextPermissions;
             }
 
@@ -2462,7 +2462,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                 itemBlock.BaseMask = basemask;
                 itemBlock.OwnerMask = basemask & item.CurrentPermissions;
                 itemBlock.GroupMask = basemask & item.GroupPermissions;
-                itemBlock.EveryoneMask = basemask & item.EveryOnePermissions;
+                itemBlock.EveryoneMask = basemask & item.EveryonePermissions;
                 itemBlock.NextOwnerMask = basemask & item.NextPermissions;
             }
             else
@@ -2471,7 +2471,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                 itemBlock.BaseMask = item.BasePermissions;
                 itemBlock.OwnerMask = item.CurrentPermissions;
                 itemBlock.GroupMask = item.GroupPermissions;
-                itemBlock.EveryoneMask = item.EveryOnePermissions;
+                itemBlock.EveryoneMask = item.EveryonePermissions;
                 itemBlock.NextOwnerMask = item.NextPermissions;
             }
 
@@ -2551,7 +2551,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                 bulkUpdate.ItemData[0].BaseMask = basemask;
                 bulkUpdate.ItemData[0].OwnerMask = basemask & item.CurrentPermissions;
                 bulkUpdate.ItemData[0].GroupMask = basemask & item.GroupPermissions;
-                bulkUpdate.ItemData[0].EveryoneMask = basemask & item.EveryOnePermissions;
+                bulkUpdate.ItemData[0].EveryoneMask = basemask & item.EveryonePermissions;
                 bulkUpdate.ItemData[0].NextOwnerMask = basemask & item.NextPermissions;
 
             }
@@ -2561,7 +2561,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                 bulkUpdate.ItemData[0].GroupMask = item.GroupPermissions;
                 bulkUpdate.ItemData[0].OwnerMask = item.CurrentPermissions;
                 bulkUpdate.ItemData[0].BaseMask = item.BasePermissions;
-                bulkUpdate.ItemData[0].EveryoneMask = item.EveryOnePermissions;
+                bulkUpdate.ItemData[0].EveryoneMask = item.EveryonePermissions;
                 bulkUpdate.ItemData[0].NextOwnerMask = item.NextPermissions;
             }
 
@@ -2603,7 +2603,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             InventoryReply.InventoryData[0].CreatorID = Item.CreatorIdAsUuid;
             InventoryReply.InventoryData[0].BaseMask = Item.BasePermissions;
             InventoryReply.InventoryData[0].Description = Util.StringToBytes256(Item.Description);
-            InventoryReply.InventoryData[0].EveryoneMask = Item.EveryOnePermissions;
+            InventoryReply.InventoryData[0].EveryoneMask = Item.EveryonePermissions;
             InventoryReply.InventoryData[0].FolderID = Item.Folder;
             InventoryReply.InventoryData[0].InvType = (sbyte)Item.InvType;
             InventoryReply.InventoryData[0].Name = Util.StringToBytes256(Item.Name);
@@ -9931,7 +9931,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
                         itemUpd.GroupOwned = inventoryItemUpdate.InventoryData[i].GroupOwned;
                         itemUpd.GroupPermissions = inventoryItemUpdate.InventoryData[i].GroupMask;
                         itemUpd.NextPermissions = inventoryItemUpdate.InventoryData[i].NextOwnerMask;
-                        itemUpd.EveryOnePermissions = inventoryItemUpdate.InventoryData[i].EveryoneMask;
+                        itemUpd.EveryonePermissions = inventoryItemUpdate.InventoryData[i].EveryoneMask;
                         itemUpd.CreationDate = inventoryItemUpdate.InventoryData[i].CreationDate;
                         itemUpd.Folder = inventoryItemUpdate.InventoryData[i].FolderID;
                         itemUpd.InvType = inventoryItemUpdate.InventoryData[i].InvType;
@@ -10303,7 +10303,7 @@ namespace OpenSim.Region.ClientStack.LindenUDP
             item.Owner = rezScriptx.InventoryBlock.OwnerID;
             item.BasePermissions = rezScriptx.InventoryBlock.BaseMask;
             item.CurrentPermissions = rezScriptx.InventoryBlock.OwnerMask;
-            item.EveryOnePermissions = rezScriptx.InventoryBlock.EveryoneMask;
+            item.EveryonePermissions = rezScriptx.InventoryBlock.EveryoneMask;
             item.NextPermissions = rezScriptx.InventoryBlock.NextOwnerMask;
             item.GroupPermissions = rezScriptx.InventoryBlock.GroupMask;
             item.GroupOwned = rezScriptx.InventoryBlock.GroupOwned;

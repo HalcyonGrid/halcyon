@@ -346,7 +346,7 @@ namespace Halcyon.Data.Inventory.Spensa
                 item.CurrentPermissions = (uint)reader["inventoryCurrentPermissions"];
                 item.InvType = (int)reader["invType"];
                 item.BasePermissions = (uint)reader["inventoryBasePermissions"];
-                item.EveryOnePermissions = (uint)reader["inventoryEveryOnePermissions"];
+                item.EveryonePermissions = (uint)reader["inventoryEveryonePermissions"];
                 item.GroupPermissions = (uint)reader["inventoryGroupPermissions"];
                 item.SalePrice = (int)reader["salePrice"];
                 item.SaleType = Convert.ToByte(reader["saleType"]);
@@ -472,12 +472,12 @@ namespace Halcyon.Data.Inventory.Spensa
             string sql =
                 "REPLACE INTO inventoryitems (inventoryID, assetID, assetType, parentFolderID, avatarID, inventoryName"
                     + ", inventoryDescription, inventoryNextPermissions, inventoryCurrentPermissions, invType"
-                    + ", creatorID, inventoryBasePermissions, inventoryEveryOnePermissions, inventoryGroupPermissions, salePrice, saleType"
+                    + ", creatorID, inventoryBasePermissions, inventoryEveryonePermissions, inventoryGroupPermissions, salePrice, saleType"
                     + ", creationDate, groupID, groupOwned, flags) VALUES ";
             sql +=
                 "(?inventoryID, ?assetID, ?assetType, ?parentFolderID, ?avatarID, ?inventoryName, ?inventoryDescription"
                     + ", ?inventoryNextPermissions, ?inventoryCurrentPermissions, ?invType, ?creatorID"
-                    + ", ?inventoryBasePermissions, ?inventoryEveryOnePermissions, ?inventoryGroupPermissions, ?salePrice, ?saleType, ?creationDate"
+                    + ", ?inventoryBasePermissions, ?inventoryEveryonePermissions, ?inventoryGroupPermissions, ?salePrice, ?saleType, ?creationDate"
                     + ", ?groupID, ?groupOwned, ?flags)";
 
             try
@@ -497,7 +497,7 @@ namespace Halcyon.Data.Inventory.Spensa
                     parms.Add("?invType", item.InvType);
                     parms.Add("?creatorID", item.CreatorId);
                     parms.Add("?inventoryBasePermissions", item.BasePermissions);
-                    parms.Add("?inventoryEveryOnePermissions", item.EveryOnePermissions);
+                    parms.Add("?inventoryEveryonePermissions", item.EveryonePermissions);
                     parms.Add("?inventoryGroupPermissions", item.GroupPermissions);
                     parms.Add("?salePrice", item.SalePrice);
                     parms.Add("?saleType", item.SaleType);
@@ -537,7 +537,7 @@ namespace Halcyon.Data.Inventory.Spensa
                 "UPDATE inventoryitems SET assetID=?assetID, assetType=?assetType, parentFolderID=?parentFolderID, "
                  + "avatarID=?avatarID, inventoryName=?inventoryName, inventoryDescription=?inventoryDescription, inventoryNextPermissions=?inventoryNextPermissions, "
                 + "inventoryCurrentPermissions=?inventoryCurrentPermissions, invType=?invType, creatorID=?creatorID, inventoryBasePermissions=?inventoryBasePermissions, "
-                + "inventoryEveryOnePermissions=?inventoryEveryOnePermissions, inventoryGroupPermissions=?inventoryGroupPermissions, salePrice=?salePrice, "
+                + "inventoryEveryonePermissions=?inventoryEveryonePermissions, inventoryGroupPermissions=?inventoryGroupPermissions, salePrice=?salePrice, "
                 + "saleType=?saleType, creationDate=?creationDate, groupID=?groupID, groupOwned=?groupOwned, flags=?flags "
                 + "WHERE inventoryID=?inventoryID";
 
@@ -558,7 +558,7 @@ namespace Halcyon.Data.Inventory.Spensa
                     parms.Add("?invType", item.InvType);
                     parms.Add("?creatorID", item.CreatorId);
                     parms.Add("?inventoryBasePermissions", item.BasePermissions);
-                    parms.Add("?inventoryEveryOnePermissions", item.EveryOnePermissions);
+                    parms.Add("?inventoryEveryonePermissions", item.EveryonePermissions);
                     parms.Add("?inventoryGroupPermissions", item.GroupPermissions);
                     parms.Add("?salePrice", item.SalePrice);
                     parms.Add("?saleType", item.SaleType);

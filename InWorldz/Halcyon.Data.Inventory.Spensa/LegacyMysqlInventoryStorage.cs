@@ -197,7 +197,7 @@ namespace Halcyon.Data.Inventory.Spensa
             }
         }
 
-        public InventoryItemBase GetItem(UUID itemId, UUID parentFolderHint)
+        public InventoryItemBase GetItem(UUID itemId)
         {
             return _impl.getInventoryItem(itemId);
         }
