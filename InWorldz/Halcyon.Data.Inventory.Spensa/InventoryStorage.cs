@@ -77,7 +77,7 @@ namespace Halcyon.Data.Inventory.Spensa
         private const string SUBITEMS = "Subitems";
         private const string USERACTIVEGESTURES = "UserActiveGestures";
 
-        private const ConsistencyLevel DEFAULT_CONSISTENCY_LEVEL = ConsistencyLevel.Quorum;
+        private const ConsistencyLevel DEFAULT_CONSISTENCY_LEVEL = ConsistencyLevel.Any; // ConsistencyLevel.Quorum;
 
         private static readonly ILog _log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
 
@@ -114,6 +114,21 @@ namespace Halcyon.Data.Inventory.Spensa
         }
 
         public enum SubfoldersMode { SingleFolder, Recursive };
+
+        private void DumpFolder(string prefix, InventoryFolderBase folder)
+        {
+            _log.Info($"[{prefix}]: returning [{folder.ID}] ({folder.Type}) {folder.Name}");
+        }
+
+        private void DumpSubfolder(string prefix, InventorySubFolderBase folder)
+        {
+            _log.Info($"[{prefix}]: returning [{folder.ID}] ({folder.Type}) {folder.Name}");
+        }
+
+        private void DumpItem(string prefix, InventoryItemBase item)
+        {
+            _log.Info($"[{prefix}]: returning [{item.ID}] ({item.InvType}) {item.Name}");
+        }
 
         private void AddRowsToIndex(List<InventoryFolderBase> index, IEnumerable<FolderRow> folderRows)
         {
@@ -169,14 +184,14 @@ namespace Halcyon.Data.Inventory.Spensa
             return index.First();
         }
 
-        void AddSubfoldersToIndex(List<InventoryFolderBase> index, UUID ownerId, UUID parentId, SubfoldersMode mode)
+        private void AddSubfoldersToIndex(List<InventoryFolderBase> index, UUID ownerId, UUID parentId, SubfoldersMode mode)
         {
             List<InventoryFolderBase> folderIndex = GetFolderIndexByParent(ownerId, parentId);
             foreach (var folder in folderIndex)
             {
+                index.Add(folder);
                 if (mode == SubfoldersMode.Recursive)
                 {
-                    index.Add(folder);
                     AddSubfoldersToIndex(index, ownerId, folder.ID, mode);
                 }
             }
@@ -196,6 +211,11 @@ namespace Halcyon.Data.Inventory.Spensa
 
             // Fetch subfolders recursively.
             AddSubfoldersToIndex(index, ownerId, rootFolder.ID, SubfoldersMode.Recursive);
+
+            foreach (var folder in index)
+            {
+                DumpFolder($"GetInventorySkeleton", folder);
+            }
 
             return index;
         }
@@ -222,7 +242,31 @@ namespace Halcyon.Data.Inventory.Spensa
                 throw new InventoryStorageException(e.Message, e);
             }
 
+            DumpFolder($"GetSubfolders", folder);
+            foreach (var subfolder in folder.SubFolders)
+            {
+                DumpSubfolder("GetSubfolders-child", subfolder);
+            }
+
             return folder;
+        }
+
+        private InventoryFolderBase _GetFolderOnly(UUID folderId)
+        {
+            try
+            {
+                IMapper mapper = new Mapper(_session);
+                FolderRow folderRow = mapper.Single<FolderRow>(
+                        $"SELECT * FROM {KEYSPACE}.{FOLDERS} WHERE folderid=?", folderId.Guid);
+                if (folderRow == null) return null;
+                ushort version = 1;
+                return new InventoryFolderBase(folderId, folderRow.name, new UUID(folderRow.ownerid), folderRow.type, new UUID(folderRow.parentid), version);
+            }
+            catch (Exception e)
+            {
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa]: Unable to retrieve folder skeleton: {0}", e);
+                throw new InventoryStorageException(e.Message, e);
+            }
         }
 
         /// <summary>
@@ -234,13 +278,12 @@ namespace Halcyon.Data.Inventory.Spensa
         {
             try
             {
-                IMapper mapper = new Mapper(_session);
-                FolderRow folderRow = mapper.SingleOrDefault<FolderRow>(
-                        $"SELECT * FROM {KEYSPACE}.{FOLDERS} WHERE folderid=?", folderId.Guid);
-                if (folderRow == null) return null;
-                _log.Info($"[GetFolderAttributes]: returning [{folderRow.folderid}] ({folderRow.type}) {folderRow.name}");
-                ushort version = 1;
-                return new InventoryFolderBase(folderId, folderRow.name, new UUID(folderRow.ownerid), folderRow.type, new UUID(folderRow.parentid), version);
+                InventoryFolderBase folder = _GetFolderOnly(folderId);
+                if (folder == null)
+                    _log.Warn($"[GetFolderAttributes]: returning [{folderId}] not found.");
+                else
+                    _log.Info($"[GetFolderAttributes]: returning [{folder.ID}] ({folder.Type}) {folder.Name}");
+                return folder;
             }
             catch (Exception e)
             {
@@ -261,8 +304,21 @@ namespace Halcyon.Data.Inventory.Spensa
 
             try
             {
-                folder = GetFolderAttributes(folderId);
+                folder = _GetFolderOnly(folderId);
+                DumpFolder("GetFolder", folder);
+
                 GetSubfolders(folder);
+                foreach (var subfolder in folder.SubFolders)
+                {
+                    DumpSubfolder("GetFolder-subfolder", subfolder);
+                }
+
+                GetSubitems(folder);
+                foreach (var item in folder.Items)
+                {
+                    DumpItem("GetFolder-subitem", item);
+                }
+
             }
             catch (Exception e)
             {
@@ -361,7 +417,7 @@ namespace Halcyon.Data.Inventory.Spensa
                 InventoryFolderBase update = GetFolderAttributes(folder.ID);
                 update.Name = String.Copy(folder.Name);
                 update.Type = folder.Type;
-                var pq1 = _session.Prepare($"UPDATE INTO {KEYSPACE}.{FOLDERS} SET Name=?, Type=? WHERE FolderID=?");
+                var pq1 = _session.Prepare($"UPDATE {KEYSPACE}.{FOLDERS} SET Name=?, Type=? WHERE FolderID=?");
                 var q1 = pq1.Bind(update.Name, (int)update.Type, update.ID.Guid);
                 var pq2 = _session.Prepare($"UPDATE {KEYSPACE}.{FOLDERVERSIONS} SET Version = Version + 1 WHERE FolderID =?");
                 var q2 = pq2.Bind(folder.ID.Guid);
@@ -954,7 +1010,7 @@ namespace Halcyon.Data.Inventory.Spensa
             item.CreationDate = itemRow.creationdate;
             item.CreatorIdAsUuid = new UUID(itemRow.creator);
             item.CreatorId = itemRow.creator.ToString();
-            item.Description = itemRow.desc;
+            item.Description = (itemRow.desc == null) ? String.Empty : String.Copy(itemRow.desc);
             item.Flags = (uint)itemRow.flags;
             item.Folder = new UUID(itemRow.parentid);
             item.GroupID = new UUID(itemRow.groupid);
@@ -982,17 +1038,44 @@ namespace Halcyon.Data.Inventory.Spensa
             try
             {
                 IMapper mapper = new Mapper(_session);
-                ItemRow itemRow = mapper.SingleOrDefault<ItemRow>(
+                // ItemRow itemRow = mapper.Single<ItemRow>(
+                IEnumerable < ItemRow> itemRows = mapper.Fetch<ItemRow>(
                         $"SELECT * FROM {KEYSPACE}.{ITEMS} WHERE itemid=?", itemId.Guid);
-                if (itemRow == null) return null;
-                _log.Info($"[GetFolderAttributes]: returning [{itemRow.itemid}] ({itemRow.invtype}) {itemRow.name}");
+                var matches = itemRows.Count<ItemRow>();
+                if (matches < 1)
+                    throw new InventoryStorageException($"Item ID {itemId} not found.");
+                if (matches > 1)
+                    throw new InventoryStorageException($"Item ID {itemId} is not unique. Found {matches} matches.");
+                var itemRow = itemRows.First<ItemRow>();
+                _log.Info($"[GetItem]: returning [{itemRow.itemid}] ({itemRow.invtype}) {itemRow.name}");
                 return ItemRowToItem(itemId, itemRow);
             }
             catch (Exception e)
             {
-                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa]: Unable to retrieve folder skeleton: {0}", e);
+                _log.ErrorFormat($"[Halcyon.Data.Inventory.Spensa]: Unable to retrieve item [{itemId}]", e);
                 throw new InventoryStorageException(e.Message, e);
             }
+        }
+
+        public InventoryFolderBase GetSubitems(InventoryFolderBase folder)
+        {
+            if (folder.ID == UUID.Zero)
+                throw new InventorySecurityException("Not returning items for folder with ID UUID.Zero");
+
+            try
+            {
+                IMapper mapper = new Mapper(_session);
+                IEnumerable<ItemRow> itemRows = mapper.Fetch<ItemRow>(
+                        $"SELECT * FROM {KEYSPACE}.{SUBITEMS} WHERE ownerID = ? AND parentID=?", folder.Owner.Guid, folder.ParentID.Guid);
+                AddItemRowsToIndex(folder.Items, itemRows);
+            }
+            catch (Exception e)
+            {
+                _log.ErrorFormat("[Halcyon.Data.Inventory.Spensa]: Unable to retrieve folder subfolders {0}: {1}", folder.ID, e);
+                throw new InventoryStorageException(e.Message, e);
+            }
+
+            return folder;
         }
 
         public Guid FindItemParentFolderId(UUID itemId)
