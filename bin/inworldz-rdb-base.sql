@@ -211,6 +211,7 @@ CREATE TABLE `prims` (
   `ServerWeight` double DEFAULT '0',
   `StreamingCost` double DEFAULT '0',
   `KeyframeAnimation` blob,
+  `ServerFlags` int(11) NOT NULL DEFAULT '0',
   PRIMARY KEY (`UUID`),
   KEY `prims_regionuuid` (`RegionUUID`),
   KEY `prims_scenegroupid` (`SceneGroupID`)
