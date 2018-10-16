@@ -564,52 +564,6 @@ CREATE TABLE `inventoryitems` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table structure for table `land`
---
-
-DROP TABLE IF EXISTS `land`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `land` (
-  `UUID` varchar(255) NOT NULL,
-  `RegionUUID` varchar(255) DEFAULT NULL,
-  `LocalLandID` int(11) DEFAULT NULL,
-  `Bitmap` longblob,
-  `Name` varchar(255) DEFAULT NULL,
-  `Description` varchar(254) DEFAULT NULL,
-  `OwnerUUID` varchar(255) DEFAULT NULL,
-  `IsGroupOwned` int(11) DEFAULT NULL,
-  `Area` int(11) DEFAULT NULL,
-  `AuctionID` int(11) DEFAULT NULL,
-  `Category` int(11) DEFAULT NULL,
-  `ClaimDate` int(11) DEFAULT NULL,
-  `ClaimPrice` int(11) DEFAULT NULL,
-  `GroupUUID` varchar(255) DEFAULT NULL,
-  `SalePrice` int(11) DEFAULT NULL,
-  `LandStatus` int(11) DEFAULT NULL,
-  `LandFlags` int(11) DEFAULT NULL,
-  `LandingType` int(11) DEFAULT NULL,
-  `MediaAutoScale` int(11) DEFAULT NULL,
-  `MediaTextureUUID` varchar(255) DEFAULT NULL,
-  `MediaURL` varchar(255) DEFAULT NULL,
-  `MusicURL` varchar(255) DEFAULT NULL,
-  `PassHours` float DEFAULT NULL,
-  `PassPrice` int(11) DEFAULT NULL,
-  `SnapshotUUID` varchar(255) DEFAULT NULL,
-  `UserLocationX` float DEFAULT NULL,
-  `UserLocationY` float DEFAULT NULL,
-  `UserLocationZ` float DEFAULT NULL,
-  `UserLookAtX` float DEFAULT NULL,
-  `UserLookAtY` float DEFAULT NULL,
-  `UserLookAtZ` float DEFAULT NULL,
-  `AuthbuyerID` varchar(36) NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000',
-  `OtherCleanTime` int(11) NOT NULL DEFAULT '0',
-  `Dwell` int(11) NOT NULL DEFAULT '0',
-  PRIMARY KEY (`UUID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
 -- Table structure for table `landaccesslist`
 --
 
@@ -910,56 +864,6 @@ CREATE TABLE `regions` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table structure for table `regionsettings`
---
-
-DROP TABLE IF EXISTS `regionsettings`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `regionsettings` (
-  `regionUUID` char(36) NOT NULL,
-  `block_terraform` int(11) NOT NULL,
-  `block_fly` int(11) NOT NULL,
-  `allow_damage` int(11) NOT NULL,
-  `restrict_pushing` int(11) NOT NULL,
-  `allow_land_resell` int(11) NOT NULL,
-  `allow_land_join_divide` int(11) NOT NULL,
-  `block_show_in_search` int(11) NOT NULL,
-  `agent_limit` int(11) NOT NULL,
-  `object_bonus` double NOT NULL,
-  `maturity` int(11) NOT NULL,
-  `disable_scripts` int(11) NOT NULL,
-  `disable_collisions` int(11) NOT NULL,
-  `disable_physics` int(11) NOT NULL,
-  `terrain_texture_1` char(36) NOT NULL,
-  `terrain_texture_2` char(36) NOT NULL,
-  `terrain_texture_3` char(36) NOT NULL,
-  `terrain_texture_4` char(36) NOT NULL,
-  `elevation_1_nw` double NOT NULL,
-  `elevation_2_nw` double NOT NULL,
-  `elevation_1_ne` double NOT NULL,
-  `elevation_2_ne` double NOT NULL,
-  `elevation_1_se` double NOT NULL,
-  `elevation_2_se` double NOT NULL,
-  `elevation_1_sw` double NOT NULL,
-  `elevation_2_sw` double NOT NULL,
-  `water_height` double NOT NULL,
-  `terrain_raise_limit` double NOT NULL,
-  `terrain_lower_limit` double NOT NULL,
-  `use_estate_sun` int(11) NOT NULL,
-  `fixed_sun` int(11) NOT NULL,
-  `sun_position` double NOT NULL,
-  `covenant` char(36) DEFAULT NULL,
-  `Sandbox` tinyint(4) NOT NULL,
-  `sunvectorx` double NOT NULL DEFAULT '0',
-  `sunvectory` double NOT NULL DEFAULT '0',
-  `sunvectorz` double NOT NULL DEFAULT '0',
-  `covenantTimeStamp` int(11) unsigned NOT NULL DEFAULT '1262307600',
-  PRIMARY KEY (`regionUUID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
 -- Table structure for table `telehubs`
 --
 
@@ -974,21 +878,6 @@ CREATE TABLE `telehubs` (
   `Spawns` char(255) NOT NULL,
   `Name` varchar(50) NOT NULL,
   PRIMARY KEY (`RegionID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `terrain`
---
-
-DROP TABLE IF EXISTS `terrain`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `terrain` (
-  `RegionUUID` varchar(255) NOT NULL DEFAULT '',
-  `Revision` int(11) DEFAULT NULL,
-  `Heightfield` longblob,
-  PRIMARY KEY (`RegionUUID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
