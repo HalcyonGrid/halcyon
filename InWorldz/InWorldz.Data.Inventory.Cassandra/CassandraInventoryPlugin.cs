@@ -51,19 +51,26 @@ namespace InWorldz.Data.Inventory.Cassandra
 
         public void Initialize(ConfigSettings settings)
         {
-            AquilesHelper.Initialize();
+            if (!settings.InventoryDisableCassandra)
+            {
+                AquilesHelper.Initialize();
+            }
+
             _storage = new InventoryStorage(settings.InventoryCluster);
 
-            _delayedMutationMgr = new DelayedMutationManager();
-            _delayedMutationMgr.Start();
-            _storage.DelayedMutationMgr = _delayedMutationMgr;
+            if (!settings.InventoryDisableCassandra)
+            {
+                _delayedMutationMgr = new DelayedMutationManager();
+                _delayedMutationMgr.Start();
+                _storage.DelayedMutationMgr = _delayedMutationMgr;
+            }
 
-            if (settings.InventoryMigrationActive)
+            if (settings.InventoryMigrationActive || settings.InventoryDisableCassandra)
             {
                 _legacyStorage = new LegacyMysqlInventoryStorage(settings.LegacyInventorySource);
             }
 
-            _storageSelector = new CassandraMigrationProviderSelector(settings.InventoryMigrationActive, settings.CoreConnectionString,
+            _storageSelector = new CassandraMigrationProviderSelector(settings.InventoryMigrationActive, settings.InventoryDisableCassandra, settings.CoreConnectionString,
                 _storage, _legacyStorage);
 
             ProviderRegistry.Instance.RegisterInterface<IInventoryProviderSelector>(_storageSelector);
