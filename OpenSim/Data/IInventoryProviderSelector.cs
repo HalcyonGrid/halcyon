@@ -28,10 +28,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using OpenMetaverse;
 
 namespace OpenSim.Data
@@ -43,6 +39,5 @@ namespace OpenSim.Data
 
         // For accessing specific group notice attachment storage providers
         ICheckedInventoryStorage GetGroupsProvider();
-        ICheckedInventoryStorage GetLegacyGroupsProvider();
     }
 }

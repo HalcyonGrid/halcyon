@@ -38,21 +38,21 @@ using OpenSim.Data;
 using OpenMetaverse;
 using OpenSim.Framework;
 
-namespace InWorldz.Data.Inventory.Cassandra
+namespace Halcyon.Data.Inventory.MySQL
 {
     /// <summary>
     /// IInventorystorage adapter to the old mysql inventory system
     /// </summary>
-    public class LegacyMysqlInventoryStorage : IInventoryStorage
+    public class MySqlInventoryStorage : IInventoryStorage
     {
         private static readonly ILog m_log
             = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
 
-        private LegacyMysqlStorageImpl _impl;
+        private MysqlStorageImpl _impl;
 
-        public LegacyMysqlInventoryStorage(string connStr)
+        public MySqlInventoryStorage(string connStr)
         {
-            _impl = new LegacyMysqlStorageImpl(connStr);
+            _impl = new MysqlStorageImpl(connStr);
         }
 
         public List<InventoryFolderBase> GetInventorySkeleton(UUID userId)
@@ -68,7 +68,7 @@ namespace InWorldz.Data.Inventory.Cassandra
             else
             {
                 // Handle a null here but throw the same exception Cassandra does.
-                throw new InventoryStorageException("[LegacyMysqlInventoryStorage] Unable to retrieve folder skeleton: root folder");
+                throw new InventoryStorageException("[MySqlInventoryStorage]: Unable to retrieve folder skeleton: root folder");
             }
 
             return retFolders;
@@ -119,14 +119,14 @@ namespace InWorldz.Data.Inventory.Cassandra
             // Don't do anything with a folder that wants to set its new parent to the same folder as its current parent.
             if (folder.ParentID == parentId)
             {
-                m_log.WarnFormat("[LegacyMysqlInventoryStorage] Refusing to move folder {0} to new parent {1} for {2}. The source and destination are the same", folder.ID, parentId, folder.Owner);
+                m_log.WarnFormat("[MySqlInventoryStorage]: Refusing to move folder {0} to new parent {1} for {2}. The source and destination are the same", folder.ID, parentId, folder.Owner);
                 return;
             }
 
             // Don't do anything with a folder that wants to set its new parent to UUID.Zero
             if (parentId == UUID.Zero)
             {
-                m_log.WarnFormat("[LegacyMysqlInventoryStorage] Refusing to move folder {0} to new parent {1} for {2}. New parent has ID UUID.Zero", folder.ID, parentId, folder.Owner);
+                m_log.WarnFormat("[MySqlInventoryStorage]: Refusing to move folder {0} to new parent {1} for {2}. New parent has ID UUID.Zero", folder.ID, parentId, folder.Owner);
                 return;
             }
 

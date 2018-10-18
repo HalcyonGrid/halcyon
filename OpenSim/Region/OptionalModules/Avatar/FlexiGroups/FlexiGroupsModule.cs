@@ -484,11 +484,11 @@ namespace OpenSim.Region.OptionalModules.Avatar.FlexiGroups
             return scene.CheckDeliverGroupItem(item, remoteClient.AgentId, groupId, null);
         }
 
-        private InventoryItemBase FindLegacyInventoryItem(UUID ownerId, UUID itemId)
+        private InventoryItemBase FindInventoryItem(UUID ownerId, UUID itemId)
         {
             try
             {
-                ICheckedInventoryStorage provider = ProviderRegistry.Instance.Get<IInventoryProviderSelector>().GetLegacyGroupsProvider();
+                ICheckedInventoryStorage provider = ProviderRegistry.Instance.Get<IInventoryProviderSelector>().GetGroupsProvider();
                 return provider.GetItem(ownerId, itemId, UUID.Zero);
             }
             catch (InventoryStorageException)
@@ -711,7 +711,7 @@ namespace OpenSim.Region.OptionalModules.Avatar.FlexiGroups
                 
                 InventoryItemBase groupItem = FetchGroupItem(groupId, itemId);
                 if (groupItem == null)  // For now support fallback to the legacy inventory system.
-                    groupItem = FindLegacyInventoryItem(groupId, itemId);
+                    groupItem = FindInventoryItem(groupId, itemId);
 
                 if (groupItem != null) {
                     InventoryItemBase deliveredItem = DeliverGroupInventory(remoteClient, groupId, groupItem);

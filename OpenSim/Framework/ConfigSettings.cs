@@ -212,7 +212,7 @@ namespace OpenSim.Framework
 
         public string InventoryPlugin;
         public string InventoryCluster;
-        public string LegacyInventorySource;
+        public string InventorySource;
         public bool InventoryMigrationActive;
         public bool InventoryDisableCassandra;
 
