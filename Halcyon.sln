@@ -2,13 +2,13 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Halcyon", "InWorldz\Halcyon\Halcyon.csproj", "{E586BF1E-0000-0000-0000-000000000000}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Halcyon.Data.Inventory.MySQL", "Halcyon\Halcyon.Data.Inventory.MySQL\Halcyon.Data.Inventory.MySQL.csproj", "{62DC97F5-0000-0000-0000-000000000000}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InWorldz.ApplicationPlugins", "InWorldz\InWorldz.ApplicationPlugins\InWorldz.ApplicationPlugins.csproj", "{8C26FC85-0000-0000-0000-000000000000}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InWorldz.Arbiter", "InWorldz\InWorldz.Arbiter\InWorldz.Arbiter.csproj", "{E1C1E370-0000-0000-0000-000000000000}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InWorldz.Data.Assets.Stratus", "InWorldz\InWorldz.Data.Assets.Stratus\InWorldz.Data.Assets.Stratus.csproj", "{6C18EAD6-0000-0000-0000-000000000000}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InWorldz.Data.Inventory.Cassandra", "InWorldz\InWorldz.Data.Inventory.Cassandra\InWorldz.Data.Inventory.Cassandra.csproj", "{62DC97F5-0000-0000-0000-000000000000}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InWorldz.JWT", "InWorldz\JWT\InWorldz.JWT.csproj", "{D4CA6D90-0000-0000-0000-000000000000}"
 EndProject

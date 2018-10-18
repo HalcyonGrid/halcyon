@@ -9,17 +9,16 @@
     </ApplicationIcon>
     <AssemblyKeyContainerName>
     </AssemblyKeyContainerName>
-    <AssemblyName>InWorldz.Data.Inventory.Cassandra</AssemblyName>
+    <AssemblyName>Halcyon.Data.Inventory.MySQL</AssemblyName>
     <DefaultClientScript>JScript</DefaultClientScript>
     <DefaultHTMLPageLayout>Grid</DefaultHTMLPageLayout>
     <DefaultTargetSchema>IE50</DefaultTargetSchema>
-    
     <TargetFrameworkVersion>v4.7.1</TargetFrameworkVersion>
     <OutputPath>../../bin/</OutputPath>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>
     </AppDesignerFolder>
-    <RootNamespace>InWorldz.Data.Inventory.Cassandra</RootNamespace>
+    <RootNamespace>Halcyon.Data.Inventory.MySQL</RootNamespace>
     <StartupObject>
     </StartupObject>
     <StartArguments>
@@ -72,16 +71,6 @@
     <PlatformTarget>x64</PlatformTarget>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Aquiles.Cassandra10">
-      <Name>Aquiles.Cassandra10</Name>
-      <HintPath>..\..\bin\Aquiles.Cassandra10.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="Aquiles.Core">
-      <Name>Aquiles.Core</Name>
-      <HintPath>..\..\bin\Aquiles.Core.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
     <Reference Include="C5">
       <Name>C5</Name>
       <HintPath>..\..\bin\C5.dll</HintPath>
@@ -191,48 +180,19 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="Resources\InWorldz.Data.Inventory.Cassandra.addin.xml">
+    <EmbeddedResource Include="Resources\Halcyon.Data.Inventory.MySQL.addin.xml">
     </EmbeddedResource>
-    <Compile Include="AquilesNullLogger.cs">
-      <SubType>Code</SubType>
-    </Compile>
     <Compile Include="ByteArrayValueComparer.cs">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="CassandraInventoryPlugin.cs">
+    <Compile Include="InventoryProviderSelector.cs" />
+    <Compile Include="MySqlInventoryPlugin.cs">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="CassandraMigrationProviderSelector.cs">
+    <Compile Include="MysqlInventoryStorage.cs">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="DelayedMutation.cs">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="DelayedMutationManager.cs">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="InventoryStorage.cs">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="LegacyMysqlInventoryStorage.cs">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="LegacyMysqlStorageImpl.cs">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="MigrationStatus.cs">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="MigrationStatusReader.cs">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="ParsedFolderData.cs">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="SubFolderData.cs">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="UnitTests.cs">
+    <Compile Include="MysqlStorageImpl.cs">
       <SubType>Code</SubType>
     </Compile>
   </ItemGroup>

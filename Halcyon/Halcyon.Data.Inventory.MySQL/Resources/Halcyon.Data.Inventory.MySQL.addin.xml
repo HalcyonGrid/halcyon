@@ -1,0 +1,13 @@
+<Addin id="Halcyon.Data.Inventory.MySQL" version="1.0">
+  <Runtime>
+      <Import assembly="Halcyon.Data.Inventory.MySQL.dll" />
+  </Runtime>
+  
+  <Dependencies>
+    <Addin id="OpenSim.Data" version="0.5" />  
+  </Dependencies>
+  
+  <Extension path = "/OpenSim/InventoryStorage">
+    <Plugin id="InventoryMySQL" provider="Halcyon.Data.Inventory.MySQL.dll" type="Halcyon.Data.Inventory.MySQL.MySqlInventoryPlugin" />
+  </Extension>
+</Addin>

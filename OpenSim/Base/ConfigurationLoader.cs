@@ -328,10 +328,9 @@ namespace OpenSim
             if (inventoryConfig != null)
             {
                 m_configSettings.InventoryPlugin = inventoryConfig.GetString("inventory_plugin");
-                m_configSettings.InventoryCluster = inventoryConfig.GetString("inventory_cluster");
-                m_configSettings.LegacyInventorySource = inventoryConfig.GetString("legacy_inventory_source");
-                m_configSettings.InventoryDisableCassandra = inventoryConfig.GetBoolean("legacy_inventory_only", true);
-                m_configSettings.InventoryMigrationActive = inventoryConfig.GetBoolean("migration_active");
+                m_configSettings.InventorySource = inventoryConfig.GetString("inventory_source", String.Empty);
+                if (m_configSettings.InventorySource == String.Empty)
+                    m_configSettings.InventorySource = inventoryConfig.GetString("legacy_inventory_source");
             }
             else
             {

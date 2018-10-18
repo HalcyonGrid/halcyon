@@ -32,49 +32,62 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using OpenSim.Framework.Communications;
+using OpenSim.Framework;
+using OpenSim.Data;
 using OpenMetaverse;
-using OpenSim.Data.SimpleDB;
-using System.Data;
 
-namespace InWorldz.Data.Inventory.Cassandra
+namespace Halcyon.Data.Inventory.MySQL
 {
-    /// <summary>
-    /// Checks the central database for the inventory migration status of the given user
-    /// </summary>
-    internal class MigrationStatusReader
+    public class MySqlInventoryPlugin : IInventoryStoragePlugin
     {
-        private string _coreConnStr;
-        private ConnectionFactory _connFactory;
+        private MySqlInventoryStorage _storage;
+        private InventoryProviderSelector _storageSelector;
 
-        public MigrationStatusReader(string coreConnStr)
+        #region IInventoryStoragePlugin Members
+
+        public void Initialize(ConfigSettings settings)
         {
-            _coreConnStr = coreConnStr;
-            _connFactory = new ConnectionFactory("MySQL", _coreConnStr);
+            _storage = new MySqlInventoryStorage(settings.InventorySource);
+
+            // ProviderRegistry.Instance.RegisterInterface<IInventoryStoragePlugin>(this);
+            _storageSelector = new InventoryProviderSelector(settings.CoreConnectionString, _storage);
+            ProviderRegistry.Instance.RegisterInterface<IInventoryProviderSelector>(_storageSelector);
         }
 
-        public MigrationStatus GetUserMigrationStatus(UUID userId)
+        public IInventoryStorage GetStorage()
         {
-            using (ISimpleDB conn = _connFactory.GetConnection())
-            {
-                const string query = "SELECT status FROM InventoryMigrationStatus WHERE user_id = ?userId";
-
-                Dictionary<string, object> parms = new Dictionary<string, object>();
-                parms.Add("?userId", userId);
-
-                using (IDataReader reader = conn.QueryAndUseReader(query, parms))
-                {
-                    if (reader.Read())
-                    {
-                        short status = Convert.ToInt16(reader["status"]);
-                        MigrationStatus retStatus = (MigrationStatus)status;
-                        return retStatus;
-                    }
-                    else
-                    {
-                        return MigrationStatus.Unmigrated;
-                    }
-                }
-            }
+            return _storage;
         }
+
+        #endregion
+
+        #region IPlugin Members
+
+        public string Version
+        {
+            get { return "1.0.0"; }
+        }
+
+        public string Name
+        {
+            get { return "Halcyon.Data.Inventory.MySQL";  }
+        }
+
+        public void Initialize()
+        {
+            
+        }
+
+        #endregion
+
+        #region IDisposable Members
+
+        public void Dispose()
+        {
+            
+        }
+
+        #endregion
     }
 }

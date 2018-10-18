@@ -31,45 +31,32 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
-namespace InWorldz.Data.Inventory.Cassandra
+namespace Halcyon.Data.Inventory.MySQL
 {
-    internal class DelayedMutation : IComparable<DelayedMutation>
+    internal class ByteArrayValueComparer : IEqualityComparer<byte[]>
     {
-        public delegate void DelayedMutationDelegate();
-
-        public string Identifier;
-        public DateTime ReadyOn;
-        public int RetryCount;
-
-        private DelayedMutationDelegate _delegate;
-
-        public int CompareTo(DelayedMutation other)
+        public bool Equals(byte[] left, byte[] right)
         {
-            if (ReadyOn < other.ReadyOn)
+            if (left == null || right == null)
             {
-                return -1;
+                return left == right;
             }
-            else if (ReadyOn > other.ReadyOn)
-            {
-                return 1;
-            }
-            else
-            {
-                return 0;
-            }
+            return left.SequenceEqual(right);
         }
 
-        public DelayedMutation(DelayedMutationDelegate mutDelegate, string identifier)
+        public int GetHashCode(byte[] key)
         {
-            _delegate = mutDelegate;
-            Identifier = identifier;
-        }
+            if (key == null)
+                throw new ArgumentNullException("key");
 
-        public void Execute()
-        {
-            _delegate();
+            int total = 0;
+            for (int i = 0; i < key.Length; i++)
+            {
+                total += key[i];
+            }
+
+            return total;
         }
-    }
+    } 
 }

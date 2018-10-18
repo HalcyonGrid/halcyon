@@ -34,12 +34,12 @@ using OpenSim.Framework;
 using OpenSim.Data.SimpleDB;
 using System.Data;
 
-namespace InWorldz.Data.Inventory.Cassandra
+namespace Halcyon.Data.Inventory.MySQL
 {
     /// <summary>
     /// A MySQL interface for the inventory server
     /// </summary>
-    public class LegacyMysqlStorageImpl
+    public class MysqlStorageImpl
     {
         private static readonly ILog m_log
             = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
@@ -48,7 +48,7 @@ namespace InWorldz.Data.Inventory.Cassandra
 
         private string _connectString;
 
-        public LegacyMysqlStorageImpl(string connStr)
+        public MysqlStorageImpl(string connStr)
         {
             _connectString = connStr;
             _connFactory = new ConnectionFactory("MySQL", _connectString);

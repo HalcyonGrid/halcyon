@@ -188,9 +188,9 @@ namespace OpenSim.Grid.UserServer
             OpenSim.Framework.ConfigSettings settings = new ConfigSettings();
             settings.InventoryPlugin = inventoryConfig.GetString("inventory_plugin");
             settings.InventoryCluster = inventoryConfig.GetString("inventory_cluster");
-            settings.LegacyInventorySource = inventoryConfig.GetString("legacy_inventory_source");
+            settings.InventorySource = inventoryConfig.GetString("legacy_inventory_source");
             settings.InventoryMigrationActive = inventoryConfig.GetBoolean("migration_active");
-            settings.LegacyInventorySource = inventoryConfig.GetString("legacy_inventory_source");
+            settings.InventorySource = inventoryConfig.GetString("legacy_inventory_source");
             settings.CoreConnectionString = startupConfig.GetString("core_connection_string");
 
             PluginLoader<IInventoryStoragePlugin> loader = new PluginLoader<IInventoryStoragePlugin>();

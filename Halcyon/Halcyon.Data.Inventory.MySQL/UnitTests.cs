@@ -36,17 +36,17 @@ using NUnit.Framework;
 using OpenSim.Framework;
 using OpenMetaverse;
 
-namespace InWorldz.Data.Inventory.Cassandra
+namespace Halcyon.Data.Inventory.MySQL
 {
     [TestFixture]
     class UnitTests
     {
-        private InventoryStorage _storage;
+        private MySqlInventoryStorage _storage;
 
         [SetUp]
         public void Setup()
         {
-            _storage = new InventoryStorage("inworldzbeta");
+            _storage = new MySqlInventoryStorage("Data Source=localhost;User=root;Password=secret");
         }
 
         [TestCase]
