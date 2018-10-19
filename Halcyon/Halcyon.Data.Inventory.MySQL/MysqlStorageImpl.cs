@@ -54,13 +54,19 @@ namespace Halcyon.Data.Inventory.MySQL
             _connFactory = new ConnectionFactory("MySQL", _connectString);
         }
 
-        public InventoryFolderBase findUserFolderForType(UUID userId, int typeId)
+        public InventoryFolderBase findUserFolderForType(UUID owner, int typeId)
         {
-            string query = "SELECT * FROM inventoryfolders WHERE agentID = ?agentId AND type = ?type;";
+            InventoryFolderBase rootFolder = getUserRootFolder(owner);
+            // m_log.InfoFormat("[Inventory]: Root folder is {0} '{1}'", rootFolder.ID, rootFolder.Name);
+            if (typeId == 8)    // by convention, this means root folder
+                return rootFolder;
+
+            string query = "SELECT * FROM inventoryfolders WHERE agentID = ?agentId AND type = ?type and parentFolderId = ?parent;";
 
             Dictionary<string, object> parms = new Dictionary<string, object>();
-            parms.Add("?agentId", userId);
+            parms.Add("?agentId", owner);
             parms.Add("?type", typeId);
+            parms.Add("?parent", rootFolder.ID);
 
             try
             {
@@ -71,10 +77,14 @@ namespace Halcyon.Data.Inventory.MySQL
                         if (reader.Read())
                         {
                             // A null item (because something went wrong) breaks everything in the folder
-                            return readInventoryFolder(reader);
+                            InventoryFolderBase folder = readInventoryFolder(reader);
+                            folder.Level = InventoryFolderBase.FolderLevel.TopLevel;
+                            // m_log.InfoFormat("[Inventory]: Folder for type {0} is {1} '{2}'", typeId, rootFolder.ID, rootFolder.Name);
+                            return folder;
                         }
                         else
                         {
+                            // m_log.InfoFormat("[Inventory]: Folder for type {0} not found.", typeId);
                             return null;
                         }
                     }
@@ -95,9 +105,43 @@ namespace Halcyon.Data.Inventory.MySQL
         /// <returns></returns>
         public InventoryFolderBase findUserTopLevelFolderFor(UUID owner, UUID folderID)
         {
-            // this is a stub, not supported in MySQL legacy storage
-            m_log.ErrorFormat("[MySQLInventoryData]: Inventory for user {0} needs to be migrated to Cassandra.", owner.ToString());
-            return null;
+            InventoryFolderBase rootFolder = getUserRootFolder(owner);
+            // m_log.InfoFormat("[Inventory]: Root folder is {0} '{1}'", rootFolder.ID, rootFolder.Name);
+
+            string query = "SELECT * FROM inventoryfolders WHERE agentID = ?agentId AND folderId = ?folderId AND parentFolderId = ?rootId;";
+
+            Dictionary<string, object> parms = new Dictionary<string, object>();
+            parms.Add("?agentId", owner);
+            parms.Add("?folderId", folderID);
+            parms.Add("?rootId", rootFolder.ID);
+
+            try
+            {
+                using (ISimpleDB conn = _connFactory.GetConnection())
+                {
+                    using (IDataReader reader = conn.QueryAndUseReader(query, parms))
+                    {
+                        if (reader.Read())
+                        {
+                            // A null item (because something went wrong) breaks everything in the folder
+                            InventoryFolderBase folder = readInventoryFolder(reader);
+                            folder.Level = InventoryFolderBase.FolderLevel.TopLevel;
+                            // m_log.InfoFormat("[Inventory]: Top-level folder is {0} '{1}'", rootFolder.ID, rootFolder.Name);
+                            return folder;
+                        }
+                        else
+                        {
+                            // m_log.InfoFormat("[Inventory]: No top-level folders.");
+                            return null;
+                        }
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                m_log.Error(e.ToString());
+                return null;
+            }
         }
 
         /// <summary>
@@ -255,7 +299,7 @@ namespace Halcyon.Data.Inventory.MySQL
                         {
                             rootFolder = items[0];
                         }
-
+                        rootFolder.Level = InventoryFolderBase.FolderLevel.Root;
                         return rootFolder;
                     }
                 }
@@ -276,6 +320,7 @@ namespace Halcyon.Data.Inventory.MySQL
         /// <returns>A list of inventory folders</returns>
         public List<InventoryFolderBase> getInventoryFolders(UUID parentID)
         {
+            // m_log.InfoFormat("[Inventory]: Folders under ID {0}:", parentID);
             try
             {
                 using (ISimpleDB conn = _connFactory.GetConnection())
@@ -290,7 +335,11 @@ namespace Halcyon.Data.Inventory.MySQL
                         List<InventoryFolderBase> items = new List<InventoryFolderBase>();
 
                         while (reader.Read())
-                            items.Add(readInventoryFolder(reader));
+                        {
+                            InventoryFolderBase folder = readInventoryFolder(reader);
+                            // m_log.InfoFormat("[Inventory]: Folder type {0} [{1}] '{2}'", folder.Type, folder.ID, folder.Name);
+                            items.Add(folder);
+                        }
 
                         return items;
                     }
