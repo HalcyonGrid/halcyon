@@ -186,12 +186,20 @@ namespace OpenSim.Grid.UserServer
             m_useJwt = jwtConfig?.GetBoolean("enabled") ?? false;
 
             OpenSim.Framework.ConfigSettings settings = new ConfigSettings();
-            settings.InventoryPlugin = inventoryConfig.GetString("inventory_plugin");
-            settings.InventoryCluster = inventoryConfig.GetString("inventory_cluster");
-            settings.InventorySource = inventoryConfig.GetString("legacy_inventory_source");
-            settings.InventoryMigrationActive = inventoryConfig.GetBoolean("migration_active");
-            settings.InventorySource = inventoryConfig.GetString("legacy_inventory_source");
             settings.CoreConnectionString = startupConfig.GetString("core_connection_string");
+
+            settings.InventoryPlugin = inventoryConfig.GetString("inventory_plugin", "Halycon.Data.Inventory.MySQL");
+            settings.InventorySource = inventoryConfig.GetString("legacy_inventory_source", "");
+            settings.InventorySource = inventoryConfig.GetString("inventory_source", settings.InventorySource);
+            settings.InventoryMigrationActive = inventoryConfig.GetBoolean("migration_active", false);
+            settings.InventoryCluster = inventoryConfig.GetString("inventory_cluster");
+
+            // Everything has defaults
+            settings.InventoryPlugin = inventoryConfig.GetString("inventory_plugin", "Halycon.Data.Inventory.MySQL");
+            settings.InventorySource = inventoryConfig.GetString("legacy_inventory_source", settings.CoreConnectionString);
+            settings.InventorySource = inventoryConfig.GetString("inventory_source", settings.InventorySource);
+            settings.InventoryMigrationActive = inventoryConfig.GetBoolean("migration_active", false);
+            settings.InventoryCluster = inventoryConfig.GetString("inventory_cluster", String.Empty);
 
             PluginLoader<IInventoryStoragePlugin> loader = new PluginLoader<IInventoryStoragePlugin>();
             loader.Add("/OpenSim/InventoryStorage", new PluginProviderFilter(settings.InventoryPlugin));

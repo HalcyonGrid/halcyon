@@ -325,19 +325,21 @@ namespace OpenSim
 
             m_networkServersInfo.loadFromConfiguration(m_config.Source);
 
+            m_configSettings.CoreConnectionString = startupConfig.GetString("core_connection_string");
+
             if (inventoryConfig != null)
             {
-                m_configSettings.InventoryPlugin = inventoryConfig.GetString("inventory_plugin");
-                m_configSettings.InventorySource = inventoryConfig.GetString("inventory_source", String.Empty);
-                if (m_configSettings.InventorySource == String.Empty)
-                    m_configSettings.InventorySource = inventoryConfig.GetString("legacy_inventory_source");
+                // Everything has defaults
+                m_configSettings.InventoryPlugin = inventoryConfig.GetString("inventory_plugin", "Halycon.Data.Inventory.MySQL");
+                m_configSettings.InventorySource = inventoryConfig.GetString("legacy_inventory_source", m_configSettings.CoreConnectionString);
+                m_configSettings.InventorySource = inventoryConfig.GetString("inventory_source", m_configSettings.InventorySource);
+                m_configSettings.InventoryMigrationActive = inventoryConfig.GetBoolean("migration_active", false);
+                m_configSettings.InventoryCluster = inventoryConfig.GetString("inventory_cluster", String.Empty);
             }
             else
             {
                 m_log.Warn("[INVENTORY] New style inventory configuration information not found");
             }
-
-            m_configSettings.CoreConnectionString = startupConfig.GetString("core_connection_string");
 
             m_configSettings.SettingsFile = m_config.Source.Configs;
         }
