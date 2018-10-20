@@ -52,6 +52,7 @@ namespace Halcyon.Data.Inventory.MySQL
 
         public MySqlInventoryStorage(string connStr)
         {
+            m_log.Warn($"[MySQL Inventory]: Connection is: '{connStr}");
             _impl = new MysqlStorageImpl(connStr);
         }
 
