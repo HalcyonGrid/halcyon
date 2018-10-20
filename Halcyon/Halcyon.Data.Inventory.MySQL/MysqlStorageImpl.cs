@@ -518,12 +518,12 @@ namespace Halcyon.Data.Inventory.MySQL
         /// <param name="item">The inventory item</param>
         public void addInventoryItem(InventoryItemBase item)
         {
-            string sql =
+            string query =
                 "REPLACE INTO inventoryitems (inventoryID, assetID, assetType, parentFolderID, avatarID, inventoryName"
                     + ", inventoryDescription, inventoryNextPermissions, inventoryCurrentPermissions, invType"
                     + ", creatorID, inventoryBasePermissions, inventoryEveryOnePermissions, inventoryGroupPermissions, salePrice, saleType"
                     + ", creationDate, groupID, groupOwned, flags) VALUES ";
-            sql +=
+            query +=
                 "(?inventoryID, ?assetID, ?assetType, ?parentFolderID, ?avatarID, ?inventoryName, ?inventoryDescription"
                     + ", ?inventoryNextPermissions, ?inventoryCurrentPermissions, ?invType, ?creatorID"
                     + ", ?inventoryBasePermissions, ?inventoryEveryOnePermissions, ?inventoryGroupPermissions, ?salePrice, ?saleType, ?creationDate"
@@ -555,7 +555,7 @@ namespace Halcyon.Data.Inventory.MySQL
                     parms.Add("?groupOwned", item.GroupOwned);
                     parms.Add("?flags", item.Flags);
 
-                    conn.QueryNoResults(sql, parms);
+                    conn.QueryNoResults(query, parms);
 
                     // Also increment the parent version number if not null.
                     this.IncrementSpecifiedFolderVersion(conn, item.Folder);
@@ -582,7 +582,7 @@ namespace Halcyon.Data.Inventory.MySQL
              * originally pointed back to addInventoryItem above.
             */
 
-            string sql =
+            string query =
                 "UPDATE inventoryitems SET assetID=?assetID, assetType=?assetType, parentFolderID=?parentFolderID, "
                  + "avatarID=?avatarID, inventoryName=?inventoryName, inventoryDescription=?inventoryDescription, inventoryNextPermissions=?inventoryNextPermissions, "
                 + "inventoryCurrentPermissions=?inventoryCurrentPermissions, invType=?invType, creatorID=?creatorID, inventoryBasePermissions=?inventoryBasePermissions, "
@@ -616,7 +616,7 @@ namespace Halcyon.Data.Inventory.MySQL
                     parms.Add("?groupOwned", item.GroupOwned);
                     parms.Add("?flags", item.Flags);
 
-                    conn.QueryNoResults(sql, parms);
+                    conn.QueryNoResults(query, parms);
 
                     // Also increment the parent version number if not null.
                     this.IncrementSpecifiedFolderVersion(conn, item.Folder);
@@ -677,9 +677,9 @@ namespace Halcyon.Data.Inventory.MySQL
                 return;
             }
 
-            string sql =
+            string query =
                 "REPLACE INTO inventoryfolders (folderID, agentID, parentFolderID, folderName, type, version) VALUES ";
-            sql += "(?folderID, ?agentID, ?parentFolderID, ?folderName, ?type, ?version)";
+            query += "(?folderID, ?agentID, ?parentFolderID, ?folderName, ?type, ?version)";
 
             try
             {
@@ -693,7 +693,7 @@ namespace Halcyon.Data.Inventory.MySQL
                     parms.Add("?type", (short)folder.Type);
                     parms.Add("?version", folder.Version);
 
-                    conn.QueryNoResults(sql, parms);
+                    conn.QueryNoResults(query, parms);
 
                     // Also increment the parent version number if not null.
                     this.IncrementSpecifiedFolderVersion(conn, folder.ParentID);
@@ -728,7 +728,7 @@ namespace Halcyon.Data.Inventory.MySQL
         /// <param name="folder">Folder to update</param>
         public void updateInventoryFolder(InventoryFolderBase folder)
         {
-            string sql =
+            string query =
                 "update inventoryfolders set folderName=?folderName where folderID=?folderID";
 
             try
@@ -739,7 +739,7 @@ namespace Halcyon.Data.Inventory.MySQL
                     parms.Add("?folderName", folder.Name);
                     parms.Add("?folderID", folder.ID.ToString());
 
-                    conn.QueryNoResults(sql, parms);
+                    conn.QueryNoResults(query, parms);
 
                     // Also increment the version number if not null.
                     this.IncrementSpecifiedFolderVersion(conn, folder.ID);
@@ -759,7 +759,7 @@ namespace Halcyon.Data.Inventory.MySQL
         /// <remarks>UPDATE inventoryfolders SET parentFolderID=?parentFolderID WHERE folderID=?folderID</remarks>
         public void moveInventoryFolder(InventoryFolderBase folder, UUID parentId)
         {
-            string sql = "UPDATE inventoryfolders SET parentFolderID=?parentFolderID WHERE folderID=?folderID";
+            string query = "UPDATE inventoryfolders SET parentFolderID=?parentFolderID WHERE folderID=?folderID";
 
             try
             {
@@ -769,7 +769,7 @@ namespace Halcyon.Data.Inventory.MySQL
                     parms.Add("?folderID", folder.ID.ToString());
                     parms.Add("?parentFolderID", parentId.ToString());
 
-                    conn.QueryNoResults(sql, parms);
+                    conn.QueryNoResults(query, parms);
 
                     folder.ParentID = parentId; // Only change if the above succeeded.
 
