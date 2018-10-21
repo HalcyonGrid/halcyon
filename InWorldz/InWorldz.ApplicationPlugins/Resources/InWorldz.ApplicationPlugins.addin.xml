@@ -1,0 +1,18 @@
+﻿<Addin id="InWorldz.ApplicationPlugins" version="0.1">
+  <Runtime>
+    <Import assembly="InWorldz.ApplicationPlugins.dll"/>
+  </Runtime>
+  <Dependencies>
+    <Addin id="OpenSim" version="0.5" />
+  </Dependencies>
+  <Extension path = "/OpenSim/Startup">
+    <Plugin id="InworldzChatLogMessageFileBackend" type="InWorldz.ApplicationPlugins.ChatLog.InworldzChatLogMessageFileBackend" />
+    <Plugin id="InworldzChatLogMessageCassandra12Backend" type="InWorldz.ApplicationPlugins.ChatLog.InworldzChatLogMessageCassandra12Backend" />
+  </Extension>
+  <Extension path = "/OpenSim/RegionModules">
+    <RegionModule id="InWorldzChatLogModule" type="InWorldz.ApplicationPlugins.ChatLog.InWorldzChatLogModule" />
+    <RegionModule id="AvatarRemoteCommandModule" type="InWorldz.ApplicationPlugins.AvatarRemoteCommandModule.AvatarRemoteCommandModule" />
+    <RegionModule id="GuestModule" type="InWorldz.ApplicationPlugins.GuestModule.GuestModule" />
+    <RegionModule id="ChatFilterModule" type="InWorldz.ApplicationPlugins.ChatFilterModule.ChatFilterModule" />
+  </Extension>
+</Addin>
