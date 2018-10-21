@@ -6,10 +6,6 @@
         <Import assembly="Mono.Addins.dll"/>
     </Runtime>
 
-    <ExtensionPoint path="/OpenSim/Startup">
-        <ExtensionNode name="Plugin" type="OpenSim.Framework.PluginExtensionNode" objectType="OpenSim.IApplicationPlugin"/>
-    </ExtensionPoint>
-
     <ExtensionPoint path="/OpenSim/AssetCache" name="Region Asset Cache Plugin-point" >
         <ExtensionNode name="Cache" type="OpenSim.Framework.PluginExtensionNode" objectType="OpenSim.Framework.IAssetCache"/>
     </ExtensionPoint>
