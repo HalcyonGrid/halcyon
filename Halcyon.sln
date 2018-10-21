@@ -1,10 +1,10 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 14
+# Visual Studio 15
+VisualStudioVersion = 15.0.27703.2042
+MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Halcyon", "InWorldz\Halcyon\Halcyon.csproj", "{E586BF1E-0000-0000-0000-000000000000}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Halcyon.Data.Inventory.MySQL", "Halcyon\Halcyon.Data.Inventory.MySQL\Halcyon.Data.Inventory.MySQL.csproj", "{62DC97F5-0000-0000-0000-000000000000}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InWorldz.ApplicationPlugins", "InWorldz\InWorldz.ApplicationPlugins\InWorldz.ApplicationPlugins.csproj", "{8C26FC85-0000-0000-0000-000000000000}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InWorldz.Arbiter", "InWorldz\InWorldz.Arbiter\InWorldz.Arbiter.csproj", "{E1C1E370-0000-0000-0000-000000000000}"
 EndProject
@@ -138,12 +138,12 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenSimProfile.Modules", "O
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Root Files", "Root Files", "{7E0BFFF7-4E41-46E8-9414-DD25EEDE002C}"
 	ProjectSection(SolutionItems) = preProject
+		.appveyor.yml = .appveyor.yml
+		.gitignore = .gitignore
 		LICENSE = LICENSE
 		README.md = README.md
 		runprebuild.bat = runprebuild.bat
 		runprebuild.sh = runprebuild.sh
-		.appveyor.yml = .appveyor.yml
-		.gitignore = .gitignore
 	EndProjectSection
 EndProject
 Global
@@ -156,10 +156,10 @@ Global
 		{E586BF1E-0000-0000-0000-000000000000}.Debug|x64.Build.0 = Debug|x64
 		{E586BF1E-0000-0000-0000-000000000000}.Release|x64.ActiveCfg = Release|x64
 		{E586BF1E-0000-0000-0000-000000000000}.Release|x64.Build.0 = Release|x64
-		{8C26FC85-0000-0000-0000-000000000000}.Debug|x64.ActiveCfg = Debug|x64
-		{8C26FC85-0000-0000-0000-000000000000}.Debug|x64.Build.0 = Debug|x64
-		{8C26FC85-0000-0000-0000-000000000000}.Release|x64.ActiveCfg = Release|x64
-		{8C26FC85-0000-0000-0000-000000000000}.Release|x64.Build.0 = Release|x64
+		{62DC97F5-0000-0000-0000-000000000000}.Debug|x64.ActiveCfg = Debug|x64
+		{62DC97F5-0000-0000-0000-000000000000}.Debug|x64.Build.0 = Debug|x64
+		{62DC97F5-0000-0000-0000-000000000000}.Release|x64.ActiveCfg = Release|x64
+		{62DC97F5-0000-0000-0000-000000000000}.Release|x64.Build.0 = Release|x64
 		{E1C1E370-0000-0000-0000-000000000000}.Debug|x64.ActiveCfg = Debug|x64
 		{E1C1E370-0000-0000-0000-000000000000}.Debug|x64.Build.0 = Debug|x64
 		{E1C1E370-0000-0000-0000-000000000000}.Release|x64.ActiveCfg = Release|x64
@@ -168,10 +168,6 @@ Global
 		{6C18EAD6-0000-0000-0000-000000000000}.Debug|x64.Build.0 = Debug|x64
 		{6C18EAD6-0000-0000-0000-000000000000}.Release|x64.ActiveCfg = Release|x64
 		{6C18EAD6-0000-0000-0000-000000000000}.Release|x64.Build.0 = Release|x64
-		{62DC97F5-0000-0000-0000-000000000000}.Debug|x64.ActiveCfg = Debug|x64
-		{62DC97F5-0000-0000-0000-000000000000}.Debug|x64.Build.0 = Debug|x64
-		{62DC97F5-0000-0000-0000-000000000000}.Release|x64.ActiveCfg = Release|x64
-		{62DC97F5-0000-0000-0000-000000000000}.Release|x64.Build.0 = Release|x64
 		{D4CA6D90-0000-0000-0000-000000000000}.Debug|x64.ActiveCfg = Debug|x64
 		{D4CA6D90-0000-0000-0000-000000000000}.Debug|x64.Build.0 = Debug|x64
 		{D4CA6D90-0000-0000-0000-000000000000}.Release|x64.ActiveCfg = Release|x64
@@ -424,5 +420,11 @@ Global
 		{CD7723CB-0000-0000-0000-000000000000}.Debug|x64.Build.0 = Debug|x64
 		{CD7723CB-0000-0000-0000-000000000000}.Release|x64.ActiveCfg = Release|x64
 		{CD7723CB-0000-0000-0000-000000000000}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {39B63CB5-079C-47DD-9797-38821584BF2D}
 	EndGlobalSection
 EndGlobal
