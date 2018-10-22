@@ -57,7 +57,7 @@ namespace Halcyon.Data.Inventory.MySQL
         public InventoryFolderBase findUserFolderForType(UUID owner, int typeId)
         {
             InventoryFolderBase rootFolder = getUserRootFolder(owner);
-            // m_log.InfoFormat("[Inventory]: Root folder is {0} '{1}'", rootFolder.ID, rootFolder.Name);
+            m_log.WarnFormat("[Inventory]: findUserFolderForType root folder is {0} '{1}'", rootFolder.ID, rootFolder.Name);
             if (typeId == 8)    // by convention, this means root folder
                 return rootFolder;
 
@@ -79,12 +79,12 @@ namespace Halcyon.Data.Inventory.MySQL
                             // A null item (because something went wrong) breaks everything in the folder
                             InventoryFolderBase folder = readInventoryFolder(reader);
                             folder.Level = InventoryFolderBase.FolderLevel.TopLevel;
-                            // m_log.InfoFormat("[Inventory]: Folder for type {0} is {1} '{2}'", typeId, rootFolder.ID, rootFolder.Name);
+                            m_log.WarnFormat("[Inventory]: findUserFolderForType folder for type {0} is {1} '{2}'", typeId, rootFolder.ID, rootFolder.Name);
                             return folder;
                         }
                         else
                         {
-                            // m_log.InfoFormat("[Inventory]: Folder for type {0} not found.", typeId);
+                            m_log.WarnFormat("[Inventory]: findUserFolderForType folder for type {0} not found.", typeId);
                             return null;
                         }
                     }
@@ -106,7 +106,7 @@ namespace Halcyon.Data.Inventory.MySQL
         public InventoryFolderBase findUserTopLevelFolderFor(UUID owner, UUID folderID)
         {
             InventoryFolderBase rootFolder = getUserRootFolder(owner);
-            // m_log.InfoFormat("[Inventory]: Root folder is {0} '{1}'", rootFolder.ID, rootFolder.Name);
+            m_log.WarnFormat("[Inventory]: findUserTopLevelFolderFor root folder is {0} '{1}'", rootFolder.ID, rootFolder.Name);
 
             string query = "SELECT * FROM inventoryfolders WHERE agentID = ?agentId AND folderId = ?folderId AND parentFolderId = ?rootId;";
 
@@ -126,12 +126,12 @@ namespace Halcyon.Data.Inventory.MySQL
                             // A null item (because something went wrong) breaks everything in the folder
                             InventoryFolderBase folder = readInventoryFolder(reader);
                             folder.Level = InventoryFolderBase.FolderLevel.TopLevel;
-                            // m_log.InfoFormat("[Inventory]: Top-level folder is {0} '{1}'", rootFolder.ID, rootFolder.Name);
+                            m_log.WarnFormat("[Inventory]: findUserTopLevelFolderFor top-level folder is {0} '{1}'", rootFolder.ID, rootFolder.Name);
                             return folder;
                         }
                         else
                         {
-                            // m_log.InfoFormat("[Inventory]: No top-level folders.");
+                            m_log.WarnFormat("[Inventory]: findUserTopLevelFolderFor: No top-level folders.");
                             return null;
                         }
                     }
@@ -158,6 +158,7 @@ namespace Halcyon.Data.Inventory.MySQL
                 if (!String.IsNullOrEmpty(inList)) inList += ",";
                 inList += "'" + folder.ID.ToString() + "'";
             }
+            m_log.WarnFormat("[Inventory]: getItemsInFolders for '{0}'", inList);
 
             if (String.IsNullOrEmpty(inList)) return new List<InventoryItemBase>();
 
@@ -177,9 +178,13 @@ namespace Halcyon.Data.Inventory.MySQL
                             // A null item (because something went wrong) breaks everything in the folder
                             InventoryItemBase item = readInventoryItem(reader);
                             if (item != null)
+                            {
+                                m_log.WarnFormat("[Inventory]: getItemsInFolders returns {0} ({1}) '{2}'", item.ID, item.InvType, item.Name);
                                 items.Add(item);
+                            }
                         }
 
+                        m_log.WarnFormat("[Inventory]: getItemsInFolders returns {0} items.", items.Count);
                         return items;
                     }
                 }
@@ -216,9 +221,13 @@ namespace Halcyon.Data.Inventory.MySQL
                             // A null item (because something went wrong) breaks everything in the folder
                             InventoryItemBase item = readInventoryItem(reader);
                             if (item != null)
+                            {
+                                m_log.WarnFormat("[Inventory]: getInventoryInFolder {0} item '{1}'", folderID, item.Name);
                                 items.Add(item);
+                            }
                         }
                     }
+                    m_log.WarnFormat("[Inventory]: getInventoryInFolder {0} returns {1} items.", folderID, items.Count);
 
                     return items;
                 }
@@ -320,7 +329,7 @@ namespace Halcyon.Data.Inventory.MySQL
         /// <returns>A list of inventory folders</returns>
         public List<InventoryFolderBase> getInventoryFolders(UUID parentID)
         {
-            // m_log.InfoFormat("[Inventory]: Folders under ID {0}:", parentID);
+            m_log.WarnFormat("[Inventory]: getInventoryFolders folders under ID {0}:", parentID);
             try
             {
                 using (ISimpleDB conn = _connFactory.GetConnection())
@@ -337,7 +346,7 @@ namespace Halcyon.Data.Inventory.MySQL
                         while (reader.Read())
                         {
                             InventoryFolderBase folder = readInventoryFolder(reader);
-                            // m_log.InfoFormat("[Inventory]: Folder type {0} [{1}] '{2}'", folder.Type, folder.ID, folder.Name);
+                            m_log.WarnFormat("[Inventory]: getInventoryFolders folder type {0} [{1}] '{2}'", folder.Type, folder.ID, folder.Name);
                             items.Add(folder);
                         }
 
