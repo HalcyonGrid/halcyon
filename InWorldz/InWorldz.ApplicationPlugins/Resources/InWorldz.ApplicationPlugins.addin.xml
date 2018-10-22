@@ -7,7 +7,6 @@
   </Dependencies>
   <Extension path = "/OpenSim/Startup">
     <Plugin id="InworldzChatLogMessageFileBackend" type="InWorldz.ApplicationPlugins.ChatLog.InworldzChatLogMessageFileBackend" />
-    <Plugin id="InworldzChatLogMessageCassandra12Backend" type="InWorldz.ApplicationPlugins.ChatLog.InworldzChatLogMessageCassandra12Backend" />
   </Extension>
   <Extension path = "/OpenSim/RegionModules">
     <RegionModule id="InWorldzChatLogModule" type="InWorldz.ApplicationPlugins.ChatLog.InWorldzChatLogModule" />
