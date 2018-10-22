@@ -52,7 +52,6 @@ namespace Halcyon.Data.Inventory.MySQL
 
         public MySqlInventoryStorage(string connStr)
         {
-            m_log.Warn($"[MySQL Inventory]: Connection is: '{connStr}");
             _impl = new MysqlStorageImpl(connStr);
         }
 
@@ -60,7 +59,6 @@ namespace Halcyon.Data.Inventory.MySQL
         {
             List<InventoryFolderBase> retFolders = new List<InventoryFolderBase>();
 
-            m_log.WarnFormat("[Inventory]: GetInventorySkeleton {0}", userId);
             InventoryFolderBase rootFolder = _impl.getUserRootFolder(userId);
             if (rootFolder != null)
             {
@@ -89,7 +87,6 @@ namespace Halcyon.Data.Inventory.MySQL
             List<InventoryItemBase> items = _impl.getInventoryInFolder(folderId);
             List<InventoryFolderBase> folders = _impl.getInventoryFolders(folderId);
 
-            m_log.WarnFormat("[Inventory]: GetFolder {0} has {1} subfolders and {2} items.", folderId, folders.Count, items.Count);
             folder.Items.AddRange(items);
 
             foreach (InventoryFolderBase subFolder in folders)
@@ -101,8 +98,6 @@ namespace Halcyon.Data.Inventory.MySQL
                     Owner = subFolder.Owner,
                     Type = subFolder.Type
                 };
-
-                // m_log.WarnFormat("[Inventory]: GetFolder {0} {1} '{2}'", sub.ID, sub.Type, sub.Name);
                 folder.SubFolders.Add(sub);
             }
 
@@ -130,14 +125,14 @@ namespace Halcyon.Data.Inventory.MySQL
             // Don't do anything with a folder that wants to set its new parent to the same folder as its current parent.
             if (folder.ParentID == parentId)
             {
-                m_log.WarnFormat("[MySqlInventoryStorage]: Refusing to move folder {0} to new parent {1} for {2}. The source and destination are the same", folder.ID, parentId, folder.Owner);
+                m_log.WarnFormat("[Inventory]: Refusing to move folder {0} to new parent {1} for {2}. The source and destination are the same", folder.ID, parentId, folder.Owner);
                 return;
             }
 
             // Don't do anything with a folder that wants to set its new parent to UUID.Zero
             if (parentId == UUID.Zero)
             {
-                m_log.WarnFormat("[MySqlInventoryStorage]: Refusing to move folder {0} to new parent {1} for {2}. New parent has ID UUID.Zero", folder.ID, parentId, folder.Owner);
+                m_log.WarnFormat("[Inventory]: Refusing to move folder {0} to new parent {1} for {2}. New parent has ID UUID.Zero", folder.ID, parentId, folder.Owner);
                 return;
             }
 
