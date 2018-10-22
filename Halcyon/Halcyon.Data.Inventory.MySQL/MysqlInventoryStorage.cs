@@ -60,6 +60,7 @@ namespace Halcyon.Data.Inventory.MySQL
         {
             List<InventoryFolderBase> retFolders = new List<InventoryFolderBase>();
 
+            m_log.WarnFormat("[Inventory]: GetInventorySkeleton {0}", userId);
             InventoryFolderBase rootFolder = _impl.getUserRootFolder(userId);
             if (rootFolder != null)
             {
@@ -88,12 +89,21 @@ namespace Halcyon.Data.Inventory.MySQL
             List<InventoryItemBase> items = _impl.getInventoryInFolder(folderId);
             List<InventoryFolderBase> folders = _impl.getInventoryFolders(folderId);
 
+            m_log.WarnFormat("[Inventory]: GetFolder {0} has {1} subfolders and {2} items.", folderId, folders.Count, items.Count);
             folder.Items.AddRange(items);
 
             foreach (InventoryFolderBase subFolder in folders)
             {
-                folder.SubFolders.Add(new InventorySubFolderBase { ID = subFolder.ID, Name = subFolder.Name, 
-                    Owner = subFolder.Owner, Type = subFolder.Type });
+                InventorySubFolderBase sub= new InventorySubFolderBase
+                {
+                    ID = subFolder.ID,
+                    Name = subFolder.Name,
+                    Owner = subFolder.Owner,
+                    Type = subFolder.Type
+                };
+
+                // m_log.WarnFormat("[Inventory]: GetFolder {0} {1} '{2}'", sub.ID, sub.Type, sub.Name);
+                folder.SubFolders.Add(sub);
             }
 
             return folder;
@@ -205,6 +215,7 @@ namespace Halcyon.Data.Inventory.MySQL
 
         public List<InventoryItemBase> GetItems(IEnumerable<UUID> itemIds, bool throwOnNotFound)
         {
+            m_log.ErrorFormat("[Inventory]: GetItems NOT IMPLEMENTED");
             throw new NotImplementedException();
         }
 
