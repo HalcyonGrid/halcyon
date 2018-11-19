@@ -52,7 +52,6 @@ namespace Halcyon.Data.Inventory.MySQL
 
         public MySqlInventoryStorage(string connStr)
         {
-            m_log.Warn($"[MySQL Inventory]: Connection is: '{connStr}");
             _impl = new MysqlStorageImpl(connStr);
         }
 
@@ -92,8 +91,14 @@ namespace Halcyon.Data.Inventory.MySQL
 
             foreach (InventoryFolderBase subFolder in folders)
             {
-                folder.SubFolders.Add(new InventorySubFolderBase { ID = subFolder.ID, Name = subFolder.Name, 
-                    Owner = subFolder.Owner, Type = subFolder.Type });
+                InventorySubFolderBase sub= new InventorySubFolderBase
+                {
+                    ID = subFolder.ID,
+                    Name = subFolder.Name,
+                    Owner = subFolder.Owner,
+                    Type = subFolder.Type
+                };
+                folder.SubFolders.Add(sub);
             }
 
             return folder;
@@ -120,14 +125,14 @@ namespace Halcyon.Data.Inventory.MySQL
             // Don't do anything with a folder that wants to set its new parent to the same folder as its current parent.
             if (folder.ParentID == parentId)
             {
-                m_log.WarnFormat("[MySqlInventoryStorage]: Refusing to move folder {0} to new parent {1} for {2}. The source and destination are the same", folder.ID, parentId, folder.Owner);
+                m_log.WarnFormat("[Inventory]: Refusing to move folder {0} to new parent {1} for {2}. The source and destination are the same", folder.ID, parentId, folder.Owner);
                 return;
             }
 
             // Don't do anything with a folder that wants to set its new parent to UUID.Zero
             if (parentId == UUID.Zero)
             {
-                m_log.WarnFormat("[MySqlInventoryStorage]: Refusing to move folder {0} to new parent {1} for {2}. New parent has ID UUID.Zero", folder.ID, parentId, folder.Owner);
+                m_log.WarnFormat("[Inventory]: Refusing to move folder {0} to new parent {1} for {2}. New parent has ID UUID.Zero", folder.ID, parentId, folder.Owner);
                 return;
             }
 
@@ -205,6 +210,7 @@ namespace Halcyon.Data.Inventory.MySQL
 
         public List<InventoryItemBase> GetItems(IEnumerable<UUID> itemIds, bool throwOnNotFound)
         {
+            m_log.ErrorFormat("[Inventory]: GetItems NOT IMPLEMENTED");
             throw new NotImplementedException();
         }
 
