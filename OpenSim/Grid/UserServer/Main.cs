@@ -191,15 +191,11 @@ namespace OpenSim.Grid.UserServer
             settings.InventoryPlugin = inventoryConfig.GetString("inventory_plugin", "Halycon.Data.Inventory.MySQL");
             settings.InventorySource = inventoryConfig.GetString("legacy_inventory_source", "");
             settings.InventorySource = inventoryConfig.GetString("inventory_connection_string", settings.InventorySource);
-            settings.InventoryMigrationActive = inventoryConfig.GetBoolean("migration_active", false);
-            settings.InventoryCluster = inventoryConfig.GetString("inventory_cluster");
 
             // Everything has defaults
             settings.InventoryPlugin = inventoryConfig.GetString("inventory_plugin", "Halycon.Data.Inventory.MySQL");
             settings.InventorySource = inventoryConfig.GetString("legacy_inventory_source", settings.CoreConnectionString);
             settings.InventorySource = inventoryConfig.GetString("inventory_connection_string", settings.InventorySource);
-            settings.InventoryMigrationActive = inventoryConfig.GetBoolean("migration_active", false);
-            settings.InventoryCluster = inventoryConfig.GetString("inventory_cluster", String.Empty);
 
             PluginLoader<IInventoryStoragePlugin> loader = new PluginLoader<IInventoryStoragePlugin>();
             loader.Add("/OpenSim/InventoryStorage", new PluginProviderFilter(settings.InventoryPlugin));

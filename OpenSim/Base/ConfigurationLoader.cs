@@ -333,8 +333,6 @@ namespace OpenSim
                 m_configSettings.InventoryPlugin = inventoryConfig.GetString("inventory_plugin", "Halycon.Data.Inventory.MySQL");
                 m_configSettings.InventorySource = inventoryConfig.GetString("legacy_inventory_source", m_configSettings.CoreConnectionString);
                 m_configSettings.InventorySource = inventoryConfig.GetString("inventory_connection_string", m_configSettings.InventorySource);
-                m_configSettings.InventoryMigrationActive = inventoryConfig.GetBoolean("migration_active", false);
-                m_configSettings.InventoryCluster = inventoryConfig.GetString("inventory_cluster", String.Empty);
             }
             else
             {
