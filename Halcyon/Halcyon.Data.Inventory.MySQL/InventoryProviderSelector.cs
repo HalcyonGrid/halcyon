@@ -32,61 +32,36 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using OpenSim.Data;
+using OpenMetaverse;
+using OpenSim.Framework;
 
-namespace InWorldz.Data.Inventory.Cassandra
+namespace Halcyon.Data.Inventory.MySQL
 {
-    public class AquilesNullLogger : Aquiles.Core.Diagnostics.ILogger
+    public class InventoryProviderSelector : IInventoryProviderSelector
     {
-        #region ILogger Members
+        private MySqlInventoryStorage _storage;
+        private ICheckedInventoryStorage _checkedStorage;
 
-        public void Debug(string className, object message, Exception exception)
+        public InventoryProviderSelector(string coreConnString, MySqlInventoryStorage storage)
         {
+            _storage = storage;
+            _checkedStorage = new CheckedInventoryStorage(_storage);
         }
 
-        public void Debug(string className, object message)
+        public IInventoryStorage GetProvider(UUID userId)
         {
+            return _storage;
         }
 
-        public void Error(string className, object message, Exception exception)
+        public ICheckedInventoryStorage GetCheckedProvider(UUID userId)
         {
+            return _checkedStorage;
         }
 
-        public void Error(string className, object message)
+        public ICheckedInventoryStorage GetGroupsProvider()
         {
+            return _checkedStorage;
         }
-
-        public void Fatal(string className, object message, Exception exception)
-        {
-        }
-
-        public void Fatal(string className, object message)
-        {
-        }
-
-        public void Info(string className, object message, Exception exception)
-        {
-        }
-
-        public void Info(string className, object message)
-        {
-        }
-
-        public void Trace(string className, object message, Exception exception)
-        {
-        }
-
-        public void Trace(string className, object message)
-        {
-        }
-
-        public void Warn(string className, object message, Exception exception)
-        {
-        }
-
-        public void Warn(string className, object message)
-        {
-        }
-
-        #endregion
     }
 }

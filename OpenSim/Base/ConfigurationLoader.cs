@@ -238,7 +238,7 @@ namespace OpenSim
                 config.Set("accounts_authenticate", true);
                 config.Set("welcome_message", "Welcome to Halcyon");
                 config.Set("inventory_plugin", "OpenSim.Data.SQLite.dll");
-                config.Set("inventory_source", String.Empty);
+                config.Set("inventory_connection_string", String.Empty);
                 config.Set("userDatabase_plugin", "OpenSim.Data.SQLite.dll");
                 config.Set("user_source", String.Empty);
                 config.Set("asset_plugin", "OpenSim.Data.SQLite.dll");
@@ -313,7 +313,7 @@ namespace OpenSim
                 m_configSettings.StandaloneWelcomeMessage = standaloneConfig.GetString("welcome_message");
 
                 m_configSettings.StandaloneInventoryPlugin = standaloneConfig.GetString("inventory_plugin");
-                m_configSettings.StandaloneInventorySource = standaloneConfig.GetString("inventory_source");
+                m_configSettings.StandaloneInventorySource = standaloneConfig.GetString("inventory_connection_string");
                 m_configSettings.StandaloneUserPlugin = standaloneConfig.GetString("userDatabase_plugin");
                 m_configSettings.StandaloneUserSource = standaloneConfig.GetString("user_source");
                 m_configSettings.StandaloneAssetSource = standaloneConfig.GetString("asset_source");
@@ -325,20 +325,19 @@ namespace OpenSim
 
             m_networkServersInfo.loadFromConfiguration(m_config.Source);
 
+            m_configSettings.CoreConnectionString = startupConfig.GetString("core_connection_string");
+
             if (inventoryConfig != null)
             {
-                m_configSettings.InventoryPlugin = inventoryConfig.GetString("inventory_plugin");
-                m_configSettings.InventoryCluster = inventoryConfig.GetString("inventory_cluster");
-                m_configSettings.LegacyInventorySource = inventoryConfig.GetString("legacy_inventory_source");
-                m_configSettings.InventoryDisableCassandra = inventoryConfig.GetBoolean("legacy_inventory_only", true);
-                m_configSettings.InventoryMigrationActive = inventoryConfig.GetBoolean("migration_active");
+                // Everything has defaults
+                m_configSettings.InventoryPlugin = inventoryConfig.GetString("inventory_plugin", "Halycon.Data.Inventory.MySQL");
+                m_configSettings.InventorySource = inventoryConfig.GetString("legacy_inventory_source", m_configSettings.CoreConnectionString);
+                m_configSettings.InventorySource = inventoryConfig.GetString("inventory_connection_string", m_configSettings.InventorySource);
             }
             else
             {
                 m_log.Warn("[INVENTORY] New style inventory configuration information not found");
             }
-
-            m_configSettings.CoreConnectionString = startupConfig.GetString("core_connection_string");
 
             m_configSettings.SettingsFile = m_config.Source.Configs;
         }

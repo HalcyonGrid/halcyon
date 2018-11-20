@@ -1,204 +1,212 @@
-<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="12.0">
-	<PropertyGroup>
-	  <ProjectType>Local</ProjectType>
-	  <ProductVersion>14.0.23107.0</ProductVersion>
-	  <SchemaVersion>2.0</SchemaVersion>
-	  <ProjectGuid>{7E218E2D-0000-0000-0000-000000000000}</ProjectGuid>
-	  <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-	  <ApplicationIcon></ApplicationIcon>
-	  <AssemblyKeyContainerName>
-	  </AssemblyKeyContainerName>
-	  <AssemblyName>OpenSim.Data</AssemblyName>
-	  <DefaultClientScript>JScript</DefaultClientScript>
-	  <DefaultHTMLPageLayout>Grid</DefaultHTMLPageLayout>
-	  <DefaultTargetSchema>IE50</DefaultTargetSchema>
-	  
-	  <TargetFrameworkVersion>v4.7.1</TargetFrameworkVersion>
-	  <OutputPath>../../bin/</OutputPath>
-	  <OutputType>Library</OutputType>
-	  <AppDesignerFolder></AppDesignerFolder>
-	  <RootNamespace>OpenSim.Data</RootNamespace>
-	  <StartupObject></StartupObject>
-	  <StartArguments></StartArguments>
-	  <FileUpgradeFlags>
-	  </FileUpgradeFlags>
-	</PropertyGroup>
-	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
-	  <AllowUnsafeBlocks>False</AllowUnsafeBlocks>
-	  <BaseAddress>285212672</BaseAddress>
-	  <CheckForOverflowUnderflow>False</CheckForOverflowUnderflow>
-	  <ConfigurationOverrideFile>
-	  </ConfigurationOverrideFile>
-	  <DefineConstants>TRACE;DEBUG</DefineConstants>
-	  <DocumentationFile></DocumentationFile>
-	  <DebugSymbols>True</DebugSymbols>
-	  <FileAlignment>4096</FileAlignment>
-	  <Optimize>False</Optimize>
-	  <OutputPath>..\..\bin\</OutputPath>
-	  <RegisterForComInterop>False</RegisterForComInterop>
-	  <RemoveIntegerChecks>False</RemoveIntegerChecks>
-	  <TreatWarningsAsErrors>False</TreatWarningsAsErrors>
-	  <WarningLevel>4</WarningLevel>
-	  <NoStdLib>False</NoStdLib>
-	  <NoWarn></NoWarn>
-	  <PlatformTarget>x64</PlatformTarget>
-	</PropertyGroup>
-	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x64' ">
-	  <AllowUnsafeBlocks>False</AllowUnsafeBlocks>
-	  <BaseAddress>285212672</BaseAddress>
-	  <CheckForOverflowUnderflow>False</CheckForOverflowUnderflow>
-	  <ConfigurationOverrideFile>
-	  </ConfigurationOverrideFile>
-	  <DefineConstants>TRACE</DefineConstants>
-	  <DocumentationFile></DocumentationFile>
-	  <DebugSymbols>False</DebugSymbols>
-	  <FileAlignment>4096</FileAlignment>
-	  <Optimize>True</Optimize>
-	  <OutputPath>..\..\bin\</OutputPath>
-	  <RegisterForComInterop>False</RegisterForComInterop>
-	  <RemoveIntegerChecks>False</RemoveIntegerChecks>
-	  <TreatWarningsAsErrors>False</TreatWarningsAsErrors>
-	  <WarningLevel>4</WarningLevel>
-	  <NoStdLib>False</NoStdLib>
-	  <NoWarn></NoWarn>
-	  <PlatformTarget>x64</PlatformTarget>
-	</PropertyGroup>
-	<ItemGroup>
-	  <Reference Include="LibreMetaverse" >
-		  <Name>LibreMetaverse</Name>
-		<HintPath>..\..\bin\LibreMetaverse.dll</HintPath>
-		<Private>False</Private>
-	  </Reference>
-	  <Reference Include="LibreMetaverse.Types" >
-		  <Name>LibreMetaverse.Types</Name>
-		<HintPath>..\..\bin\LibreMetaverse.Types.dll</HintPath>
-		<Private>False</Private>
-	  </Reference>
-	  <Reference Include="log4net" >
-		  <Name>log4net</Name>
-		<HintPath>..\..\bin\log4net.dll</HintPath>
-		<Private>False</Private>
-	  </Reference>
-	  <Reference Include="Mono.Addins" >
-		  <Name>Mono.Addins</Name>
-		<HintPath>..\..\bin\Mono.Addins.dll</HintPath>
-		<Private>False</Private>
-	  </Reference>
-	  <Reference Include="MySql.Data" >
-		  <Name>MySql.Data</Name>
-		<HintPath>..\..\bin\MySql.Data.dll</HintPath>
-		<Private>False</Private>
-	  </Reference>
-	  <Reference Include="System" >
-		  <Name>System</Name>
-		<Private>False</Private>
-	  </Reference>
-	  <Reference Include="System.Data" >
-		  <Name>System.Data</Name>
-		<Private>False</Private>
-	  </Reference>
-	  <Reference Include="System.Xml" >
-		  <Name>System.Xml</Name>
-		<Private>False</Private>
-	  </Reference>
-	  <Reference Include="XmlRpcCS" >
-		  <Name>XmlRpcCS</Name>
-		<HintPath>..\..\bin\XmlRpcCS.dll</HintPath>
-		<Private>False</Private>
-	  </Reference>
-	</ItemGroup>
-	<ItemGroup>
-	  <ProjectReference Include="..\Framework\OpenSim.Framework.csproj">
-		<Name>OpenSim.Framework</Name>
-		<Project>{BCCDBB55-0000-0000-0000-000000000000}</Project>
-		<Package>{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</Package>
-		<Private>False</Private>
-	  </ProjectReference>
-	</ItemGroup>
-	<ItemGroup>
-	  <Compile Include="AssetDataBase.cs">
-		<SubType>Code</SubType>
-	  </Compile>
-	  <Compile Include="CheckedInventoryStorage.cs">
-		<SubType>Code</SubType>
-	  </Compile>
-	  <Compile Include="DataPluginFactory.cs">
-		<SubType>Code</SubType>
-	  </Compile>
-	  <Compile Include="GridDataBase.cs">
-		<SubType>Code</SubType>
-	  </Compile>
-	  <Compile Include="IAssetData.cs">
-		<SubType>Code</SubType>
-	  </Compile>
-	  <Compile Include="ICheckedInventoryStorage.cs">
-		<SubType>Code</SubType>
-	  </Compile>
-	  <Compile Include="IGridData.cs">
-		<SubType>Code</SubType>
-	  </Compile>
-	  <Compile Include="IInventoryData.cs">
-		<SubType>Code</SubType>
-	  </Compile>
-	  <Compile Include="IInventoryProviderSelector.cs">
-		<SubType>Code</SubType>
-	  </Compile>
-	  <Compile Include="IInventoryStorage.cs">
-		<SubType>Code</SubType>
-	  </Compile>
-	  <Compile Include="IInventoryStoragePlugin.cs">
-		<SubType>Code</SubType>
-	  </Compile>
-	  <Compile Include="ILogData.cs">
-		<SubType>Code</SubType>
-	  </Compile>
-	  <Compile Include="IniConfig.cs">
-		<SubType>Code</SubType>
-	  </Compile>
-	  <Compile Include="IRegionProfileService.cs">
-		<SubType>Code</SubType>
-	  </Compile>
-	  <Compile Include="IUserData.cs">
-		<SubType>Code</SubType>
-	  </Compile>
-	  <Compile Include="RegionProfileData.cs">
-		<SubType>Code</SubType>
-	  </Compile>
-	  <Compile Include="RegionProfileServiceProxy.cs">
-		<SubType>Code</SubType>
-	  </Compile>
-	  <Compile Include="ReservationData.cs">
-		<SubType>Code</SubType>
-	  </Compile>
-	  <Compile Include="UserDataBase.cs">
-		<SubType>Code</SubType>
-	  </Compile>
-	  <Compile Include="SimpleDB\ConnectionFactory.cs">
-		<SubType>Code</SubType>
-	  </Compile>
-	  <Compile Include="SimpleDB\ISimpleDB.cs">
-		<SubType>Code</SubType>
-	  </Compile>
-	  <Compile Include="SimpleDB\ITransaction.cs">
-		<SubType>Code</SubType>
-	  </Compile>
-	  <Compile Include="SimpleDB\MySQLSimpleDB.cs">
-		<SubType>Code</SubType>
-	  </Compile>
-	  <Compile Include="SimpleDB\MySQLTransaction.cs">
-		<SubType>Code</SubType>
-	  </Compile>
-	  <Compile Include="Properties\AssemblyInfo.cs">
-		<SubType>Code</SubType>
-	  </Compile>
-	  <EmbeddedResource Include="Resources\OpenSim.Data.addin.xml">
-	  </EmbeddedResource>
-	</ItemGroup>
-	<Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
-	<PropertyGroup>
-	  <PreBuildEvent>
-	  </PreBuildEvent>
-	  <PostBuildEvent>
-	  </PostBuildEvent>
-	</PropertyGroup>
+﻿<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="12.0">
+  <PropertyGroup>
+    <ProjectType>Local</ProjectType>
+    <ProductVersion>14.0.23107.0</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{7E218E2D-0000-0000-0000-000000000000}</ProjectGuid>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <ApplicationIcon>
+    </ApplicationIcon>
+    <AssemblyKeyContainerName>
+    </AssemblyKeyContainerName>
+    <AssemblyName>OpenSim.Data</AssemblyName>
+    <DefaultClientScript>JScript</DefaultClientScript>
+    <DefaultHTMLPageLayout>Grid</DefaultHTMLPageLayout>
+    <DefaultTargetSchema>IE50</DefaultTargetSchema>
+    <TargetFrameworkVersion>v4.7.1</TargetFrameworkVersion>
+    <OutputPath>../../bin/</OutputPath>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>
+    </AppDesignerFolder>
+    <RootNamespace>OpenSim.Data</RootNamespace>
+    <StartupObject>
+    </StartupObject>
+    <StartArguments>
+    </StartArguments>
+    <FileUpgradeFlags>
+    </FileUpgradeFlags>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
+    <AllowUnsafeBlocks>False</AllowUnsafeBlocks>
+    <BaseAddress>285212672</BaseAddress>
+    <CheckForOverflowUnderflow>False</CheckForOverflowUnderflow>
+    <ConfigurationOverrideFile>
+    </ConfigurationOverrideFile>
+    <DefineConstants>TRACE;DEBUG</DefineConstants>
+    <DocumentationFile>
+    </DocumentationFile>
+    <DebugSymbols>True</DebugSymbols>
+    <FileAlignment>4096</FileAlignment>
+    <Optimize>False</Optimize>
+    <OutputPath>..\..\bin\</OutputPath>
+    <RegisterForComInterop>False</RegisterForComInterop>
+    <RemoveIntegerChecks>False</RemoveIntegerChecks>
+    <TreatWarningsAsErrors>False</TreatWarningsAsErrors>
+    <WarningLevel>4</WarningLevel>
+    <NoStdLib>False</NoStdLib>
+    <NoWarn>
+    </NoWarn>
+    <PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x64' ">
+    <AllowUnsafeBlocks>False</AllowUnsafeBlocks>
+    <BaseAddress>285212672</BaseAddress>
+    <CheckForOverflowUnderflow>False</CheckForOverflowUnderflow>
+    <ConfigurationOverrideFile>
+    </ConfigurationOverrideFile>
+    <DefineConstants>TRACE</DefineConstants>
+    <DocumentationFile>
+    </DocumentationFile>
+    <DebugSymbols>False</DebugSymbols>
+    <FileAlignment>4096</FileAlignment>
+    <Optimize>True</Optimize>
+    <OutputPath>..\..\bin\</OutputPath>
+    <RegisterForComInterop>False</RegisterForComInterop>
+    <RemoveIntegerChecks>False</RemoveIntegerChecks>
+    <TreatWarningsAsErrors>False</TreatWarningsAsErrors>
+    <WarningLevel>4</WarningLevel>
+    <NoStdLib>False</NoStdLib>
+    <NoWarn>
+    </NoWarn>
+    <PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="LibreMetaverse">
+      <Name>LibreMetaverse</Name>
+      <HintPath>..\..\bin\LibreMetaverse.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="LibreMetaverse.Types">
+      <Name>LibreMetaverse.Types</Name>
+      <HintPath>..\..\bin\LibreMetaverse.Types.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="log4net">
+      <Name>log4net</Name>
+      <HintPath>..\..\bin\log4net.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Mono.Addins">
+      <Name>Mono.Addins</Name>
+      <HintPath>..\..\bin\Mono.Addins.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="MySql.Data">
+      <Name>MySql.Data</Name>
+      <HintPath>..\..\bin\MySql.Data.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="System">
+      <Name>System</Name>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="System.Data">
+      <Name>System.Data</Name>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="System.Xml">
+      <Name>System.Xml</Name>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="XmlRpcCS">
+      <Name>XmlRpcCS</Name>
+      <HintPath>..\..\bin\XmlRpcCS.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Framework\OpenSim.Framework.csproj">
+      <Name>OpenSim.Framework</Name>
+      <Project>{BCCDBB55-0000-0000-0000-000000000000}</Project>
+      <Package>{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</Package>
+      <Private>False</Private>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="AssetDataBase.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="CheckedInventoryStorage.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="DataPluginFactory.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="GridDataBase.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="IAssetData.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ICheckedInventoryStorage.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="IGridData.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="IInventoryData.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="IInventoryProviderSelector.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="IInventoryStorage.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="IInventoryStoragePlugin.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ILogData.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="IniConfig.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="IRegionProfileService.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="IUserData.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="RegionProfileData.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="RegionProfileServiceProxy.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="ReservationData.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="UserDataBase.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="SimpleDB\ConnectionFactory.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="SimpleDB\ISimpleDB.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="SimpleDB\ITransaction.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="SimpleDB\MySQLSimpleDB.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="SimpleDB\MySQLTransaction.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="Properties\AssemblyInfo.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <EmbeddedResource Include="Resources\OpenSim.Data.addin.xml">
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+  </ItemGroup>
+  <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
+  <PropertyGroup>
+    <PreBuildEvent>
+    </PreBuildEvent>
+    <PostBuildEvent>
+    </PostBuildEvent>
+  </PropertyGroup>
 </Project>

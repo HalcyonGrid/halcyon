@@ -60,13 +60,13 @@ after_build:
       $halcyon_version = (Get-ChildItem -Path bin/OpenSim.Framework.Servers.dll | % versioninfo).ProductVersion
       Update-AppveyorBuild -Version "$halcyon_version-$env:APPVEYOR_BUILD_NUMBER"
     }
-- ps: Rename-Item -Path bin -NewName halcyon
+- ps: Rename-Item -Path bin -NewName halcyon-$env:APPVEYOR_BUILD_VERSION-$env:APPVEYOR_REPO_BRANCH-$env:EDITION
 
 # No tests for now.
 test: off
 
 artifacts:
-- path: halcyon
+- path: halcyon-$(APPVEYOR_BUILD_VERSION)-$(APPVEYOR_REPO_BRANCH)-$(EDITION)
   name: Halcyon-$(APPVEYOR_BUILD_VERSION)-$(APPVEYOR_REPO_BRANCH)-$(EDITION)
   type: zip
 

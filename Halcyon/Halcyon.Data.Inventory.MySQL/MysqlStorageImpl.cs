@@ -34,12 +34,12 @@ using OpenSim.Framework;
 using OpenSim.Data.SimpleDB;
 using System.Data;
 
-namespace InWorldz.Data.Inventory.Cassandra
+namespace Halcyon.Data.Inventory.MySQL
 {
     /// <summary>
     /// A MySQL interface for the inventory server
     /// </summary>
-    public class LegacyMysqlStorageImpl
+    public class MysqlStorageImpl
     {
         private static readonly ILog m_log
             = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
@@ -48,19 +48,24 @@ namespace InWorldz.Data.Inventory.Cassandra
 
         private string _connectString;
 
-        public LegacyMysqlStorageImpl(string connStr)
+        public MysqlStorageImpl(string connStr)
         {
             _connectString = connStr;
             _connFactory = new ConnectionFactory("MySQL", _connectString);
         }
 
-        public InventoryFolderBase findUserFolderForType(UUID userId, int typeId)
+        public InventoryFolderBase findUserFolderForType(UUID owner, int typeId)
         {
-            string query = "SELECT * FROM inventoryfolders WHERE agentID = ?agentId AND type = ?type;";
+            InventoryFolderBase rootFolder = getUserRootFolder(owner);
+            if (typeId == 8)    // by convention, this means root folder
+                return rootFolder;
+
+            string query = "SELECT * FROM inventoryfolders WHERE agentID = ?agentId AND type = ?type and parentFolderId = ?parent;";
 
             Dictionary<string, object> parms = new Dictionary<string, object>();
-            parms.Add("?agentId", userId);
+            parms.Add("?agentId", owner);
             parms.Add("?type", typeId);
+            parms.Add("?parent", rootFolder.ID);
 
             try
             {
@@ -71,10 +76,13 @@ namespace InWorldz.Data.Inventory.Cassandra
                         if (reader.Read())
                         {
                             // A null item (because something went wrong) breaks everything in the folder
-                            return readInventoryFolder(reader);
+                            InventoryFolderBase folder = readInventoryFolder(reader);
+                            folder.Level = InventoryFolderBase.FolderLevel.TopLevel;
+                            return folder;
                         }
                         else
                         {
+                            // m_log.WarnFormat("[Inventory]: findUserFolderForType folder for type {0} not found.", typeId);
                             return null;
                         }
                     }
@@ -95,9 +103,41 @@ namespace InWorldz.Data.Inventory.Cassandra
         /// <returns></returns>
         public InventoryFolderBase findUserTopLevelFolderFor(UUID owner, UUID folderID)
         {
-            // this is a stub, not supported in MySQL legacy storage
-            m_log.ErrorFormat("[MySQLInventoryData]: Inventory for user {0} needs to be migrated to Cassandra.", owner.ToString());
-            return null;
+            InventoryFolderBase rootFolder = getUserRootFolder(owner);
+
+            string query = "SELECT * FROM inventoryfolders WHERE agentID = ?agentId AND folderId = ?folderId AND parentFolderId = ?rootId;";
+
+            Dictionary<string, object> parms = new Dictionary<string, object>();
+            parms.Add("?agentId", owner);
+            parms.Add("?folderId", folderID);
+            parms.Add("?rootId", rootFolder.ID);
+
+            try
+            {
+                using (ISimpleDB conn = _connFactory.GetConnection())
+                {
+                    using (IDataReader reader = conn.QueryAndUseReader(query, parms))
+                    {
+                        if (reader.Read())
+                        {
+                            // A null item (because something went wrong) breaks everything in the folder
+                            InventoryFolderBase folder = readInventoryFolder(reader);
+                            folder.Level = InventoryFolderBase.FolderLevel.TopLevel;
+                            return folder;
+                        }
+                        else
+                        {
+                            m_log.WarnFormat("[Inventory]: findUserTopLevelFolderFor: No top-level folders.");
+                            return null;
+                        }
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                m_log.Error(e.ToString());
+                return null;
+            }
         }
 
         /// <summary>
@@ -108,34 +148,30 @@ namespace InWorldz.Data.Inventory.Cassandra
         public List<InventoryItemBase> getItemsInFolders(IEnumerable<InventoryFolderBase> folders)
         {
             string inList = String.Empty;
-
             foreach (InventoryFolderBase folder in folders)
             {
                 if (!String.IsNullOrEmpty(inList)) inList += ",";
                 inList += "'" + folder.ID.ToString() + "'";
             }
-
             if (String.IsNullOrEmpty(inList)) return new List<InventoryItemBase>();
 
             string query = "SELECT * FROM inventoryitems WHERE parentFolderID IN (" + inList + ");";
-
             try
             {
-
                 using (ISimpleDB conn = _connFactory.GetConnection())
                 {
                     using (IDataReader reader = conn.QueryAndUseReader(query))
                     {
                         List<InventoryItemBase> items = new List<InventoryItemBase>();
-
                         while (reader.Read())
                         {
                             // A null item (because something went wrong) breaks everything in the folder
                             InventoryItemBase item = readInventoryItem(reader);
                             if (item != null)
+                            {
                                 items.Add(item);
+                            }
                         }
-
                         return items;
                     }
                 }
@@ -164,7 +200,6 @@ namespace InWorldz.Data.Inventory.Cassandra
                     parms.Add("?uuid", folderID.ToString());
 
                     List<InventoryItemBase> items = new List<InventoryItemBase>();
-
                     using (IDataReader reader = conn.QueryAndUseReader(query, parms))
                     {
                         while (reader.Read())
@@ -172,10 +207,11 @@ namespace InWorldz.Data.Inventory.Cassandra
                             // A null item (because something went wrong) breaks everything in the folder
                             InventoryItemBase item = readInventoryItem(reader);
                             if (item != null)
+                            {
                                 items.Add(item);
+                            }
                         }
                     }
-
                     return items;
                 }
             }
@@ -255,7 +291,7 @@ namespace InWorldz.Data.Inventory.Cassandra
                         {
                             rootFolder = items[0];
                         }
-
+                        rootFolder.Level = InventoryFolderBase.FolderLevel.Root;
                         return rootFolder;
                     }
                 }
@@ -280,7 +316,6 @@ namespace InWorldz.Data.Inventory.Cassandra
             {
                 using (ISimpleDB conn = _connFactory.GetConnection())
                 {
-
                     string query = "SELECT * FROM inventoryfolders WHERE parentFolderID = ?uuid";
                     Dictionary<string, object> parms = new Dictionary<string, object>();
                     parms.Add("?uuid", parentID.ToString());
@@ -288,10 +323,11 @@ namespace InWorldz.Data.Inventory.Cassandra
                     using (IDataReader reader = conn.QueryAndUseReader(query, parms))
                     {
                         List<InventoryFolderBase> items = new List<InventoryFolderBase>();
-
                         while (reader.Read())
-                            items.Add(readInventoryFolder(reader));
-
+                        {
+                            InventoryFolderBase folder = readInventoryFolder(reader);
+                            items.Add(folder);
+                        }
                         return items;
                     }
                 }
@@ -420,10 +456,8 @@ namespace InWorldz.Data.Inventory.Cassandra
             {
                 m_log.Error(e.ToString());
             }
-
             return null;
         }
-
 
         /// <summary>
         /// Returns a specified inventory folder
@@ -469,12 +503,12 @@ namespace InWorldz.Data.Inventory.Cassandra
         /// <param name="item">The inventory item</param>
         public void addInventoryItem(InventoryItemBase item)
         {
-            string sql =
+            string query =
                 "REPLACE INTO inventoryitems (inventoryID, assetID, assetType, parentFolderID, avatarID, inventoryName"
                     + ", inventoryDescription, inventoryNextPermissions, inventoryCurrentPermissions, invType"
                     + ", creatorID, inventoryBasePermissions, inventoryEveryOnePermissions, inventoryGroupPermissions, salePrice, saleType"
                     + ", creationDate, groupID, groupOwned, flags) VALUES ";
-            sql +=
+            query +=
                 "(?inventoryID, ?assetID, ?assetType, ?parentFolderID, ?avatarID, ?inventoryName, ?inventoryDescription"
                     + ", ?inventoryNextPermissions, ?inventoryCurrentPermissions, ?invType, ?creatorID"
                     + ", ?inventoryBasePermissions, ?inventoryEveryOnePermissions, ?inventoryGroupPermissions, ?salePrice, ?saleType, ?creationDate"
@@ -506,7 +540,7 @@ namespace InWorldz.Data.Inventory.Cassandra
                     parms.Add("?groupOwned", item.GroupOwned);
                     parms.Add("?flags", item.Flags);
 
-                    conn.QueryNoResults(sql, parms);
+                    conn.QueryNoResults(query, parms);
 
                     // Also increment the parent version number if not null.
                     this.IncrementSpecifiedFolderVersion(conn, item.Folder);
@@ -533,7 +567,7 @@ namespace InWorldz.Data.Inventory.Cassandra
              * originally pointed back to addInventoryItem above.
             */
 
-            string sql =
+            string query =
                 "UPDATE inventoryitems SET assetID=?assetID, assetType=?assetType, parentFolderID=?parentFolderID, "
                  + "avatarID=?avatarID, inventoryName=?inventoryName, inventoryDescription=?inventoryDescription, inventoryNextPermissions=?inventoryNextPermissions, "
                 + "inventoryCurrentPermissions=?inventoryCurrentPermissions, invType=?invType, creatorID=?creatorID, inventoryBasePermissions=?inventoryBasePermissions, "
@@ -567,7 +601,7 @@ namespace InWorldz.Data.Inventory.Cassandra
                     parms.Add("?groupOwned", item.GroupOwned);
                     parms.Add("?flags", item.Flags);
 
-                    conn.QueryNoResults(sql, parms);
+                    conn.QueryNoResults(query, parms);
 
                     // Also increment the parent version number if not null.
                     this.IncrementSpecifiedFolderVersion(conn, item.Folder);
@@ -577,7 +611,6 @@ namespace InWorldz.Data.Inventory.Cassandra
             {
                 m_log.Error(e.ToString());
             }
-
         }
 
         /// <summary>
@@ -624,13 +657,13 @@ namespace InWorldz.Data.Inventory.Cassandra
         {
             if (folder.ID == UUID.Zero)
             {
-                m_log.Error("Not storing zero UUID folder for " + folder.Owner.ToString());
+                m_log.Error("[Inventory]: Not storing zero UUID folder for " + folder.Owner.ToString());
                 return;
             }
 
-            string sql =
+            string query =
                 "REPLACE INTO inventoryfolders (folderID, agentID, parentFolderID, folderName, type, version) VALUES ";
-            sql += "(?folderID, ?agentID, ?parentFolderID, ?folderName, ?type, ?version)";
+            query += "(?folderID, ?agentID, ?parentFolderID, ?folderName, ?type, ?version)";
 
             try
             {
@@ -644,7 +677,7 @@ namespace InWorldz.Data.Inventory.Cassandra
                     parms.Add("?type", (short)folder.Type);
                     parms.Add("?version", folder.Version);
 
-                    conn.QueryNoResults(sql, parms);
+                    conn.QueryNoResults(query, parms);
 
                     // Also increment the parent version number if not null.
                     this.IncrementSpecifiedFolderVersion(conn, folder.ParentID);
@@ -679,7 +712,7 @@ namespace InWorldz.Data.Inventory.Cassandra
         /// <param name="folder">Folder to update</param>
         public void updateInventoryFolder(InventoryFolderBase folder)
         {
-            string sql =
+            string query =
                 "update inventoryfolders set folderName=?folderName where folderID=?folderID";
 
             try
@@ -690,7 +723,7 @@ namespace InWorldz.Data.Inventory.Cassandra
                     parms.Add("?folderName", folder.Name);
                     parms.Add("?folderID", folder.ID.ToString());
 
-                    conn.QueryNoResults(sql, parms);
+                    conn.QueryNoResults(query, parms);
 
                     // Also increment the version number if not null.
                     this.IncrementSpecifiedFolderVersion(conn, folder.ID);
@@ -710,7 +743,7 @@ namespace InWorldz.Data.Inventory.Cassandra
         /// <remarks>UPDATE inventoryfolders SET parentFolderID=?parentFolderID WHERE folderID=?folderID</remarks>
         public void moveInventoryFolder(InventoryFolderBase folder, UUID parentId)
         {
-            string sql = "UPDATE inventoryfolders SET parentFolderID=?parentFolderID WHERE folderID=?folderID";
+            string query = "UPDATE inventoryfolders SET parentFolderID=?parentFolderID WHERE folderID=?folderID";
 
             try
             {
@@ -720,7 +753,7 @@ namespace InWorldz.Data.Inventory.Cassandra
                     parms.Add("?folderID", folder.ID.ToString());
                     parms.Add("?parentFolderID", parentId.ToString());
 
-                    conn.QueryNoResults(sql, parms);
+                    conn.QueryNoResults(query, parms);
 
                     folder.ParentID = parentId; // Only change if the above succeeded.
 
