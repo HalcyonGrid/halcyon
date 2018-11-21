@@ -263,6 +263,10 @@ namespace OpenSim
                                           "load oar [--ignore-errors] <oar name>",
                                           "Load a region's data from OAR archive", LoadOar);
 
+            m_console.Commands.AddCommand("region", false, "load iwoar",
+                                          "load oar [--ignore-errors] <oar name>",
+                                          "Load a region's data from an InWorldz OAR backup, filtering based on opt-in database", LoadIWOar);
+
             m_console.Commands.AddCommand("region", false, "save oar",
                                           "save oar <oar name> <store_assets>",
                                           "Save a region's data to an OAR archive",
@@ -1567,10 +1571,10 @@ namespace OpenSim
         }
 
         /// <summary>
-        /// Load a whole region from an opensim archive.
+        /// Load a whole region from an opensim archive with optional table name.
         /// </summary>
         /// <param name="cmdparams"></param>
-        protected void LoadOar(string module, string[] cmdparams)
+        protected void LoadOarWithOptions(string module, string[] cmdparams, string optionsTable)
         {
             if (cmdparams.Length > 2)
             {
@@ -1589,7 +1593,7 @@ namespace OpenSim
 
                 try
                 {
-                    m_sceneManager.LoadArchiveToCurrentScene(fileName, true, ignoreErrors);
+                    m_sceneManager.LoadArchiveToCurrentScene(fileName, true, ignoreErrors, optionsTable);
                 }
                 catch (FileNotFoundException)
                 {
@@ -1600,13 +1604,31 @@ namespace OpenSim
             {
                 try
                 {
-                    m_sceneManager.LoadArchiveToCurrentScene(DEFAULT_OAR_BACKUP_FILENAME, true, false);
+                    m_sceneManager.LoadArchiveToCurrentScene(DEFAULT_OAR_BACKUP_FILENAME, true, false, optionsTable);
                 }
                 catch (FileNotFoundException)
                 {
                     m_console.Error("Default oar not found. Usage: load oar <filename>");
                 }
             }
+        }
+
+        /// <summary>
+        /// Load a whole region from an opensim archive.
+        /// </summary>
+        /// <param name="cmdparams"></param>
+        protected void LoadOar(string module, string[] cmdparams)
+        {
+            LoadOarWithOptions(module, cmdparams, null);
+        }
+
+        /// <summary>
+        /// Load a region from an opensim archive with filtering based on opt-in status in a database table.
+        /// </summary>
+        /// <param name="cmdparams"></param>
+        protected void LoadIWOar(string module, string[] cmdparams)
+        {
+            LoadOarWithOptions(module, cmdparams, "iwopt");
         }
 
         /// <summary>
@@ -1658,7 +1680,7 @@ namespace OpenSim
 
                 IRegionArchiverModule archiver = targetScene.RequestModuleInterface<IRegionArchiverModule>();
                 if (archiver != null)
-                    archiver.DearchiveRegion(cmdparams[3], false, false);
+                    archiver.DearchiveRegion(cmdparams[3], false, false, null);
             }
             catch (FileNotFoundException)
             {

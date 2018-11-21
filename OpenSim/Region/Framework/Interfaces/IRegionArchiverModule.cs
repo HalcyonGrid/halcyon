@@ -95,7 +95,7 @@ namespace OpenSim.Region.Framework.Interfaces
         /// If you want notification of when it has completed then subscribe to the EventManager.OnOarFileLoaded event.
         /// 
         /// <param name="loadPath"></param>
-        void DearchiveRegion(string loadPath, bool allowUserReassignment, bool skipErrorGroups);
+        void DearchiveRegion(string loadPath, bool allowUserReassignment, bool skipErrorGroups, string optionsTable);
         
         /// <summary>
         /// Dearchive the given region archive.  This replaces the existing scene.
@@ -109,7 +109,7 @@ namespace OpenSim.Region.Framework.Interfaces
         /// settings in the archive will be ignored.
         /// </param>
         /// <param name="requestId">If supplied, this request Id is later returned in the saved event</param>
-        void DearchiveRegion(string loadPath, bool merge, Guid requestId, bool allowUserReassignment, bool skipErrorGroups);        
+        void DearchiveRegion(string loadPath, bool merge, Guid requestId, bool allowUserReassignment, bool skipErrorGroups, string optionsTable);        
         
         /// <summary>
         /// Dearchive a region from a stream.  This replaces the existing scene. 
@@ -118,7 +118,7 @@ namespace OpenSim.Region.Framework.Interfaces
         /// If you want notification of when it has completed then subscribe to the EventManager.OnOarFileLoaded event.
         /// 
         /// <param name="loadStream"></param>
-        void DearchiveRegion(Stream loadStream, bool allowUserReassignment, bool skipErrorGroups);
+        void DearchiveRegion(Stream loadStream, bool allowUserReassignment, bool skipErrorGroups, string optionsTable);
         
         /// <summary>
         /// Dearchive a region from a stream.  This replaces the existing scene.
@@ -132,6 +132,6 @@ namespace OpenSim.Region.Framework.Interfaces
         /// settings in the archive will be ignored.
         /// </param>    
         /// <param name="requestId">If supplied, this request Id is later returned in the saved event</param>
-        void DearchiveRegion(Stream loadStream, bool merge, Guid requestId, bool allowUserReassignment, bool skipErrorGroups);        
+        void DearchiveRegion(Stream loadStream, bool merge, Guid requestId, bool allowUserReassignment, bool skipErrorGroups, string optionsTable);        
     }
 }
