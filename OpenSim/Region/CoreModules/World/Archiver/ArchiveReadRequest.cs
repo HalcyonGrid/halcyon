@@ -42,6 +42,9 @@ using OpenSim.Region.CoreModules.World.Terrain;
 using OpenSim.Region.Framework.Interfaces;
 using OpenSim.Region.Framework.Scenes;
 using OpenSim.Region.Framework;
+using OpenSim.Data.SimpleDB;
+using System.Data;
+using Nini.Config;
 
 namespace OpenSim.Region.CoreModules.World.Archiver
 {
@@ -56,7 +59,10 @@ namespace OpenSim.Region.CoreModules.World.Archiver
         private Stream m_loadStream;
         private Guid m_requestId;
         private string m_errorMessage;
-        private IGroupsModule m_GroupsModule; 
+        private IGroupsModule m_GroupsModule;
+
+        private ConnectionFactory _connFactory;
+        private IConfigSource m_config;
 
         /// <value>
         /// Should the archive being loaded be merged with what is already on the region?
@@ -80,8 +86,9 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                 {new UUID("11111111-1111-0000-0000-000100bba000"), true} //the "mr opensim" user
             };
 
-        public ArchiveReadRequest(Scene scene, string loadPath, bool merge, Guid requestId, bool allowUserReassignment, bool skipErrorGroups)
+        public ArchiveReadRequest(IConfigSource config, Scene scene, string loadPath, bool merge, Guid requestId, bool allowUserReassignment, bool skipErrorGroups)
         {
+            m_config = config;
             m_scene = scene;
             m_loadStream = new GZipStream(GetStream(loadPath), CompressionMode.Decompress);
             m_errorMessage = String.Empty;
@@ -92,8 +99,9 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             m_skipErrorGroups = skipErrorGroups;
         }
 
-        public ArchiveReadRequest(Scene scene, Stream loadStream, bool merge, Guid requestId, bool allowUserReassignment, bool skipErrorGroups)
+        public ArchiveReadRequest(IConfigSource config, Scene scene, Stream loadStream, bool merge, Guid requestId, bool allowUserReassignment, bool skipErrorGroups)
         {
+            m_config = config;
             m_scene = scene;
             m_loadStream = loadStream;
             m_merge = merge;
@@ -106,10 +114,10 @@ namespace OpenSim.Region.CoreModules.World.Archiver
         /// <summary>
         /// Dearchive the region embodied in this request.
         /// </summary>
-        public void DearchiveRegion()
+        public void DearchiveRegion(string optionsTable)
         {
             // The same code can handle dearchiving 0.1 and 0.2 OpenSim Archive versions
-            DearchiveRegion0DotStar();
+            DearchiveRegion0DotStar(optionsTable);
         }
 
         public bool NoCopyObjectOrContents(SceneObjectGroup target)
@@ -121,13 +129,56 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             return ((target.GetEffectivePermissions(true) & (uint)PermissionMask.Copy) != (uint)PermissionMask.Copy);
         }
 
-        private void DearchiveRegion0DotStar()
+        Dictionary<UUID, int> GetUserContentOptions(string optionsTable)
+        {
+            if (_connFactory == null)
+            {
+                string connString = null;
+                IConfig networkConfig = m_config.Configs["Startup"];
+                if (networkConfig != null)
+                {
+                    connString = networkConfig.GetString("core_connection_string", String.Empty);
+                }
+
+                if (String.IsNullOrWhiteSpace(connString))
+                    return null;
+
+                _connFactory = new ConnectionFactory("MySQL", connString);
+            }
+
+            Dictionary<UUID, int> optInTable = new Dictionary<UUID, int>();
+            try
+            {
+                using (ISimpleDB conn = _connFactory.GetConnection())
+                {
+                    string query = "select UUID,optContent from " + optionsTable + " LIMIT 999999999";
+                    using (IDataReader reader = conn.QueryAndUseReader(query))
+                    {
+                        while (reader.Read())
+                        {
+                            UUID uuid = new UUID(reader["uuid"].ToString());
+                            int optContent = Convert.ToInt32(reader["optContent"]);
+                            optInTable[uuid] = optContent;
+                        }
+                        reader.Close();
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                m_log.Error(e.ToString());
+            }
+            return optInTable;
+        }
+
+        private void DearchiveRegion0DotStar(string optionsTable)
         {
             int successfulAssetRestores = 0;
             int failedAssetRestores = 0;
             List<string> serializedSceneObjects = new List<string>();
             string filePath = "NONE";
-            
+            Dictionary<UUID, int> optInTable = String.IsNullOrWhiteSpace(optionsTable) ? null : GetUserContentOptions(optionsTable);
+
             try
             {
                 TarArchiveReader archive = new TarArchiveReader(m_loadStream);
