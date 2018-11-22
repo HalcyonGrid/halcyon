@@ -425,4 +425,17 @@ Global
 		{CD7723CB-0000-0000-0000-000000000000}.Release|x64.ActiveCfg = Release|x64
 		{CD7723CB-0000-0000-0000-000000000000}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
+	GlobalSection(MonoDevelopProperties) = preSolution
+		Policies = $0
+		$0.TextStylePolicy = $1
+		$1.FileWidth = 80
+		$1.TabsToSpaces = True
+		$1.scope = text/x-csharp
+		$0.CSharpFormattingPolicy = $2
+		$2.NewLineForMembersInObjectInit = False
+		$2.NewLineForMembersInAnonymousTypes = False
+		$2.NewLineForClausesInQuery = False
+		$2.scope = text/x-csharp
+		$2.IndentSwitchCaseSection = False
+	EndGlobalSection
 EndGlobal
