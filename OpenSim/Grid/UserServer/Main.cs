@@ -193,7 +193,7 @@ namespace OpenSim.Grid.UserServer
             settings.InventorySource = inventoryConfig.GetString("inventory_connection_string", settings.InventorySource);
 
             // Everything has defaults
-            settings.InventoryPlugin = inventoryConfig.GetString("inventory_plugin", "Halcyon.Data.Inventory.MySQL.dll);
+            settings.InventoryPlugin = inventoryConfig.GetString("inventory_plugin", "Halcyon.Data.Inventory.MySQL.dll");
             settings.InventorySource = inventoryConfig.GetString("legacy_inventory_source", settings.CoreConnectionString);
             settings.InventorySource = inventoryConfig.GetString("inventory_connection_string", settings.InventorySource);
 
