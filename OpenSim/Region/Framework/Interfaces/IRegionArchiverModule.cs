@@ -132,6 +132,14 @@ namespace OpenSim.Region.Framework.Interfaces
         /// settings in the archive will be ignored.
         /// </param>    
         /// <param name="requestId">If supplied, this request Id is later returned in the saved event</param>
-        void DearchiveRegion(Stream loadStream, bool merge, Guid requestId, bool allowUserReassignment, bool skipErrorGroups, string optionsTable);        
+        void DearchiveRegion(Stream loadStream, bool merge, Guid requestId, bool allowUserReassignment, bool skipErrorGroups, string optionsTable);
+
+        /// <summary>
+        /// Scans the objects in an archive to try to find creator IDs for asset (even if the assets are not present).
+        /// </summary>
+        /// 
+        /// <param name="loadPath">name of the OAR file</param>
+        /// <param name="saveCreators">if true, saves creators found in database table</param>
+        void ScanArchiveForAssetCreatorIDs(string loadPath, bool saveCreators);
     }
 }

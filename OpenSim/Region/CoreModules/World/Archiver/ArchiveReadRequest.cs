@@ -171,6 +171,69 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             return optInTable;
         }
 
+        private void SaveAssetCreator(UUID assetID, UUID creatorID)
+        {
+            // WIP: stubbed for now
+            m_log.WarnFormat("[OAR Assets]: Recognized {0} as creator of asset {1}.", creatorID, assetID);
+        }
+
+        private void ScanObjectForAssetCreatorIDs(IRegionSerializerModule serializer, string serializedSOG, bool saveCreators)
+        {
+            SceneObjectGroup sceneObject;
+            try
+            {
+                sceneObject = serializer.DeserializeGroupFromXml2(serializedSOG);
+                if (sceneObject == null)
+                    return;
+
+                foreach (SceneObjectPart part in sceneObject.GetParts())
+                {
+                    lock (part.TaskInventory)
+                    {
+                        TaskInventoryDictionary inv = part.TaskInventory;
+                        foreach (KeyValuePair<UUID, TaskInventoryItem> kvp in inv)
+                        {
+                            TaskInventoryItem item = kvp.Value;
+
+                            if (saveCreators && (item.AssetID != UUID.Zero))
+                                SaveAssetCreator(item.AssetID, item.CreatorID);
+                        }
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                m_log.InfoFormat("[ARCHIVER]: Error while deserializing group: {0}", e);
+            }
+        }
+
+        public void ScanArchiveForAssetCreatorIDs(bool saveCreators)
+        {
+            string filePath = "NONE";
+
+            try
+            {
+                IRegionSerializerModule serializer = m_scene.RequestModuleInterface<IRegionSerializerModule>();
+                TarArchiveReader archive = new TarArchiveReader(m_loadStream);
+                TarArchiveReader.TarEntryType entryType;
+                byte[] data;
+                while ((data = archive.ReadEntry(out filePath, out entryType)) != null)
+                {
+                    if (TarArchiveReader.TarEntryType.TYPE_DIRECTORY == entryType)
+                        continue;
+
+                    if (filePath.StartsWith(ArchiveConstants.OBJECTS_PATH))
+                    {
+                        ScanObjectForAssetCreatorIDs(serializer, Encoding.UTF8.GetString(data), saveCreators);
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                m_log.ErrorFormat("[ARCHIVER]: Aborting creator scan with error in archive file {0}.  {1}", filePath, e);
+            }
+        }
+
         private void DearchiveRegion0DotStar(string optionsTable)
         {
             int successfulAssetRestores = 0;
