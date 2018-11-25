@@ -247,6 +247,21 @@ namespace OpenSim.Region.Framework.Scenes
         }
 
         /// <summary>
+        /// Load an xml file of prims in OpenSimulator's current 'xml2' file format to the current scene
+        /// </summary>
+        /// <summary>
+        /// Scans objects in an OAR file for creator IDs to save for assets.
+        /// </summary>
+        /// <param name="fileName"></param>
+        /// <param name="saveCreators">true to save in database</param>
+        public void ScanSceneForCreators(string filename, bool saveCreators)
+        {
+            IRegionArchiverModule archiver = CurrentOrFirstScene.RequestModuleInterface<IRegionArchiverModule>();
+            if (archiver != null)
+                archiver.ScanArchiveForAssetCreatorIDs(filename, saveCreators);
+        }
+
+        /// <summary>
         /// Save the current scene to an OpenSimulator archive.  This archive will eventually include the prim's assets
         /// as well as the details of the prims themselves.
         /// </summary>

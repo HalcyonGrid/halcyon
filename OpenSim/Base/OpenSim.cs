@@ -263,8 +263,12 @@ namespace OpenSim
                                           "load oar [--ignore-errors] <oar name>",
                                           "Load a region's data from OAR archive", LoadOar);
 
+            m_console.Commands.AddCommand("region", false, "scan iwoar",
+                                          "scan iwoar [--save] <oar name>",
+                                          "Scan's a region's data for creator IDs of assets from an InWorldz OAR backup", ScanIWOar);
+
             m_console.Commands.AddCommand("region", false, "load iwoar",
-                                          "load oar [--ignore-errors] <oar name>",
+                                          "load iwoar [--ignore-errors] <oar name>",
                                           "Load a region's data from an InWorldz OAR backup, filtering based on opt-in database", LoadIWOar);
 
             m_console.Commands.AddCommand("region", false, "save oar",
@@ -1567,6 +1571,36 @@ namespace OpenSim
                 {
                     m_console.Error("Default xml not found. Usage: load xml2 <filename>");
                 }
+            }
+        }
+
+        /// <summary>
+        /// Scan's a region's data for creator IDs of assets from an InWorldz OAR backup
+        /// scan iwoar [--save] oarname
+        /// </summary>
+        /// <param name="cmdparams"></param>
+        protected void ScanIWOar(string module, string[] cmdparams)
+        {
+            string fileName;
+            bool saveCreators;
+            if (cmdparams.Length > 3 && cmdparams[2] == "--save")
+            {
+                saveCreators = true;
+                fileName = cmdparams[3];
+            }
+            else
+            {
+                saveCreators = false;
+                fileName = cmdparams[2];
+            }
+
+            try
+            {
+                m_sceneManager.ScanSceneForCreators(fileName, saveCreators);
+            }
+            catch (FileNotFoundException)
+            {
+                m_console.Error("Specified oar not found. Usage: load oar <filename>");
             }
         }
 
