@@ -54,6 +54,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
     public class ArchiveReadRequest
     {
         private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
+        private static readonly String ASSET_CREATORS = "asset_creators";
 
         private Scene m_scene;
         private Stream m_loadStream;
@@ -129,22 +130,28 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             return ((target.GetEffectivePermissions(true) & (uint)PermissionMask.Copy) != (uint)PermissionMask.Copy);
         }
 
+        // checks and updates _connFactory member.
+        private void InitConnFactory()
+        {
+            if (_connFactory != null)
+                return;
+
+            string connString = null;
+            IConfig networkConfig = m_config.Configs["Startup"];
+            if (networkConfig != null)
+            {
+                connString = networkConfig.GetString("core_connection_string", String.Empty);
+            }
+
+            if (String.IsNullOrWhiteSpace(connString))
+                return;
+
+            _connFactory = new ConnectionFactory("MySQL", connString);
+        }
+
         Dictionary<UUID, int> GetUserContentOptions(string optionsTable)
         {
-            if (_connFactory == null)
-            {
-                string connString = null;
-                IConfig networkConfig = m_config.Configs["Startup"];
-                if (networkConfig != null)
-                {
-                    connString = networkConfig.GetString("core_connection_string", String.Empty);
-                }
-
-                if (String.IsNullOrWhiteSpace(connString))
-                    return null;
-
-                _connFactory = new ConnectionFactory("MySQL", connString);
-            }
+            InitConnFactory();
 
             Dictionary<UUID, int> optInTable = new Dictionary<UUID, int>();
             try
@@ -171,14 +178,64 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             return optInTable;
         }
 
-        private void SaveAssetCreator(UUID assetID, UUID creatorID)
+        private Dictionary<UUID, UUID> GetAssetCreators()
         {
-            // WIP: stubbed for now
-            m_log.WarnFormat("[OAR Assets]: Recognized {0} as creator of asset {1}.", creatorID, assetID);
+            InitConnFactory();
+
+            Dictionary<UUID, UUID> assetCreatorsTable = new Dictionary<UUID, UUID>();
+            try
+            {
+                using (ISimpleDB conn = _connFactory.GetConnection())
+                {
+                    string query = "select assetId,creatorId from " + ASSET_CREATORS + " LIMIT 999999999";
+                    using (IDataReader reader = conn.QueryAndUseReader(query))
+                    {
+                        while (reader.Read())
+                        {
+                            UUID assetId = new UUID(reader["assetId"].ToString());
+                            UUID creatorId = new UUID(reader["creatorId"].ToString());
+                            assetCreatorsTable[assetId] = creatorId;
+                        }
+                        reader.Close();
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                m_log.Error(e.ToString());
+            }
+            return assetCreatorsTable;
+        }
+
+        private void SaveAssetCreators(Dictionary<UUID,UUID> assetCreatorsTable)
+        {
+            InitConnFactory();
+
+            try
+            {
+                using (ISimpleDB conn = _connFactory.GetConnection())
+                {
+                    string query = "INSERT INTO " + ASSET_CREATORS + 
+                        " (assetId,creatorId) VALUES (?assetId,?creatorId) " +
+                        "ON DUPLICATE KEY UPDATE creatorId = ?creatorId";
+                    foreach (KeyValuePair<UUID,UUID> kvp in assetCreatorsTable)
+                    {
+                        Dictionary<string, object> parameters = new Dictionary<string, object>();
+                        parameters["?assetId"] = kvp.Key.ToString();
+                        parameters["?creatorId"] = kvp.Value.ToString();
+                        conn.QueryNoResults(query, parameters);
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                m_log.Error(e.ToString());
+            }
         }
 
         private void ScanObjectForAssetCreatorIDs(IRegionSerializerModule serializer, string serializedSOG, bool saveCreators)
         {
+            Dictionary<UUID, UUID> assetCreators = new Dictionary<UUID, UUID>();
             SceneObjectGroup sceneObject;
             try
             {
@@ -195,11 +252,15 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                         {
                             TaskInventoryItem item = kvp.Value;
 
-                            if (saveCreators && (item.AssetID != UUID.Zero))
-                                SaveAssetCreator(item.AssetID, item.CreatorID);
+                            if (item.AssetID != UUID.Zero)
+                            {
+                                assetCreators[item.AssetID] = item.CreatorID;
+                            }
                         }
                     }
                 }
+                if (saveCreators)
+                    SaveAssetCreators(assetCreators);
             }
             catch (Exception e)
             {
@@ -240,7 +301,14 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             int failedAssetRestores = 0;
             List<string> serializedSceneObjects = new List<string>();
             string filePath = "NONE";
-            Dictionary<UUID, int> optInTable = String.IsNullOrWhiteSpace(optionsTable) ? null : GetUserContentOptions(optionsTable);
+            Dictionary<UUID, int> optInTable = null;
+            Dictionary<UUID, UUID> assetCreators = null;
+
+            if (!String.IsNullOrWhiteSpace(optionsTable))
+            {
+                optInTable = GetUserContentOptions(optionsTable);
+                assetCreators = GetAssetCreators();
+            }
 
             try
             {
@@ -263,7 +331,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                     }
                     else if (filePath.StartsWith(ArchiveConstants.ASSETS_PATH))
                     {
-                        if (LoadAsset(filePath, data))
+                        if (LoadAsset(filePath, data, optInTable, assetCreators))
                             successfulAssetRestores++;
                         else
                             failedAssetRestores++;
@@ -329,6 +397,18 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                     if (m_skipErrorGroups) continue;
                     else throw new Exception("Error while deserializing group");
                 }
+
+                if (!optInTable.ContainsKey(sceneObject.RootPart.CreatorID))
+                    continue;   // filtered
+                int optIn = optInTable[sceneObject.RootPart.CreatorID];
+                switch (optIn)
+                {
+                    case 2: break; // allow the asset in so everyone can use it
+                    case 1: if (sceneObject.RootPart.OwnerID == sceneObject.RootPart.CreatorID) break; else continue;   // allow the asset in so creator can use it
+                    case 0: continue;   // asset is not allowed in
+                    default: continue;  // unknown status, cannot assume opt-in
+                }
+
 
                 // For now, give all incoming scene objects new uuids.  This will allow scenes to be cloned
                 // on the same region server and multiple examples a single object archive to be imported
@@ -524,7 +604,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
         /// <param name="assetFilename"></param>
         /// <param name="data"></param>
         /// <returns>true if asset was successfully loaded, false otherwise</returns>
-        private bool LoadAsset(string assetPath, byte[] data)
+        private bool LoadAsset(string assetPath, byte[] data, Dictionary<UUID, int> optInTable, Dictionary<UUID, UUID> assetCreators)
         {
             // Right now we're nastily obtaining the UUID from the filename
             string filename = assetPath.Remove(0, ArchiveConstants.ASSETS_PATH.Length);
@@ -551,6 +631,24 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                 AssetBase asset = new AssetBase(new UUID(uuid), String.Empty);
                 asset.Type = assetType;
                 asset.Data = data;
+
+                if (optInTable != null)
+                {
+                    // this is a `load iwoar` command and we need to filter based on opt-in status
+                    if (!assetCreators.ContainsKey(asset.FullID))
+                        return false;
+                    UUID creatorId = assetCreators[asset.FullID];
+                    if (!optInTable.ContainsKey(creatorId))
+                        return false;
+                    int optIn = optInTable[creatorId];
+                    switch (optIn)
+                    {
+                        case 2: break; // allow the asset in so everyone can use it
+                        case 1: break; // allow the asset in so creator can use it
+                        case 0: return false;   // asset is not allowed in
+                        default: return false;  // unknown status, cannot assume opt-in
+                    }
+                }
 
                 try
                 {
