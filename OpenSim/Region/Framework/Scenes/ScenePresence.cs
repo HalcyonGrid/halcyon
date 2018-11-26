@@ -2605,7 +2605,7 @@ namespace OpenSim.Region.Framework.Scenes
                 SceneObjectPart rootPart = part.ParentGroup.RootPart;
                 vParentID = rootPart.UUID;         // parentID to send to viewer, always the root prim
                 vPos = Vector3.Zero;            // viewer position of avatar relative to root prim
-                vRot = Quaternion.Identity;  // viewer rotation of avatar relative to root prim
+                vRot = m_sitTargetCorrectionMode == SitTargetCorrectionMode.SecondLife ? rootPart.RotationOffset : Quaternion.Identity;  // viewer rotation of avatar relative to root prim
                 avSitPos = Vector3.Zero;
                 avSitRot = rootPart.RotationOffset;
 
@@ -2630,6 +2630,10 @@ namespace OpenSim.Region.Framework.Scenes
                 {
                     avSitPos += sitInfo.Offset + m_sitTargetCorrectionPrimSpaceOffset + m_sitTargetCorrectionAgentSpaceOffset * sitInfo.Rotation;
                     avSitRot *= sitInfo.Rotation;
+                    if (m_sitTargetCorrectionMode == SitTargetCorrectionMode.SecondLife)
+                    {
+                        vPos += sitInfo.Offset + m_sitTargetCorrectionPrimSpaceOffset + m_sitTargetCorrectionAgentSpaceOffset * sitInfo.Rotation;
+                    }
                     vRot *= sitInfo.Rotation;
                 }
                 else
