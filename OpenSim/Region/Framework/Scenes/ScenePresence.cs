@@ -141,7 +141,13 @@ namespace OpenSim.Region.Framework.Scenes
         // Experimentally determined "fudge factor" to make sit-target positions the same as in SecondLife.
         private Vector3 m_sitTargetCorrectionPrimSpaceOffset;
         private Vector3 m_sitTargetCorrectionAgentSpaceOffset;
-        private readonly bool m_sitTargetCorrectionLegacyMath;
+        private enum SitTargetCorrectionMode
+        {
+            None,
+            SecondLife,
+            Legacy,
+        }
+        private readonly SitTargetCorrectionMode m_sitTargetCorrectionMode;
 
         private float m_godlevel;
 
@@ -1012,13 +1018,16 @@ namespace OpenSim.Region.Framework.Scenes
 
                 m_sitTargetCorrectionPrimSpaceOffset = new Vector3(0.1f, 0.0f, 0.3f);
                 m_sitTargetCorrectionAgentSpaceOffset = new Vector3(0.0f, 0.0f, 0.0f);
-                m_sitTargetCorrectionLegacyMath = true;
+                m_sitTargetCorrectionMode = SitTargetCorrectionMode.Legacy;
                 break;
                 case "secondlife":
                 m_sitTargetCorrectionPrimSpaceOffset = new Vector3(0.0f, 0.0f, 0.4f);
                 m_sitTargetCorrectionAgentSpaceOffset = new Vector3(0.0f, 0.0f, -0.05f);
-                m_sitTargetCorrectionLegacyMath = false;
+                m_sitTargetCorrectionMode = SitTargetCorrectionMode.SecondLife;
                 break;
+                default:
+                    m_sitTargetCorrectionMode = SitTargetCorrectionMode.None;
+                    break;
             }
 
             // Prime (cache) the user's group list.
@@ -2606,7 +2615,7 @@ namespace OpenSim.Region.Framework.Scenes
                     avSitRot *= part.RotationOffset;
                 }
 
-                if (m_sitTargetCorrectionLegacyMath)
+                if (m_sitTargetCorrectionMode == SitTargetCorrectionMode.Legacy)
                 {
                     // Viewer seems to draw the avatar based on the hip position.
                     // If you don't include HipOffset (which is raising the avatar 
@@ -3357,7 +3366,7 @@ namespace OpenSim.Region.Framework.Scenes
                 return;
             }
 
-            if (m_sitTargetCorrectionLegacyMath)
+            if (m_sitTargetCorrectionMode == SitTargetCorrectionMode.Legacy)
             {
                 // Viewer seems to draw the avatar based on the hip position.
                 // If you don't include HipOffset (which is raising the avatar 
@@ -3379,7 +3388,7 @@ namespace OpenSim.Region.Framework.Scenes
                 if (sitInfo.Offset != Vector3.Zero)
                 {
                     vPos = sitInfo.Offset;  // start with the sit target position
-                    if (m_sitTargetCorrectionLegacyMath)
+                    if (m_sitTargetCorrectionMode == SitTargetCorrectionMode.Legacy)
                     {
                         vPos.Z -= m_appearance.HipOffset;   // reapply correction
                     }
