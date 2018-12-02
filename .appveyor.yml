@@ -36,8 +36,7 @@ before_build:
       $env:EDITION = "dotnet"
     }
 - cmd: IF EXIST runprebuild.bat runprebuild.bat
-- sh: if [ -x runprebuild.sh ]; then ./runprebuild.sh; fi
-- nuget restore Halcyon.sln
+- cmd: nuget restore Halcyon.sln
 
 build:
   parallel: true
@@ -52,13 +51,18 @@ for:
     only:
     - image: Ubuntu
   build_script:
-  - msbuild /p:DefineConstants="_MONO_CLI_FLAG_" Halcyon.sln
+  - ./build.sh
 
 after_build:
 - ps: |
     If (Test-Path "bin/OpenSim.Framework.Servers.dll") {
       $halcyon_version = (Get-ChildItem -Path bin/OpenSim.Framework.Servers.dll | % versioninfo).ProductVersion
-      Update-AppveyorBuild -Version "$halcyon_version-$env:APPVEYOR_BUILD_NUMBER"
+      Write-Output "Detected version: $halcyon_version"
+      Write-Output "AppVeyor build number: $env:APPVEYOR_BUILD_NUMBER"
+      $build_version = "$halcyon_version-$env:APPVEYOR_BUILD_NUMBER"
+      If ("$env:APPVEYOR_BUILD_VERSION" -ne "$build_version") {
+        Update-AppveyorBuild -Version "$build_version"
+      }
     }
 - ps: Rename-Item -Path bin -NewName halcyon-$env:APPVEYOR_BUILD_VERSION-$env:APPVEYOR_REPO_BRANCH-$env:EDITION
 
