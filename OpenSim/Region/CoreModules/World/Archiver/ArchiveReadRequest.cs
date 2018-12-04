@@ -484,7 +484,13 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                     if (item.InvType == (int)InventoryType.Object)
                     {
                         SceneObjectGroup inventoryObject = ObjectFromItem(part, item);
-                        filtered |= FilterObjectByCreators(inventoryObject);
+                        if (FilterObjectByCreators(inventoryObject))
+                        {
+                            // we're filtering an object inside the Contents. We can't practically do this more selectively.
+                            // Clear the asset to filter out this nested object.
+                            item.AssetID = UUID.Zero;
+                            filtered = true;
+                        }
                     }
                     else
                     if (MustReplaceByAsset(item.AssetID, item.OwnerID))
@@ -627,8 +633,8 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                         if (item.InvType == (int)InventoryType.Object)
                         {
                             SceneObjectGroup inventoryObject = ObjectFromItem(part, item);
-                            if (FilterObjectByCreators(inventoryObject))
-                                item.AssetID = UUID.Zero;
+                            if (inventoryObject != null)
+                                FilterObjectByCreators(inventoryObject);
                         }
                     }
                 }
