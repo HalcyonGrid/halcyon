@@ -254,11 +254,11 @@ namespace OpenSim.Region.Framework.Scenes
         /// </summary>
         /// <param name="fileName"></param>
         /// <param name="saveCreators">true to save in database</param>
-        public void ScanSceneForCreators(string filename, bool saveCreators)
+        public void ScanSceneForCreators(string filename)
         {
             IRegionArchiverModule archiver = CurrentOrFirstScene.RequestModuleInterface<IRegionArchiverModule>();
             if (archiver != null)
-                archiver.ScanArchiveForAssetCreatorIDs(filename, saveCreators);
+                archiver.ScanArchiveForAssetCreatorIDs(filename);
         }
 
         /// <summary>
@@ -278,11 +278,11 @@ namespace OpenSim.Region.Framework.Scenes
         /// their assets to the asset service.
         /// </summary>
         /// <param name="filename"></param>
-        public void LoadArchiveToCurrentScene(string filename, bool allowUserReassignment, bool ignoreErorrs, string optionsTable)
+        public void LoadArchiveToCurrentScene(string filename, bool allowUserReassignment, bool ignoreErrors, string optionsTable)
         {
             IRegionArchiverModule archiver = CurrentOrFirstScene.RequestModuleInterface<IRegionArchiverModule>();
             if (archiver != null)            
-                archiver.DearchiveRegion(filename, allowUserReassignment, ignoreErorrs, optionsTable);
+                archiver.DearchiveRegion(filename, allowUserReassignment, ignoreErrors, optionsTable);
         }
 
         public string SaveCurrentSceneMapToXmlString()
