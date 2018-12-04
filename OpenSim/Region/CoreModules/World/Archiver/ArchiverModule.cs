@@ -102,9 +102,9 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             new ArchiveWriteRequestPreparation(m_scene, saveStream, requestId).ArchiveRegion();
         }
 
-        public void ScanArchiveForAssetCreatorIDs(string loadPath, bool saveCreators)
+        public void ScanArchiveForAssetCreatorIDs(string loadPath)
         {
-            new ArchiveReadRequest(m_config, m_scene, loadPath, false, Guid.Empty, false, true).ScanArchiveForAssetCreatorIDs(saveCreators);
+            new ArchiveReadRequest(m_config, m_scene, loadPath, false, Guid.Empty, false, true).ScanArchiveForAssetCreatorIDs();
         }
 
         public void DearchiveRegion(string loadPath, bool allowUserReassignment, bool skipErrorGroups, string optionsTable)

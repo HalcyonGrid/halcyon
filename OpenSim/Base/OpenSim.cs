@@ -260,15 +260,15 @@ namespace OpenSim
                                           "Save named prim to XML2", SavePrimsXml2);
 
             m_console.Commands.AddCommand("region", false, "load oar",
-                                          "load oar [--ignore-errors] <oar name>",
+                                          "load oar [--allow-reassign] [--ignore-errors] <oar name>",
                                           "Load a region's data from OAR archive", LoadOar);
 
             m_console.Commands.AddCommand("region", false, "scan iwoar",
-                                          "scan iwoar [--save] <oar name>",
+                                          "scan iwoar <oar name>",
                                           "Scan's a region's data for creator IDs of assets from an InWorldz OAR backup", ScanIWOar);
 
             m_console.Commands.AddCommand("region", false, "load iwoar",
-                                          "load iwoar [--ignore-errors] <oar name>",
+                                          "load iwoar <oar name>",
                                           "Load a region's data from an InWorldz OAR backup, filtering based on opt-in database", LoadIWOar);
 
             m_console.Commands.AddCommand("region", false, "save oar",
@@ -1596,7 +1596,7 @@ namespace OpenSim
 
             try
             {
-                m_sceneManager.ScanSceneForCreators(fileName, saveCreators);
+                m_sceneManager.ScanSceneForCreators(fileName);
             }
             catch (FileNotFoundException)
             {
@@ -1610,40 +1610,28 @@ namespace OpenSim
         /// <param name="cmdparams"></param>
         protected void LoadOarWithOptions(string module, string[] cmdparams, string optionsTable)
         {
-            if (cmdparams.Length > 2)
-            {
-                string fileName;
-                bool ignoreErrors = false;
-                if (cmdparams.Length > 3 && cmdparams[2] == "--ignore-errors")
-                {
-                    ignoreErrors = true;
-                    fileName = cmdparams[3];
-                }
-                else
-                {
-                    ignoreErrors = false;
-                    fileName = cmdparams[2];
-                }
+            string fileName = DEFAULT_OAR_BACKUP_FILENAME;
+            bool allowReassign = false; // should UUIDs for missing users get reassigned to master avatar
+            bool ignoreErrors = false;
 
-                try
+            // Skip "load oar" and "load iwoar" in cmdparams (start at 2).
+            for (int param = 2; param < cmdparams.Length; param++)
+            {
+                switch (cmdparams[param])
                 {
-                    m_sceneManager.LoadArchiveToCurrentScene(fileName, true, ignoreErrors, optionsTable);
-                }
-                catch (FileNotFoundException)
-                {
-                    m_console.Error("Specified oar not found. Usage: load oar <filename>");
+                    case "--ignore-errors": ignoreErrors = true; break;
+                    case "--allow-reassign": allowReassign = true; break;
+                    default: fileName = cmdparams[param]; break;
                 }
             }
-            else
+
+            try
             {
-                try
-                {
-                    m_sceneManager.LoadArchiveToCurrentScene(DEFAULT_OAR_BACKUP_FILENAME, true, false, optionsTable);
-                }
-                catch (FileNotFoundException)
-                {
-                    m_console.Error("Default oar not found. Usage: load oar <filename>");
-                }
+                m_sceneManager.LoadArchiveToCurrentScene(fileName, allowReassign, ignoreErrors, optionsTable);
+            }
+            catch (FileNotFoundException)
+            {
+                m_console.Error("OAR file not found. Usage: load oar <filename>");
             }
         }
 

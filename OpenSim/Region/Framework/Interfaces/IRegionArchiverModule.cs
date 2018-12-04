@@ -139,7 +139,6 @@ namespace OpenSim.Region.Framework.Interfaces
         /// </summary>
         /// 
         /// <param name="loadPath">name of the OAR file</param>
-        /// <param name="saveCreators">if true, saves creators found in database table</param>
-        void ScanArchiveForAssetCreatorIDs(string loadPath, bool saveCreators);
+        void ScanArchiveForAssetCreatorIDs(string loadPath);
     }
 }

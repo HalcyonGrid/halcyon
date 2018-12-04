@@ -45,6 +45,7 @@ using OpenSim.Region.Framework;
 using OpenSim.Data.SimpleDB;
 using System.Data;
 using Nini.Config;
+using OpenSim.Region.Framework.Scenes.Serialization;
 
 namespace OpenSim.Region.CoreModules.World.Archiver
 {
@@ -76,6 +77,23 @@ namespace OpenSim.Region.CoreModules.World.Archiver
         private bool m_allowUserReassignment;
 
         private bool m_skipErrorGroups = false;
+
+        Dictionary<UUID, int> m_optInTable = null;
+        Dictionary<UUID, UUID> m_assetCreators = null;
+
+        int m_replacedPart = 0;
+        int m_replacedItem = 0;
+        int m_replacedTexture = 0;
+        int m_replacedSound = 0;
+        int m_replacedNonCreator = 0;   // MINE
+        int m_replacedCreator = 0;      // NONE
+
+        int m_keptPart = 0;
+        int m_keptItem = 0;
+        int m_keptTexture = 0;
+        int m_keptSound = 0;
+        int m_keptNonCreator = 0;   // MINE
+        int m_keptCreator = 0;      // NONE
 
         /// <summary>
         /// Used to cache lookups for valid uuids.
@@ -233,7 +251,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             }
         }
 
-        private void ScanObjectForAssetCreatorIDs(IRegionSerializerModule serializer, string serializedSOG, bool saveCreators)
+        private void ScanObjectForAssetCreatorIDs(IRegionSerializerModule serializer, string serializedSOG)
         {
             Dictionary<UUID, UUID> assetCreators = new Dictionary<UUID, UUID>();
             SceneObjectGroup sceneObject;
@@ -259,8 +277,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                         }
                     }
                 }
-                if (saveCreators)
-                    SaveAssetCreators(assetCreators);
+                SaveAssetCreators(assetCreators);
             }
             catch (Exception e)
             {
@@ -268,7 +285,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             }
         }
 
-        public void ScanArchiveForAssetCreatorIDs(bool saveCreators)
+        public void ScanArchiveForAssetCreatorIDs()
         {
             string filePath = "NONE";
 
@@ -285,7 +302,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
 
                     if (filePath.StartsWith(ArchiveConstants.OBJECTS_PATH))
                     {
-                        ScanObjectForAssetCreatorIDs(serializer, Encoding.UTF8.GetString(data), saveCreators);
+                        ScanObjectForAssetCreatorIDs(serializer, Encoding.UTF8.GetString(data));
                     }
                 }
             }
@@ -295,19 +312,341 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             }
         }
 
+        private static void ResetGroupAfterDeserialization(UUID itemId, SceneObjectGroup grp)
+        {
+            grp.ResetInstance(true, false, UUID.Zero);
+            foreach (var part in grp.GetParts())
+            {
+                part.DoPostDeserializationCleanups(itemId);
+                part.TrimPermissions();
+            }
+        }
+
+        private SceneObjectGroup DeserializeObject(UUID itemId, byte[] bytes)
+        {
+            SceneObjectGroup grp;
+            ISerializationEngine engine;
+
+            if (ProviderRegistry.Instance.TryGet<ISerializationEngine>(out engine) && engine.InventoryObjectSerializer.CanDeserialize(bytes))
+            {
+                grp = engine.InventoryObjectSerializer.DeserializeGroupFromInventoryBytes(bytes);
+            }
+            else
+            {
+                string xmlData = Utils.BytesToString(bytes);
+                grp = SceneObjectSerializer.FromOriginalXmlFormat(itemId, xmlData);
+            }
+
+            ResetGroupAfterDeserialization(itemId, grp);
+
+            return grp;
+        }
+
+        private bool MustReplaceByCreatorOwner(UUID creatorID, UUID ownerID)
+        {
+            if (m_optInTable.ContainsKey(creatorID))
+            {
+                int creatorOptIn = m_optInTable[creatorID];
+                switch (creatorOptIn)
+                {
+                    case 2: // allow the asset in so everyone can use it
+                        m_keptNonCreator++;
+                        return false;
+                    case 1: // allow my own copies to be used
+                        if (ownerID == creatorID)
+                        {
+                            m_keptCreator++;
+                            return false;
+                        }
+                        m_replacedNonCreator++;
+                        break;
+                    case 0:
+                        m_replacedCreator++;
+                        break;
+                }
+            }
+            return true;
+        }
+
+        private bool MustReplaceByAsset(UUID assetID, UUID ownerID)
+        {
+            if (assetID == UUID.Zero) return false;
+            if (m_optInTable == null)
+                return false;    // no filtering
+
+            bool mustReplace = true;
+            if (m_assetCreators.ContainsKey(assetID))
+            {
+                UUID creatorID = m_assetCreators[assetID];
+                mustReplace = MustReplaceByCreatorOwner(creatorID, ownerID);
+            }
+
+            return mustReplace;
+        }
+
+        private bool FilterPrimTexturesByCreator(SceneObjectPart part)
+        {
+            bool filtered = false;
+            Primitive.TextureEntry te = new Primitive.TextureEntry(part.Shape.TextureEntry, 0, part.Shape.TextureEntry.Length);
+
+            for (int i = 0; i < Primitive.TextureEntry.MAX_FACES; i++)
+            {
+                if (te.FaceTextures[i] != null)
+                {
+                    Primitive.TextureEntryFace face = (Primitive.TextureEntryFace)te.FaceTextures[i].Clone();
+                    if (MustReplaceByAsset(face.TextureID, part.OwnerID))
+                    {
+                        face.TextureID = Primitive.TextureEntry.WHITE_TEXTURE;
+                        // Shortcut: if we're dropping the face's actual texture, assume we drop the materials too.
+                        if (part.Shape.RenderMaterials.ContainsMaterial(face.MaterialID))
+                            part.Shape.RenderMaterials.RemoveMaterial(face.MaterialID);
+                        face.MaterialID = UUID.Zero;
+                        m_replacedTexture++;
+                        filtered = true;
+                    }
+                    else
+                        m_keptTexture++;
+                }
+            }
+            return filtered;
+        }
+
+        private bool FilterOtherPrimAssetsByCreator(SceneObjectPart part)
+        {
+            bool filtered = false;
+            if (part.Sound != UUID.Zero)
+            {
+                if (MustReplaceByAsset(part.Sound, part.OwnerID))
+                {
+                    part.Sound = UUID.Zero;
+                    m_replacedSound++;
+                    filtered = true;
+                }
+                else
+                    m_keptSound++;
+            }
+
+            if (part.CollisionSound != UUID.Zero)
+            {
+                if (MustReplaceByAsset(part.CollisionSound, part.OwnerID))
+                {
+                    part.CollisionSound = UUID.Zero;
+                    m_replacedSound++;
+                    filtered = true;
+                }
+                else
+                    m_keptSound++;
+            }
+            return filtered;
+        }
+
+        private bool FilterPart(SceneObjectPart part)
+        {
+            bool filtered = false;
+            // Check if object creator has opted in
+            if (MustReplaceByCreatorOwner(part.CreatorID, part.OwnerID))
+            {
+                // Creator of prim has not opted-in for this instance.
+                // First, replace the prim with a default prim.
+                part.Shape = PrimitiveBaseShape.Default.Copy();
+                // Now the object owner becomes the creator too of the replacement prim.
+                part.CreatorID = part.OwnerID;
+                part.BaseMask = (uint)(PermissionMask.All | PermissionMask.Export);
+                part.OwnerMask = (uint)(PermissionMask.All | PermissionMask.Export);
+                part.NextOwnerMask = (uint)PermissionMask.All;
+                part.EveryoneMask = (uint)PermissionMask.None;
+                // No need to replace textures since the whole prim was replaced.
+                m_replacedPart++;
+                filtered = true;
+            }
+            else
+            {
+                m_keptPart++;
+                filtered |= FilterPrimTexturesByCreator(part);
+            }
+            // Now in both cases filter other prim assets
+            filtered |= FilterOtherPrimAssetsByCreator(part);
+
+            return filtered;
+        }
+
+        private bool FilterContents(SceneObjectPart part)
+        {
+            bool filtered = false;
+            // Now let's take a look inside the Contents
+            lock (part.TaskInventory)
+            {
+                TaskInventoryDictionary inv = part.TaskInventory;
+                foreach (KeyValuePair<UUID, TaskInventoryItem> kvp in inv)
+                {
+                    TaskInventoryItem item = kvp.Value;
+                    m_log.WarnFormat("Not filtering inventory item for {0} in {1}", item.Name, part.ParentGroup.Name);
+                    if (item.InvType == (int)InventoryType.Object)
+                    {
+                        SceneObjectGroup inventoryObject = ObjectFromItem(part, item);
+                        filtered |= FilterObjectByCreators(inventoryObject);
+                    }
+                    else
+                    if (MustReplaceByAsset(item.AssetID, item.OwnerID))
+                    {
+                        item.AssetID = UUID.Zero;
+                        m_replacedItem++;
+                        filtered = true;
+                    }
+                    else
+                        m_keptItem++;
+                }
+            }
+            return filtered;
+        }
+
+        // returns true if anything in the object should be skipped on OAR file restore
+        private bool FilterObjectByCreators(SceneObjectGroup sceneObject)
+        {
+            if (m_optInTable == null) return true; // no filtering
+
+            bool filtered = false;
+            foreach (SceneObjectPart part in sceneObject.GetParts())
+            {
+                try
+                {
+                    filtered |= FilterPart(part);
+                    filtered |= FilterContents(part);
+                }
+                catch (Exception e)
+                {
+                    m_log.InfoFormat("[ARCHIVER]: Error while filtering object: {0}", e);
+                }
+            }
+            return filtered;
+        }
+
+        // returns object on success, or null when objectFixingFailed == true
+        private SceneObjectGroup ObjectFromItem(SceneObjectPart part, TaskInventoryItem item)
+        {
+            AssetBase asset = null;
+            try
+            {
+                if (item.AssetID != UUID.Zero)
+                    asset = m_scene.CommsManager.AssetCache.GetAsset(item.AssetID, AssetRequestInfo.InternalRequest());
+                if (asset != null)
+                {
+                    if (item.ContainsMultipleItems)
+                    {
+                        // This should never happen with rezzed Contents but just in case...
+                        m_log.ErrorFormat("[ARCHIVER]: Don't know how to handle coalesced objects within an OAR file, for {0} in {1}", item.Name, part.ParentGroup.Name);
+                    }
+                    else
+                    {
+                        return DeserializeObject(item.ItemID, asset.Data);
+                    }
+                }
+            }
+            catch (Exception err)
+            {
+                m_log.WarnFormat("Could not fetch asset {0} for object in Contents of {1}: {2}", item.AssetID, part.Name, err.Message);
+            }
+
+            return null;
+        }
+
+        // returns success==true, or false when objectFixingFailed == true
+        private bool DearchiveSceneObject(SceneObjectGroup sceneObject, bool checkContents, Dictionary<UUID, UUID> OriginalBackupIDs)
+        {
+            UUID resolveWithUser = UUID.Zero;   // if m_allowUserReassignment, this is who gets it all.
+            bool objectFixingFailed = false;
+
+            FilterObjectByCreators(sceneObject);
+
+            // For now, give all incoming scene objects new uuids.  This will allow scenes to be cloned
+            // on the same region server and multiple examples a single object archive to be imported
+            // to the same scene (when this is possible).
+            UUID OldUUID = sceneObject.UUID;
+            sceneObject.ResetIDs();
+            // if sceneObject is no-copy, save the old ID with the new ID.
+            OriginalBackupIDs[sceneObject.UUID] = OldUUID;
+
+            if (m_allowUserReassignment)
+            {
+                // Try to retain the original creator/owner/lastowner if their uuid is present on this grid
+                // otherwise, use the master avatar uuid instead
+                resolveWithUser = m_scene.RegionInfo.MasterAvatarAssignedUUID;
+
+                if (m_scene.RegionInfo.EstateSettings.EstateOwner != UUID.Zero)
+                    resolveWithUser = m_scene.RegionInfo.EstateSettings.EstateOwner;
+            }
+
+            foreach (SceneObjectPart part in sceneObject.GetParts())
+            {
+                if (!ResolveUserUuid(part.CreatorID))
+                {
+                    m_log.WarnFormat("[ARCHIVER]: Could not resolve av/group ID {0} for object '{1}' part creator", part.CreatorID, sceneObject.Name);
+                    // Don't fail to load an object owned by a valid user, just because a creator no longer exists in the DB. (We've seen this with some of YadNi's stuff.)
+                    // objectFixingFailed = true;
+                    // part.CreatorID = masterAvatarId;
+                }
+
+                if (!ResolveUserUuid(part.OwnerID))
+                {
+                    m_log.WarnFormat("[ARCHIVER]: Could not resolve av/group ID {0} for object '{1}' part owner", part.OwnerID, sceneObject.Name);
+                    objectFixingFailed = true;
+                    part.OwnerID = resolveWithUser;
+                }
+
+                if (!ResolveUserUuid(part.LastOwnerID))
+                {
+                    m_log.WarnFormat("[ARCHIVER]: Could not resolve av/group ID {0} for object '{1}' part last owner", part.LastOwnerID, sceneObject.Name);
+                    objectFixingFailed = true;
+                    part.LastOwnerID = resolveWithUser;
+                }
+
+                // Fix ownership/creator of inventory items
+                // Not doing so results in inventory items
+                // being no copy/no mod for everyone
+                lock (part.TaskInventory)
+                {
+                    TaskInventoryDictionary inv = part.TaskInventory;
+                    foreach (KeyValuePair<UUID, TaskInventoryItem> kvp in inv)
+                    {
+                        TaskInventoryItem item = kvp.Value;
+                        if (!ResolveUserUuid(item.OwnerID))
+                        {
+                            m_log.WarnFormat("[ARCHIVER]: Could not resolve av/group ID {0} for object '{1}' inventory item owner", item.OwnerID, sceneObject.Name);
+                            objectFixingFailed = true;
+                            item.OwnerID = resolveWithUser;
+                        }
+
+                        if (!ResolveUserUuid(item.CreatorID))
+                        {
+                            m_log.WarnFormat("[ARCHIVER]: Could not resolve av/group ID {0} for object '{1}' inventory item creator", kvp.Value.CreatorID, sceneObject.Name);
+                            // Don't fail to load an object owned by a valid user, just because a creator no longer exists in the DB. (We've seen this with some of YadNi's stuff.)
+                            // objectFixingFailed = true;
+                            // item.CreatorID = resolveWithUser;
+                        }
+
+                        if (item.InvType == (int)InventoryType.Object)
+                        {
+                            SceneObjectGroup inventoryObject = ObjectFromItem(part, item);
+                            if (FilterObjectByCreators(inventoryObject))
+                                item.AssetID = UUID.Zero;
+                        }
+                    }
+                }
+            }
+            return !objectFixingFailed;
+        }
+
         private void DearchiveRegion0DotStar(string optionsTable)
         {
             int successfulAssetRestores = 0;
             int failedAssetRestores = 0;
             List<string> serializedSceneObjects = new List<string>();
             string filePath = "NONE";
-            Dictionary<UUID, int> optInTable = null;
-            Dictionary<UUID, UUID> assetCreators = null;
 
             if (!String.IsNullOrWhiteSpace(optionsTable))
             {
-                optInTable = GetUserContentOptions(optionsTable);
-                assetCreators = GetAssetCreators();
+                m_optInTable = GetUserContentOptions(optionsTable);
+                m_assetCreators = GetAssetCreators();
             }
 
             try
@@ -331,7 +670,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                     }
                     else if (filePath.StartsWith(ArchiveConstants.ASSETS_PATH))
                     {
-                        if (LoadAsset(filePath, data, optInTable, assetCreators))
+                        if (LoadAsset(filePath, data))
                             successfulAssetRestores++;
                         else
                             failedAssetRestores++;
@@ -398,83 +737,8 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                     else throw new Exception("Error while deserializing group");
                 }
 
-                if (!optInTable.ContainsKey(sceneObject.RootPart.CreatorID))
-                    continue;   // filtered
-                int optIn = optInTable[sceneObject.RootPart.CreatorID];
-                switch (optIn)
-                {
-                    case 2: break; // allow the asset in so everyone can use it
-                    case 1: if (sceneObject.RootPart.OwnerID == sceneObject.RootPart.CreatorID) break; else continue;   // allow the asset in so creator can use it
-                    case 0: continue;   // asset is not allowed in
-                    default: continue;  // unknown status, cannot assume opt-in
-                }
-
-
-                // For now, give all incoming scene objects new uuids.  This will allow scenes to be cloned
-                // on the same region server and multiple examples a single object archive to be imported
-                // to the same scene (when this is possible).
-                UUID OldUUID = sceneObject.UUID;
-                sceneObject.ResetIDs();
-                // if sceneObject is no-copy, save the old ID with the new ID.
-                OriginalBackupIDs[sceneObject.UUID] = OldUUID;
-
-                // Try to retain the original creator/owner/lastowner if their uuid is present on this grid
-                // otherwise, use the master avatar uuid instead
-                UUID masterAvatarId = m_scene.RegionInfo.MasterAvatarAssignedUUID;
-
-                if (m_scene.RegionInfo.EstateSettings.EstateOwner != UUID.Zero)
-                    masterAvatarId = m_scene.RegionInfo.EstateSettings.EstateOwner;
-
-                foreach (SceneObjectPart part in sceneObject.GetParts())
-                {
-                    if (!ResolveUserUuid(part.CreatorID))
-                    {
-                        m_log.WarnFormat("[ARCHIVER]: Could not resolve av/group ID {0} for object '{1}' part creator", part.CreatorID, sceneObject.Name);
-                        // Don't fail to load an object owned by a valid user, just because a creator no longer exists in the DB. (We've seen this with some of YadNi's stuff.)
-                        // objectFixingFailed = true;
-                        // part.CreatorID = masterAvatarId;
-                    }
-
-                    if (!ResolveUserUuid(part.OwnerID))
-                    {
-                        m_log.WarnFormat("[ARCHIVER]: Could not resolve av/group ID {0} for object '{1}' part owner", part.OwnerID, sceneObject.Name);
-                        objectFixingFailed = true;
-                        part.OwnerID = masterAvatarId;
-                    }
-
-                    if (!ResolveUserUuid(part.LastOwnerID))
-                    {
-                        m_log.WarnFormat("[ARCHIVER]: Could not resolve av/group ID {0} for object '{1}' part last owner", part.LastOwnerID, sceneObject.Name);
-                        objectFixingFailed = true;
-                        part.LastOwnerID = masterAvatarId;
-                    }
-
-
-                    // Fix ownership/creator of inventory items
-                    // Not doing so results in inventory items
-                    // being no copy/no mod for everyone
-                    lock (part.TaskInventory)
-                    {
-                        TaskInventoryDictionary inv = part.TaskInventory;
-                        foreach (KeyValuePair<UUID, TaskInventoryItem> kvp in inv)
-                        {
-                            if (!ResolveUserUuid(kvp.Value.OwnerID))
-                            {
-                                m_log.WarnFormat("[ARCHIVER]: Could not resolve av/group ID {0} for object '{1}' inventory item owner", kvp.Value.OwnerID, sceneObject.Name);
-                                objectFixingFailed = true;
-                                kvp.Value.OwnerID = masterAvatarId;
-                            }
-
-                            if (!ResolveUserUuid(kvp.Value.CreatorID))
-                            {
-                                m_log.WarnFormat("[ARCHIVER]: Could not resolve av/group ID {0} for object '{1}' inventory item creator", kvp.Value.CreatorID, sceneObject.Name);
-                                // Don't fail to load an object owned by a valid user, just because a creator no longer exists in the DB. (We've seen this with some of YadNi's stuff.)
-                                // objectFixingFailed = true;
-                                // kvp.Value.CreatorID = masterAvatarId;
-                            }
-                        }
-                    }
-                }
+                if (!DearchiveSceneObject(sceneObject, true, OriginalBackupIDs))
+                    objectFixingFailed = true;
 
                 backupObjects.Add(sceneObject);
             }
@@ -540,8 +804,17 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             if (ignoredObjects > 0)
                 m_log.WarnFormat("[ARCHIVER]: Ignored {0} scene objects that already existed in the scene", ignoredObjects);
 
-            m_log.InfoFormat("[ARCHIVER]: Successfully loaded archive");
+            if (m_optInTable != null)
+            {
+                m_log.WarnFormat("[ARCHIVER]: Prim shapes replaced={0} restored={1}", m_replacedPart, m_keptPart);
+                m_log.WarnFormat("[ARCHIVER]: Item assets replaced={0} restored={1}", m_replacedItem, m_keptItem);
+                m_log.WarnFormat("[ARCHIVER]: Non-creator assets replaced={0} restored={1}", m_replacedNonCreator, m_keptNonCreator);
+                m_log.WarnFormat("[ARCHIVER]: Creator assets replaced={0} restored={1}", m_replacedCreator, m_keptCreator);
+                m_log.WarnFormat("[ARCHIVER]: Texture assets replaced={0} restored={1}", m_replacedTexture, m_keptTexture);
+                m_log.WarnFormat("[ARCHIVER]: Sound assets replaced={0} restored={1}", m_replacedSound, m_keptSound);
+            }
 
+            m_log.InfoFormat("[ARCHIVER]: Successfully loaded archive");
             m_scene.EventManager.TriggerOarFileLoaded(m_requestId, m_errorMessage);
         }
 
@@ -552,6 +825,9 @@ namespace OpenSim.Region.CoreModules.World.Archiver
         /// <returns></returns>
         private bool ResolveUserUuid(UUID uuid)
         {
+            if (!m_allowUserReassignment)
+                return true;
+
             if (!m_validUserUuids.ContainsKey(uuid))
             {
                 try
@@ -604,7 +880,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
         /// <param name="assetFilename"></param>
         /// <param name="data"></param>
         /// <returns>true if asset was successfully loaded, false otherwise</returns>
-        private bool LoadAsset(string assetPath, byte[] data, Dictionary<UUID, int> optInTable, Dictionary<UUID, UUID> assetCreators)
+        private bool LoadAsset(string assetPath, byte[] data)
         {
             // Right now we're nastily obtaining the UUID from the filename
             string filename = assetPath.Remove(0, ArchiveConstants.ASSETS_PATH.Length);
@@ -632,15 +908,15 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                 asset.Type = assetType;
                 asset.Data = data;
 
-                if (optInTable != null)
+                if (m_optInTable != null)
                 {
                     // this is a `load iwoar` command and we need to filter based on opt-in status
-                    if (!assetCreators.ContainsKey(asset.FullID))
+                    if (!m_assetCreators.ContainsKey(asset.FullID))
                         return false;
-                    UUID creatorId = assetCreators[asset.FullID];
-                    if (!optInTable.ContainsKey(creatorId))
+                    UUID creatorId = m_assetCreators[asset.FullID];
+                    if (!m_optInTable.ContainsKey(creatorId))
                         return false;
-                    int optIn = optInTable[creatorId];
+                    int optIn = m_optInTable[creatorId];
                     switch (optIn)
                     {
                         case 2: break; // allow the asset in so everyone can use it
