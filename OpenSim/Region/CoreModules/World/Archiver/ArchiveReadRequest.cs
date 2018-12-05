@@ -344,28 +344,28 @@ namespace OpenSim.Region.CoreModules.World.Archiver
 
         private bool MustReplaceByCreatorOwner(UUID creatorID, UUID ownerID)
         {
+            int creatorOptIn = 0;
             if (m_optInTable.ContainsKey(creatorID))
+                creatorOptIn = m_optInTable[creatorID];
+
+            switch (creatorOptIn)
             {
-                int creatorOptIn = m_optInTable[creatorID];
-                switch (creatorOptIn)
-                {
-                    case 2: // allow the asset in so everyone can use it
-                        m_keptNonCreator++;
+                case 2: // allow the asset in so everyone can use it
+                    m_keptNonCreator++;
+                    return false;
+                case 1: // allow my own copies to be used
+                    if (ownerID == creatorID)
+                    {
+                        m_keptCreator++;
                         return false;
-                    case 1: // allow my own copies to be used
-                        if (ownerID == creatorID)
-                        {
-                            m_keptCreator++;
-                            return false;
-                        }
-                        m_replacedNonCreator++;
-                        break;
-                    case 0:
-                        m_replacedCreator++;
-                        break;
-                }
+                    }
+                    m_replacedNonCreator++;
+                    return true;
+                case 0:
+                default: // unknown opt-in status, assume same as 0;
+                    m_replacedCreator++;
+                    return true;
             }
-            return true;
         }
 
         private bool MustReplaceByAsset(UUID assetID, UUID ownerID)
