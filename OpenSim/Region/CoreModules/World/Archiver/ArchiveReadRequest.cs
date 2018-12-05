@@ -484,7 +484,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                     if (item.InvType == (int)InventoryType.Object)
                     {
                         SceneObjectGroup inventoryObject = ObjectFromItem(part, item);
-                        if (FilterObjectByCreators(inventoryObject))
+                        if (inventoryObject == null || FilterObjectByCreators(inventoryObject))
                         {
                             // we're filtering an object inside the Contents. We can't practically do this more selectively.
                             // Clear the asset to filter out this nested object.
@@ -509,7 +509,9 @@ namespace OpenSim.Region.CoreModules.World.Archiver
         // returns true if anything in the object should be skipped on OAR file restore
         private bool FilterObjectByCreators(SceneObjectGroup sceneObject)
         {
-            if (m_optInTable == null) return true; // no filtering
+            if (m_optInTable == null) return false; // no filtering
+
+            if (sceneObject == null) return true;
 
             bool filtered = false;
             foreach (SceneObjectPart part in sceneObject.GetParts())
