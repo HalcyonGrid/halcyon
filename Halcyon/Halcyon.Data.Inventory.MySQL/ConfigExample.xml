@@ -1,26 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
 <configuration>
   <configSections>
-    <section name="aquilesConfiguration" type="Aquiles.Core.Configuration.AquilesConfigurationSection,Aquiles.Core"/>
   </configSections>
-
-  <aquilesConfiguration>
-    <clusters>
-      <add friendlyName="test">
-        <connection poolType="SIZECONTROLLEDPOOL" factoryType="FRAMED">
-          <specialConnectionParameters>
-            <add key="minimumClientsToKeepInPool" value="1" />
-            <add key="maximumClientsToSupportInPool" value="100" />
-            <add key="magicNumber" value="4" />
-          </specialConnectionParameters>
-        </connection>
-        <endpointManager type="ROUNDROBIN" defaultTimeout="6000">
-          <cassandraEndpoints>
-            <add address="172.16.161.1" port="9160"/>
-          </cassandraEndpoints>
-        </endpointManager>
-      </add>
-    </clusters>
-  </aquilesConfiguration>
-  
 </configuration>
