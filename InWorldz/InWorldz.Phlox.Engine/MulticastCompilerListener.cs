@@ -33,9 +33,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-using InWorldz.Phlox.Types;
+using Halcyon.Phlox.Types;
 
-namespace InWorldz.Phlox.Engine
+namespace Halcyon.Phlox.Engine
 {
     /// <summary>
     /// Notifies more than one listener of compiler status

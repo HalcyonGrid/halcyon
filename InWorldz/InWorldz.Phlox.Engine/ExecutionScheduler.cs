@@ -40,7 +40,7 @@ using OpenSim.Region.Framework.Interfaces;
 using System.IO;
 using Amib.Threading;
 
-namespace InWorldz.Phlox.Engine
+namespace Halcyon.Phlox.Engine
 {
     /// <summary>
     /// Schedules the execution of all the scripts running in a simulator
@@ -341,7 +341,7 @@ namespace InWorldz.Phlox.Engine
             }
 
             VM.Interpreter interp = null;
-            InWorldz.Phlox.Glue.SyscallShim shim = new Glue.SyscallShim(this.PerformAsyncCall);
+            Halcyon.Phlox.Glue.SyscallShim shim = new Glue.SyscallShim(this.PerformAsyncCall);
             LSLSystemAPI sysApi = new LSLSystemAPI(_engine, loadRequest.Prim, loadRequest.Prim.LocalId, loadRequest.ItemId);
             shim.SystemAPI = sysApi;
 

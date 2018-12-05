@@ -34,7 +34,7 @@ using System.Linq;
 using System.Text;
 using OpenMetaverse;
 
-namespace InWorldz.Phlox.Engine
+namespace Halcyon.Phlox.Engine
 {
     /// <summary>
     /// Holds events for scripts that are not yet loaded, until they are loaded up

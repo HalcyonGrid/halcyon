@@ -37,7 +37,7 @@ using System.Threading;
 using log4net;
 using System.Reflection;
 
-namespace InWorldz.Phlox.Engine
+namespace Halcyon.Phlox.Engine
 {
     /// <summary>
     /// The scheduler ticks the DoWork methods on the loader and the ExecutionScheduler

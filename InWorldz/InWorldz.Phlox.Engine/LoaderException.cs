@@ -33,7 +33,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace InWorldz.Phlox.Engine
+namespace Halcyon.Phlox.Engine
 {
     /// <summary>
     /// Exception thrown what a script fails to load

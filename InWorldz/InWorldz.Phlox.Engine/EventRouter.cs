@@ -40,7 +40,7 @@ using OpenSim.Region.ScriptEngine.Shared;
 using log4net;
 using OpenSim.Region.ScriptEngine.Interfaces;
 
-namespace InWorldz.Phlox.Engine
+namespace Halcyon.Phlox.Engine
 {
 
     internal class EventRouter
@@ -464,7 +464,7 @@ namespace InWorldz.Phlox.Engine
                     "bot_update", new object[] {
                     botID.ToString(),
                     flag,
-                    new InWorldz.Phlox.Types.LSLList(parameters) },
+                    new Halcyon.Phlox.Types.LSLList(parameters) },
                     new DetectParams[0]));
         }
 

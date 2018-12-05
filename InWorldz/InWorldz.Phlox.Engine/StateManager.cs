@@ -35,7 +35,7 @@ using System.Text;
 
 using OpenMetaverse;
 using System.Threading;
-using InWorldz.Phlox.Serialization;
+using Halcyon.Phlox.Serialization;
 using System.IO;
 using log4net;
 using System.Reflection;
@@ -43,7 +43,7 @@ using System.Data.SQLite;
 using OpenSim.Region.Framework.Scenes;
 using OpenSim.Framework;
 
-namespace InWorldz.Phlox.Engine
+namespace Halcyon.Phlox.Engine
 {
     /// <summary>
     /// Manages the state of scripts and maintains a list of scripts that need 

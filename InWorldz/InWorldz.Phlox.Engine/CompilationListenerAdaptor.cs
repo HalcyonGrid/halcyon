@@ -34,9 +34,9 @@ using System.Linq;
 using System.Text;
 
 using OpenSim.Region.Framework.Interfaces;
-using InWorldz.Phlox.Types;
+using Halcyon.Phlox.Types;
 
-namespace InWorldz.Phlox.Engine
+namespace Halcyon.Phlox.Engine
 {
     /// <summary>
     /// Adapts the ICompilationListener to the phlox listener

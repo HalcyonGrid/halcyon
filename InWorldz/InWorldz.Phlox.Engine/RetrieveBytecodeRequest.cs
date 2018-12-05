@@ -35,7 +35,7 @@ using System.Text;
 using OpenMetaverse;
 using System.Threading;
 
-namespace InWorldz.Phlox.Engine
+namespace Halcyon.Phlox.Engine
 {
     /// <summary>
     /// A request to the script loader to serialize a copy of the compiled

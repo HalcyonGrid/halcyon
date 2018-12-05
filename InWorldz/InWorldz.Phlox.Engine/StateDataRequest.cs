@@ -36,10 +36,10 @@ using System.Text;
 using System.Threading;
 using log4net;
 using OpenMetaverse;
-using InWorldz.Phlox.Serialization;
+using Halcyon.Phlox.Serialization;
 using OpenSim.Region.Framework.Interfaces;
 
-namespace InWorldz.Phlox.Engine
+namespace Halcyon.Phlox.Engine
 {
     /// <summary>
     /// A request for state data from a running script
@@ -197,7 +197,7 @@ namespace InWorldz.Phlox.Engine
                 }
                 else
                 {
-                    _log.Error("[InWorldz.Phlox]: StateDataRequest.TriggerDataReady() called, but no callback or event could be fired");
+                    _log.Error("[Halcyon.Phlox]: StateDataRequest.TriggerDataReady() called, but no callback or event could be fired");
                 }
             }
         }

@@ -9,17 +9,16 @@
     </ApplicationIcon>
     <AssemblyKeyContainerName>
     </AssemblyKeyContainerName>
-    <AssemblyName>InWorldz.Phlox.Engine</AssemblyName>
+    <AssemblyName>Halcyon.Phlox.Engine</AssemblyName>
     <DefaultClientScript>JScript</DefaultClientScript>
     <DefaultHTMLPageLayout>Grid</DefaultHTMLPageLayout>
     <DefaultTargetSchema>IE50</DefaultTargetSchema>
-    
     <TargetFrameworkVersion>v4.7.1</TargetFrameworkVersion>
     <OutputPath>../../bin/</OutputPath>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>
     </AppDesignerFolder>
-    <RootNamespace>InWorldz.Phlox.Engine</RootNamespace>
+    <RootNamespace>Halcyon.Phlox.Engine</RootNamespace>
     <StartupObject>
     </StartupObject>
     <StartArguments>
@@ -82,10 +81,9 @@
       <HintPath>..\..\bin\C5.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="InWorldz.Phlox">
-      <Name>InWorldz.Phlox</Name>
-      <HintPath>..\..\bin\InWorldz.Phlox.dll</HintPath>
-      <Private>False</Private>
+    <Reference Include="Halcyon.Phlox, Version=1.0.0.0, Culture=neutral, processorArchitecture=AMD64">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\bin\Halcyon.Phlox.dll</HintPath>
     </Reference>
     <Reference Include="LibreMetaverse">
       <Name>LibreMetaverse</Name>

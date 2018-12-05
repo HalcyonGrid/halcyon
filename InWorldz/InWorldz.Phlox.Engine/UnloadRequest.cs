@@ -34,7 +34,7 @@ using System.Linq;
 using System.Text;
 using OpenMetaverse;
 
-namespace InWorldz.Phlox.Engine
+namespace Halcyon.Phlox.Engine
 {
     internal class UnloadRequest
     {

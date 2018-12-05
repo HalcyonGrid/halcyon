@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Copyright (c) InWorldz Halcyon Developers
  * Copyright (c) Contributors, http://opensimulator.org/
  *
@@ -13,47 +13,36 @@ using System.Drawing;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
-using System.Runtime.Remoting.Lifetime;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading;
-using System.Web;
-using Nini.Config;
 using log4net;
+using Nini.Config;
 using OpenMetaverse;
 using OpenMetaverse.Packets;
 using OpenMetaverse.StructuredData;
 using OpenSim;
 using OpenSim.Framework;
-using OpenSim.Framework.Communications.Cache;
 using OpenSim.Framework.Geom;
-using OpenSim.Framework.Servers;
-using OpenSim.Region.CoreModules;
 using OpenSim.Region.CoreModules.World.Land;
-using OpenSim.Region.CoreModules.World.Terrain;
 using OpenSim.Region.Framework.Interfaces;
 using OpenSim.Region.Framework.Scenes;
 using OpenSim.Region.Physics.Manager;
 using OpenSim.Region.Physics.Manager.Vehicle;
-using OpenSim.Region.ScriptEngine.Shared;
-using OpenSim.Region.ScriptEngine.Shared.Api.Plugins;
-using OpenSim.Region.ScriptEngine.Shared.ScriptBase;
 using OpenSim.Region.ScriptEngine.Interfaces;
-
-using LSL_List = InWorldz.Phlox.Types.LSLList;
+using OpenSim.Region.ScriptEngine.Shared;
+using OpenSim.Region.ScriptEngine.Shared.Api;
+using OpenSim.Region.ScriptEngine.Shared.ScriptBase;
+using LSL_List = Halcyon.Phlox.Types.LSLList;
 using LSL_Rotation = OpenMetaverse.Quaternion;
 using LSL_Vector = OpenMetaverse.Vector3;
 
-using System.Reflection;
-using OpenSim.Region.ScriptEngine.Shared.Api;
-using OpenSim.Region.Interfaces;
-
-namespace InWorldz.Phlox.Engine
+namespace Halcyon.Phlox.Engine
 {
     using Util = OpenSim.Framework.Util;
 
-    public class LSLSystemAPI : InWorldz.Phlox.Glue.ISystemAPI
+    public class LSLSystemAPI : Halcyon.Phlox.Glue.ISystemAPI
     {
         private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
 
@@ -70,7 +59,7 @@ namespace InWorldz.Phlox.Engine
         protected AsyncCommandManager AsyncCommands = null;
         protected float m_ScriptDelayFactor = 1.0f;
         protected float m_MinTimerInterval = 0.01f;
-        
+
         private DateTime m_timer = DateTime.Now;
         private IClientAPI m_waitingForScriptAnswer = null; // we need to know more than if there's an outstanding request, also WHICH LLCV has an answer handler set.
         private bool m_automaticLinkPermission = false;
@@ -132,7 +121,9 @@ namespace InWorldz.Phlox.Engine
             m_notecardLineReadCharsMax =
                 m_ScriptEngine.Config.GetInt("NotecardLineReadCharsMax", 255);
             if (m_notecardLineReadCharsMax > 65535)
+            {
                 m_notecardLineReadCharsMax = 65535;
+            }
 
             m_TransferModule =
                     m_ScriptEngine.World.RequestModuleInterface<IMessageTransferModule>();
@@ -148,7 +139,9 @@ namespace InWorldz.Phlox.Engine
             {
                 //delay = (int)((float)delay * m_ScriptDelayFactor);
                 if (delay == 0)
+                {
                     return;
+                }
 
                 _thisScript.ScriptState.NextWakeup = OpenSim.Framework.Util.GetLongTickCount() + (UInt64)delay;
                 _thisScript.ScriptState.RunState = VM.RuntimeState.Status.Sleeping;
@@ -191,7 +184,10 @@ namespace InWorldz.Phlox.Engine
                         m_log.WarnFormat("[Phlox]: Script '{0}' calling llResetScript too frequently: {1}",
                             llGetScriptName(), context);
                         if (m_host.LinkNum < 2)
+                        {
                             context = thePos;
+                        }
+
                         ScriptShoutError("Script '" + llGetScriptName() + "' calling llResetScript too frequently: " + context);
                         m_resetWarned = DateTime.Now;
                     }
@@ -199,7 +195,10 @@ namespace InWorldz.Phlox.Engine
                 }
             }
             else
+            {
                 m_resetCount = 1;
+            }
+
             m_resetSecond = now;
         }
 
@@ -216,9 +215,13 @@ namespace InWorldz.Phlox.Engine
             lock (m_host.TaskInventory)
             {
                 if (!m_host.TaskInventory.ContainsKey(InventorySelf()))
+                {
                     return;
+                }
                 else
+                {
                     item = m_host.TaskInventory[InventorySelf()];
+                }
             }
 
             PermsChange(item, UUID.Zero, 0);
@@ -246,7 +249,9 @@ namespace InWorldz.Phlox.Engine
             if (reason != Types.ScriptUnloadReason.LocallyDisabled || localFlag != VM.RuntimeState.LocalDisableFlag.CrossingWait)
             {
                 if (reason != Types.ScriptUnloadReason.Unloaded)    // called a second time with this reason after already disabling
+                {
                     this.ReleaseControlsInternal(true, false, false, false);
+                }
             }
 
             //remove http handlers
@@ -263,21 +268,31 @@ namespace InWorldz.Phlox.Engine
 
             _samples[_currSample++] = ms;
             if (_currSample > _numSamples)
+            {
                 _numSamples = _currSample;
+            }
+
             if (_currSample >= NUM_RUN_SAMPLES)
+            {
                 _currSample = 0;
+            }
         }
         // This tracks the average of the last N script execution times, and
         // is called indirectly from engine.GetAverageScriptTime(itemID).
         public float GetAverageScriptTime()
         {
             if (_numSamples < 1)
+            {
                 return 0.0f;
+            }
 
             double total = 0.0f;
             foreach (double sample in _samples)
+            {
                 total += sample;
-            return (float) (total / _numSamples);
+            }
+
+            return (float)(total / _numSamples);
         }
 
         public void OnScriptInjected(bool fromCrossing)
@@ -313,20 +328,32 @@ namespace InWorldz.Phlox.Engine
                             {
                                 item = m_host.TaskInventory[InventorySelf()];
                                 if ((int)kvp.Value[0] != 0)
+                                {
                                     silentEstate = true;
+                                }
                             }
                             if (item != null)
                             {
                                 if (silentEstate)
+                                {
                                     item.PermsMask |= ScriptBaseClass.PERMISSION_SILENT_ESTATE_MANAGEMENT;
+                                }
                                 else
+                                {
                                     item.PermsMask &= ~ScriptBaseClass.PERMISSION_SILENT_ESTATE_MANAGEMENT;
+                                }
+
                                 if (item.PermsMask == 0)
+                                {
                                     item.PermsGranter = UUID.Zero;
+                                }
                             }
                         }
                         if (item != null)
+                        {
                             PermsChange(item, item.PermsGranter, item.PermsMask);
+                        }
+
                         break;
                     case VM.RuntimeState.MiscAttr.Control:
                         if (m_host.IsAttachment || !fromCrossing)
@@ -335,7 +362,10 @@ namespace InWorldz.Phlox.Engine
                             {
                                 UUID self = InventorySelf();
                                 if (!m_host.TaskInventory.ContainsKey(self))
+                                {
                                     return;
+                                }
+
                                 item = m_host.TaskInventory[self];
                             }
 
@@ -479,7 +509,9 @@ namespace InWorldz.Phlox.Engine
                 lock (m_host.TaskInventory)
                 {
                     if (!m_host.TaskInventory.ContainsKey(InventorySelf()))
+                    {
                         return;
+                    }
                 }
 
                 // m_log.WarnFormat("[LSL]: OnGroupCrossedAvatarReady [{0}] LocalDisable={1} avatar={2}", m_itemID, _thisScript.ScriptState.LocalDisable, avatarId);
@@ -515,7 +547,9 @@ namespace InWorldz.Phlox.Engine
                 m_ScriptEngine.ApiResetScript(itemID);
             }
             else
+            {
                 ScriptShoutError("llResetOtherScript: script " + name + " not found");
+            }
         }
 
         public int llGetScriptState(string name)
@@ -560,31 +594,51 @@ namespace InWorldz.Phlox.Engine
             {
                 case ScriptBaseClass.LINK_SET:
                     if (m_host.ParentGroup != null)
+                    {
                         ret.AddRange(m_host.ParentGroup.GetAllLinksAsList(includeAvatars));
+                    }
                     else
+                    {
                         ret.Add(m_host);
+                    }
+
                     break;
 
                 case ScriptBaseClass.LINK_ROOT:
                 case 0: // the other LINK_ROOT linknum
                     if (m_host.ParentGroup != null)
+                    {
                         ret.Add(m_host.ParentGroup.RootPart);
+                    }
                     else
+                    {
                         ret.Add(m_host);
+                    }
+
                     break;
 
                 case ScriptBaseClass.LINK_ALL_OTHERS:
                     if (m_host.ParentGroup != null)
+                    {
                         ret.AddRange(m_host.ParentGroup.GetAllLinksAsListExcept(m_host, includeAvatars));
+                    }
                     else
+                    {
                         ret.Add(m_host);
+                    }
+
                     break;
 
                 case ScriptBaseClass.LINK_ALL_CHILDREN:
                     if (m_host.ParentGroup != null)
+                    {
                         ret.AddRange(m_host.ParentGroup.GetAllLinksAsListExcept(m_host.ParentGroup.RootPart, includeAvatars));
+                    }
                     else
+                    {
                         ret.Add(m_host);
+                    }
+
                     break;
 
                 case ScriptBaseClass.LINK_THIS:
@@ -600,7 +654,9 @@ namespace InWorldz.Phlox.Engine
                             {
                                 ScenePresence targetSP = m_host.ParentGroup.GetSeatedAvatarByLink(linkType);
                                 if (targetSP != null)
+                                {
                                     ret.Add(targetSP);
+                                }
                             }
                         }
                         else
@@ -608,7 +664,9 @@ namespace InWorldz.Phlox.Engine
                         {
                             SceneObjectPart target = m_host.ParentGroup.GetLinkNumPart(linkType);
                             if (target != null)
+                            {
                                 ret.Add(target);
+                            }
                         }
                     }
                     break;
@@ -627,7 +685,10 @@ namespace InWorldz.Phlox.Engine
             SceneObjectPart part = null;
             List<object> links = GetLinkParts(linknum, false);
             if (links.First() is SceneObjectPart)
+            {
                 part = links.First() as SceneObjectPart;
+            }
+
             return part;
         }
 
@@ -659,7 +720,9 @@ namespace InWorldz.Phlox.Engine
                     if (inv.Value.Name == name)
                     {
                         if ((inv.Value.Type != type) && (type != -1))
+                        {
                             return UUID.Zero;
+                        }
 
                         return inv.Value.AssetID;
                     }
@@ -732,7 +795,7 @@ namespace InWorldz.Phlox.Engine
         //These are the implementations of the various ll-functions used by the LSL scripts.
         public float llSin(float f)
         {
-            
+
             return (float)Math.Sin(f);
         }
 
@@ -769,36 +832,67 @@ namespace InWorldz.Phlox.Engine
         public int llAbs(int i)
         {
             // changed to replicate LSL behaviour whereby minimum int value is returned untouched.
-            
+
             if (i == Int32.MinValue)
+            {
                 return i;
+            }
             else
-                return (int)Math.Abs(i);
+            {
+                return Math.Abs(i);
+            }
         }
 
         public float llFabs(float f)
         {
 
-            return (float)Math.Abs(f);
+            return Math.Abs(f);
         }
 
         public int iwIntRandRange(int min, int max)
         {
-            if (min == max) return min;
-            if (max < min) return s_random.Next(max, min + 1); //max needs to be more than minimum, swapping min and max
+            return halIntRandRange(min, max);
+        }
+
+        public int halIntRandRange(int min, int max)
+        {
+            if (min == max)
+            {
+                return min;
+            }
+
+            if (max < min)
+            {
+                return s_random.Next(max, min + 1); //max needs to be more than minimum, swapping min and max
+            }
+
             return s_random.Next(min, max + 1);
         }
 
-        public int iwIntRand(int max)
+        public int iwIntRand(int max) { return halIntRand(max); }
+        public int halIntRand(int max)
         {
-            if (max < 0) return -1 * s_random.Next(Math.Abs(max) + 1);
+            if (max < 0)
+            {
+                return -1 * s_random.Next(Math.Abs(max) + 1);
+            }
+
             return s_random.Next(max + 1);
         }
 
-        public float iwFrandRange(float min, float max)
+        public float iwFrandRange(float min, float max) { return halFrandRange(min, max); }
+        public float halFrandRange(float min, float max)
         {
-            if (min == max) return min;
-            if (max < min) return (float)(s_random.NextDouble() * ((min) - max) + max); //max needs to be more than minimum, swapping min and max.
+            if (min == max)
+            {
+                return min;
+            }
+
+            if (max < min)
+            {
+                return (float)(s_random.NextDouble() * ((min) - max) + max); //max needs to be more than minimum, swapping min and max.
+            }
+
             return (float)(s_random.NextDouble() * ((max) - min) + min);
         }
 
@@ -809,20 +903,20 @@ namespace InWorldz.Phlox.Engine
 
         public int llFloor(float f)
         {
-            
+
             return (int)Math.Floor(f);
         }
 
         public int llCeil(float f)
         {
-            
+
             return (int)Math.Ceiling(f);
         }
 
         // Xantor 01/May/2008 fixed midpointrounding (2.5 becomes 3.0 instead of 2.0, default = ToEven)
         public int llRound(float f)
         {
-            
+
             return (int)Math.Round(f, MidpointRounding.AwayFromZero);
         }
 
@@ -839,11 +933,11 @@ namespace InWorldz.Phlox.Engine
 
         public float llVecDist(LSL_Vector a, LSL_Vector b)
         {
-            
+
             float dx = a.X - b.X;
             float dy = a.Y - b.Y;
             float dz = a.Z - b.Z;
-            return (float) Math.Sqrt(dx * dx + dy * dy + dz * dz);
+            return (float)Math.Sqrt(dx * dx + dy * dy + dz * dz);
         }
 
         //Now we start getting into quaternions which means sin/cos, matrices and vectors. ckrinke
@@ -858,10 +952,18 @@ namespace InWorldz.Phlox.Engine
 
             Vector3 v = new Vector3(0.0f, 0.0f, 1.0f) * r;   // Z axis unit vector unaffected by Z rotation component of r.
             double m = Vector3.Mag(v);                       // Just in case v isn't normalized, need magnitude for Asin() operation later.
-            if (m == 0.0) return new Vector3();
+            if (m == 0.0)
+            {
+                return new Vector3();
+            }
+
             double x = Math.Atan2(-v.Y, v.Z);
             double sin = v.X / m;
-            if (sin < -0.999999 || sin > 0.999999) x = 0.0;     // Force X rotation to 0 at the singularities.
+            if (sin < -0.999999 || sin > 0.999999)
+            {
+                x = 0.0;     // Force X rotation to 0 at the singularities.
+            }
+
             double y = Math.Asin(sin);
             // Rotate X axis unit vector by r and unwind the X and Y rotations leaving only the Z rotation
             v = new Vector3(1.0f, 0.0f, 0.0f) * r * new Quaternion((float)Math.Sin(-x / 2.0), 0.0f, 0.0f, (float)Math.Cos(-x / 2.0)) * new Quaternion(0.0f, (float)Math.Sin(-y / 2.0), 0.0f, (float)Math.Cos(-y / 2.0));
@@ -938,7 +1040,7 @@ namespace InWorldz.Phlox.Engine
 
         public LSL_Rotation llAxes2Rot(LSL_Vector fwd, LSL_Vector left, LSL_Vector up)
         {
-            
+
             float s;
             double tr = fwd.X + left.Y + up.Z + 1.0;
 
@@ -957,7 +1059,7 @@ namespace InWorldz.Phlox.Engine
 
                 if (max < fwd.X)
                 {
-                    s = (float) Math.Sqrt(fwd.X - (left.Y + up.Z) + 1.0);
+                    s = (float)Math.Sqrt(fwd.X - (left.Y + up.Z) + 1.0);
                     float x = s * 0.5f;
                     s = 0.5f / s;
                     return new LSL_Rotation(
@@ -968,7 +1070,7 @@ namespace InWorldz.Phlox.Engine
                 }
                 else if (max == left.Y)
                 {
-                    s = (float) Math.Sqrt(left.Y - (up.Z + fwd.X) + 1.0);
+                    s = (float)Math.Sqrt(left.Y - (up.Z + fwd.X) + 1.0);
                     float y = s * 0.5f;
                     s = 0.5f / s;
                     return new LSL_Rotation(
@@ -1009,7 +1111,7 @@ namespace InWorldz.Phlox.Engine
         public LSL_Rotation llRotBetween(LSL_Vector a, LSL_Vector b)
         {
             //A and B should both be normalized
-            
+
             double dotProduct = LSL_Vector.Dot(a, b);
             LSL_Vector crossProduct = LSL_Vector.Cross(a, b);
             double magProduct = LSL_Vector.Mag(a) * LSL_Vector.Mag(b);
@@ -1023,7 +1125,9 @@ namespace InWorldz.Phlox.Engine
             double w = Math.Cos(angle / 2);
 
             if (Double.IsNaN(x) || Double.IsNaN(y) || Double.IsNaN(z) || Double.IsNaN(w))
+            {
                 return new LSL_Rotation(0.0f, 0.0f, 0.0f, 1.0f);
+            }
 
             return LSL_Rotation.Normalize(new LSL_Rotation((float)x, (float)y, (float)z, (float)w));
         }
@@ -1031,7 +1135,9 @@ namespace InWorldz.Phlox.Engine
         public static void ChatFromObject(int channelID, string text, ChatTypeEnum type, Scene world, SceneObjectPart part, UUID destID)
         {
             if (text.Length > 1023)
+            {
                 text = text.Substring(0, 1023);
+            }
 
             world.SimChat(text, type, channelID, part, destID);
 
@@ -1075,9 +1181,10 @@ namespace InWorldz.Phlox.Engine
             }
 
             if (text.Length > 1023)
+            {
                 text = text.Substring(0, 1023);
+            }
 
-            
             IWorldComm wComm = m_ScriptEngine.World.RequestModuleInterface<IWorldComm>();
             wComm.DeliverMessage(ChatTypeEnum.Region, channelID, m_host.Name, m_host.UUID, text, UUID.Zero);
 
@@ -1094,7 +1201,10 @@ namespace InWorldz.Phlox.Engine
 
             UUID destKey;
             UUID.TryParse(destination, out destKey);
-            if (destKey == UUID.Zero) return;
+            if (destKey == UUID.Zero)
+            {
+                return;
+            }
 
             this.SimChat(channelID, text, ChatTypeEnum.Direct, destKey);
         }
@@ -1119,7 +1229,7 @@ namespace InWorldz.Phlox.Engine
 
         public void llListenControl(int number, int active)
         {
-            
+
             IWorldComm wComm = m_ScriptEngine.World.RequestModuleInterface<IWorldComm>();
             wComm.ListenControl(m_itemID, number, active);
         }
@@ -1144,7 +1254,7 @@ namespace InWorldz.Phlox.Engine
 
         public void llSensor(string name, string id, int type, float range, float arc)
         {
-            
+
             UUID keyID = UUID.Zero;
             UUID.TryParse(id, out keyID);
 
@@ -1153,7 +1263,7 @@ namespace InWorldz.Phlox.Engine
 
         public void llSensorRepeat(string name, string id, int type, float range, float arc, float rate)
         {
-            
+
             UUID keyID = UUID.Zero;
             UUID.TryParse(id, out keyID);
 
@@ -1164,7 +1274,7 @@ namespace InWorldz.Phlox.Engine
 
         public void llSensorRemove()
         {
-            
+
             AsyncCommands.SensorRepeatPlugin.UnSetSenseRepeaterEvents(m_localID, m_itemID);
             _thisScript.ScriptState.MiscAttributes.Remove((int)VM.RuntimeState.MiscAttr.SensorRepeat);
         }
@@ -1190,61 +1300,82 @@ namespace InWorldz.Phlox.Engine
             World.Entities.TryGetValue(objecUUID, out SensedObject);
 
             if (SensedObject == null)
+            {
                 return String.Empty;
+            }
+
             return SensedObject.Name;
         }
 
         public string llDetectedName(int number)
         {
-            
+
             VM.DetectVariables detectedParams = _thisScript.ScriptState.GetDetectVariables(number);
             if (detectedParams == null)
+            {
                 return String.Empty;
+            }
+
             return detectedParams.Name;
         }
 
         public string llDetectedKey(int number)
         {
-            
+
             VM.DetectVariables detectedParams = _thisScript.ScriptState.GetDetectVariables(number);
             if (detectedParams == null)
+            {
                 return String.Empty;
+            }
+
             return detectedParams.Key.ToString();
         }
 
         public string llDetectedOwner(int number)
         {
-            
+
             VM.DetectVariables detectedParams = _thisScript.ScriptState.GetDetectVariables(number);
             if (detectedParams == null)
+            {
                 return String.Empty;
+            }
+
             return detectedParams.Owner.ToString();
         }
 
         public int llDetectedType(int number)
         {
-            
+
             VM.DetectVariables detectedParams = _thisScript.ScriptState.GetDetectVariables(number);
             if (detectedParams == null)
+            {
                 return 0;
-            return (int)(detectedParams.Type);
+            }
+
+            return detectedParams.Type;
         }
 
         public LSL_Vector llDetectedPos(int number)
         {
-            
+
             VM.DetectVariables detectedParams = _thisScript.ScriptState.GetDetectVariables(number);
             if (detectedParams == null)
+            {
                 return new LSL_Vector();
+            }
+
             return detectedParams.Pos;
         }
 
         public LSL_Vector llDetectedVel(int number)
         {
-            
+
             VM.DetectVariables detectedParams = _thisScript.ScriptState.GetDetectVariables(number);
             if (detectedParams == null)
+            {
                 return new LSL_Vector();
+            }
+
             return detectedParams.Vel;
         }
 
@@ -1253,28 +1384,39 @@ namespace InWorldz.Phlox.Engine
 
             VM.DetectVariables detectedParams = _thisScript.ScriptState.GetDetectVariables(number);
             if (detectedParams == null)
+            {
                 return Vector3.Zero;
+            }
 
             return detectedParams.Grab;
         }
 
         public LSL_Rotation llDetectedRot(int number)
         {
-            
+
             VM.DetectVariables detectedParams = _thisScript.ScriptState.GetDetectVariables(number);
             if (detectedParams == null)
+            {
                 return new LSL_Rotation();
+            }
+
             return detectedParams.Rot;
         }
 
         public int llDetectedGroup(int number)
         {
-            
+
             VM.DetectVariables detectedParams = _thisScript.ScriptState.GetDetectVariables(number);
             if (detectedParams == null)
+            {
                 return 0;
+            }
+
             if (m_host.GroupID.ToString() == detectedParams.Group)
+            {
                 return 1;
+            }
+
             return 0;
         }
 
@@ -1283,7 +1425,9 @@ namespace InWorldz.Phlox.Engine
 
             VM.DetectVariables detectedParams = _thisScript.ScriptState.GetDetectVariables(number);
             if (detectedParams == null)
+            {
                 return 0;
+            }
 
             return detectedParams.LinkNumber;
         }
@@ -1296,7 +1440,10 @@ namespace InWorldz.Phlox.Engine
 
             VM.DetectVariables detectedParams = _thisScript.ScriptState.GetDetectVariables(index);
             if (detectedParams == null)
+            {
                 return new LSL_Vector();
+            }
+
             return detectedParams.TouchBinormal;
         }
 
@@ -1308,7 +1455,10 @@ namespace InWorldz.Phlox.Engine
 
             VM.DetectVariables detectedParams = _thisScript.ScriptState.GetDetectVariables(index);
             if (detectedParams == null)
+            {
                 return -1;
+            }
+
             return detectedParams.TouchFace;
         }
 
@@ -1320,7 +1470,10 @@ namespace InWorldz.Phlox.Engine
 
             VM.DetectVariables detectedParams = _thisScript.ScriptState.GetDetectVariables(index);
             if (detectedParams == null)
+            {
                 return new LSL_Vector();
+            }
+
             return detectedParams.TouchNormal;
         }
 
@@ -1332,7 +1485,10 @@ namespace InWorldz.Phlox.Engine
 
             VM.DetectVariables detectedParams = _thisScript.ScriptState.GetDetectVariables(index);
             if (detectedParams == null)
+            {
                 return new LSL_Vector();
+            }
+
             return detectedParams.TouchPos;
         }
 
@@ -1344,7 +1500,10 @@ namespace InWorldz.Phlox.Engine
 
             VM.DetectVariables detectedParams = _thisScript.ScriptState.GetDetectVariables(index);
             if (detectedParams == null)
+            {
                 return new LSL_Vector(-1.0f, -1.0f, 0.0f);
+            }
+
             return detectedParams.TouchST;
         }
 
@@ -1356,14 +1515,20 @@ namespace InWorldz.Phlox.Engine
 
             VM.DetectVariables detectedParams = _thisScript.ScriptState.GetDetectVariables(index);
             if (detectedParams == null)
+            {
                 return new LSL_Vector(-1.0f, -1.0f, 0.0f);
+            }
+
             return detectedParams.TouchUV;
         }
 
         public void llDie()
         {
             if (m_host.ParentGroup.IsAttachment)
+            {
                 return; // silently fail. See http://wiki.secondlife.com/wiki/LlDie
+            }
+
             m_ScriptEngine.World.DeleteSceneObject(m_host.ParentGroup, false);
             _thisScript.ScriptState.RunState = VM.RuntimeState.Status.Killed;
         }
@@ -1373,24 +1538,36 @@ namespace InWorldz.Phlox.Engine
             float x = argx;
             float y = argy;
             float z = argz;
-            float xmax = (float)World.Heightmap.Width - 0.01f;
-            float ymax = (float)World.Heightmap.Height - 0.01f;
+            float xmax = World.Heightmap.Width - 0.01f;
+            float ymax = World.Heightmap.Height - 0.01f;
             float zmin;
 
             // Clamp to valid position
             if (x < 0.0f)
+            {
                 x = 0.0f;
+            }
             else if (x >= xmax)
+            {
                 x = xmax;
+            }
+
             if (y < 0.0f)
+            {
                 y = 0.0f;
+            }
             else if (y >= ymax)
+            {
                 y = ymax;
+            }
+
             if (limitGround)
             {
-                zmin = (float)World.Heightmap.CalculateHeightAt(x, y);
+                zmin = World.Heightmap.CalculateHeightAt(x, y);
                 if (z < zmin)
+                {
                     z = zmin;
+                }
             }
 
             return new LSL_Vector(x, y, z);
@@ -1408,7 +1585,7 @@ namespace InWorldz.Phlox.Engine
 
         public float llCloud(LSL_Vector offset)
         {
-            
+
             float cloudCover = 0f;
             ICloudModule module = World.RequestModuleInterface<ICloudModule>();
             if (module != null)
@@ -1425,7 +1602,7 @@ namespace InWorldz.Phlox.Engine
 
         public LSL_Vector llWind(LSL_Vector offset)
         {
-            
+
             LSL_Vector wind = iwWind(offset);
 
             // Maintain compatibility. llWind's legacy behavior is
@@ -1435,9 +1612,10 @@ namespace InWorldz.Phlox.Engine
             return wind;
         }
 
-        public LSL_Vector iwWind(LSL_Vector offset)
+        public LSL_Vector iwWind(LSL_Vector offset) { return halWind(offset); }
+        public LSL_Vector halWind(LSL_Vector offset)
         {
-            
+
             LSL_Vector wind = new LSL_Vector(0, 0, 0);
             IWindModule module = World.RequestModuleInterface<IWindModule>();
             if (module != null)
@@ -1456,7 +1634,8 @@ namespace InWorldz.Phlox.Engine
             return wind;
         }
 
-        public void iwSetWind(int type, LSL_Vector offset, LSL_Vector speed)
+        public void iwSetWind(int type, LSL_Vector offset, LSL_Vector speed) { halSetWind(type, offset, speed); }
+        public void halSetWind(int type, LSL_Vector offset, LSL_Vector speed)
         {
             Scene scene = m_host.ParentGroup.Scene;
             if (scene.Permissions.CanIssueEstateCommand(m_host.OwnerID, false) || World.Permissions.IsGod(m_host.OwnerID))
@@ -1482,7 +1661,10 @@ namespace InWorldz.Phlox.Engine
                 {
                     SceneObjectGroup group = m_host.ParentGroup;
                     if (group == null)
+                    {
                         return;
+                    }
+
                     bool allow = true;
                     foreach (SceneObjectPart part in group.GetParts())
                     {
@@ -1494,7 +1676,9 @@ namespace InWorldz.Phlox.Engine
                     }
 
                     if (!allow)
+                    {
                         return;
+                    }
 
                     m_host.ScriptSetPhysicsStatus(true);
                 }
@@ -1509,9 +1693,13 @@ namespace InWorldz.Phlox.Engine
             if ((status & ScriptBaseClass.STATUS_PHANTOM) == ScriptBaseClass.STATUS_PHANTOM)
             {
                 if (value != 0)
+                {
                     m_host.ScriptSetPhantomStatus(true);
+                }
                 else
+                {
                     m_host.ScriptSetPhantomStatus(false);
+                }
 
                 PhySleep();
             }
@@ -1549,9 +1737,13 @@ namespace InWorldz.Phlox.Engine
             if ((status & ScriptBaseClass.STATUS_DIE_AT_EDGE) == ScriptBaseClass.STATUS_DIE_AT_EDGE)
             {
                 if (value != 0)
+                {
                     m_host.SetDieAtEdge(true);
+                }
                 else
+                {
                     m_host.SetDieAtEdge(false);
+                }
             }
 
             if ((status & ScriptBaseClass.STATUS_RETURN_AT_EDGE) == ScriptBaseClass.STATUS_RETURN_AT_EDGE)
@@ -1576,11 +1768,19 @@ namespace InWorldz.Phlox.Engine
 
                     // Adjust them based on the flags.
                     if ((statusrotationaxis & ScriptBaseClass.STATUS_ROTATE_X) != 0)
+                    {
                         lockedaxis.X = locked;
+                    }
+
                     if ((statusrotationaxis & ScriptBaseClass.STATUS_ROTATE_Y) != 0)
+                    {
                         lockedaxis.Y = locked;
+                    }
+
                     if ((statusrotationaxis & ScriptBaseClass.STATUS_ROTATE_Z) != 0)
+                    {
                         lockedaxis.Z = locked;
+                    }
 
                     // Convert the rotation axes to locked axes.
                     physActor.LockAngularMotion(lockedaxis);
@@ -1618,8 +1818,10 @@ namespace InWorldz.Phlox.Engine
             OpenMetaverse.Vector3 lockedaxis = OpenMetaverse.Vector3.Zero;
             PhysicsActor physActor = m_host.PhysActor;
             if (physActor != null)
+            {
                 lockedaxis = physActor.GetLockedAngularMotion();
-            
+            }
+
             // m_log.Debug(m_host.ToString() + " status is " + m_host.GetEffectiveObjectFlags().ToString());
             switch (status)
             {
@@ -1652,9 +1854,13 @@ namespace InWorldz.Phlox.Engine
 
                 case ScriptBaseClass.STATUS_DIE_AT_EDGE:
                     if (m_host.GetDieAtEdge())
+                    {
                         return 1;
+                    }
                     else
+                    {
                         return 0;
+                    }
 
                 case ScriptBaseClass.STATUS_RETURN_AT_EDGE:
                     NotImplemented("llGetStatus - STATUS_RETURN_AT_EDGE");
@@ -1686,31 +1892,52 @@ namespace InWorldz.Phlox.Engine
             // TODO: this needs to trigger a persistance save as well
 
             if (part == null || part.ParentGroup == null || part.ParentGroup.IsDeleted)
+            {
                 return;
+            }
 
             if ((scale.X < SceneObjectPart.MIN_PART_SCALE) || (scale.Y < SceneObjectPart.MIN_PART_SCALE) || (scale.Z < SceneObjectPart.MIN_PART_SCALE))
+            {
                 return;
+            }
 
             PhysicsActor physActor = part.ParentGroup.RootPart.PhysActor;
             if (physActor != null && physActor.IsPhysical)
             {
                 if (scale.X > World.m_maxPhys)
+                {
                     scale.X = World.m_maxPhys;
+                }
+
                 if (scale.Y > World.m_maxPhys)
+                {
                     scale.Y = World.m_maxPhys;
+                }
+
                 if (scale.Z > World.m_maxPhys)
+                {
                     scale.Z = World.m_maxPhys;
+                }
             }
             if (scale.X > World.m_maxNonphys)
+            {
                 scale.X = World.m_maxNonphys;
+            }
+
             if (scale.Y > World.m_maxNonphys)
+            {
                 scale.Y = World.m_maxNonphys;
+            }
+
             if (scale.Z > World.m_maxNonphys)
+            {
                 scale.Z = World.m_maxNonphys;
+            }
+
             Vector3 tmp = part.Scale;
-            tmp.X = (float)scale.X;
-            tmp.Y = (float)scale.Y;
-            tmp.Z = (float)scale.Z;
+            tmp.X = scale.X;
+            tmp.Y = scale.Y;
+            tmp.Z = scale.Z;
             part.Scale = tmp;
             part.ScheduleFullUpdate(PrimUpdateFlags.FindBest);
 
@@ -1725,7 +1952,11 @@ namespace InWorldz.Phlox.Engine
         public void llSetClickAction(int action)
         {
             m_host.ClickAction = (byte)action;
-            if (m_host.ParentGroup != null) m_host.ParentGroup.HasGroupChanged = true;
+            if (m_host.ParentGroup != null)
+            {
+                m_host.ParentGroup.HasGroupChanged = true;
+            }
+
             m_host.ScheduleFullUpdate(PrimUpdateFlags.FindBest);
             return;
         }
@@ -1742,9 +1973,9 @@ namespace InWorldz.Phlox.Engine
             if (face >= 0 && face < part.GetNumberOfSides())
             {
                 texcolor = tex.CreateFace((uint)face).RGBA;
-                texcolor.R = Util.Clip((float)color.X, 0.0f, 1.0f);
-                texcolor.G = Util.Clip((float)color.Y, 0.0f, 1.0f);
-                texcolor.B = Util.Clip((float)color.Z, 0.0f, 1.0f);
+                texcolor.R = Util.Clip(color.X, 0.0f, 1.0f);
+                texcolor.G = Util.Clip(color.Y, 0.0f, 1.0f);
+                texcolor.B = Util.Clip(color.Z, 0.0f, 1.0f);
                 tex.FaceTextures[face].RGBA = texcolor;
                 part.UpdateTexture(tex, Changed.COLOR);
                 return;
@@ -1756,15 +1987,15 @@ namespace InWorldz.Phlox.Engine
                     if (tex.FaceTextures[i] != null)
                     {
                         texcolor = tex.FaceTextures[i].RGBA;
-                        texcolor.R = Util.Clip((float)color.X, 0.0f, 1.0f);
-                        texcolor.G = Util.Clip((float)color.Y, 0.0f, 1.0f);
-                        texcolor.B = Util.Clip((float)color.Z, 0.0f, 1.0f);
+                        texcolor.R = Util.Clip(color.X, 0.0f, 1.0f);
+                        texcolor.G = Util.Clip(color.Y, 0.0f, 1.0f);
+                        texcolor.B = Util.Clip(color.Z, 0.0f, 1.0f);
                         tex.FaceTextures[i].RGBA = texcolor;
                     }
                     texcolor = tex.DefaultTexture.RGBA;
-                    texcolor.R = Util.Clip((float)color.X, 0.0f, 1.0f);
-                    texcolor.G = Util.Clip((float)color.Y, 0.0f, 1.0f);
-                    texcolor.B = Util.Clip((float)color.Z, 0.0f, 1.0f);
+                    texcolor.R = Util.Clip(color.X, 0.0f, 1.0f);
+                    texcolor.G = Util.Clip(color.Y, 0.0f, 1.0f);
+                    texcolor.B = Util.Clip(color.Z, 0.0f, 1.0f);
                     tex.DefaultTexture.RGBA = texcolor;
                 }
                 part.UpdateTexture(tex, Changed.COLOR);
@@ -1777,8 +2008,10 @@ namespace InWorldz.Phlox.Engine
             Primitive.TextureEntry tex = part.Shape.Textures;
             MappingType textype;
             textype = MappingType.Default;
-            if (style == (int)ScriptBaseClass.PRIM_TEXGEN_PLANAR)
+            if (style == ScriptBaseClass.PRIM_TEXGEN_PLANAR)
+            {
                 textype = MappingType.Planar;
+            }
 
             if (face >= 0 && face < part.GetNumberOfSides())
             {
@@ -1866,7 +2099,8 @@ namespace InWorldz.Phlox.Engine
                     if (tex.FaceTextures[i] != null)
                     {
                         tex.FaceTextures[i].Shiny = sval;
-                        tex.FaceTextures[i].Bump = bump; ;
+                        tex.FaceTextures[i].Bump = bump;
+                        ;
                     }
                     tex.DefaultTexture.Shiny = sval;
                     tex.DefaultTexture.Bump = bump;
@@ -1914,12 +2148,15 @@ namespace InWorldz.Phlox.Engine
                 int i;
                 double sum = 0.0;
                 for (i = 0; i < part.GetNumberOfSides(); i++)
-                    sum += (double)tex.GetFace((uint)i).RGBA.A;
+                {
+                    sum += tex.GetFace((uint)i).RGBA.A;
+                }
+
                 return (float)sum;
             }
             if (face >= 0 && face < part.GetNumberOfSides())
             {
-                return (float)tex.GetFace((uint)face).RGBA.A;
+                return tex.GetFace((uint)face).RGBA.A;
             }
             return 0.0f;
         }
@@ -1934,7 +2171,9 @@ namespace InWorldz.Phlox.Engine
             var parts = GetLinkPrimsOnly(linknumber);
 
             foreach (SceneObjectPart part in parts)
+            {
                 SetAlpha(part, alpha, face);
+            }
         }
 
         private void SetAlpha(SceneObjectPart part, double alpha, int face)
@@ -1985,7 +2224,9 @@ namespace InWorldz.Phlox.Engine
             float wind, float tension, LSL_Vector Force)
         {
             if (part == null)
+            {
                 return;
+            }
 
             if (flexi)
             {
@@ -1993,7 +2234,7 @@ namespace InWorldz.Phlox.Engine
                 {
                     //this is a hack. We need to set the status first so that the comparison of current
                     //vs desired physics state doesnt return no changes since flexi == phantom
-                    part.ScriptSetPhantomStatus(true); 
+                    part.ScriptSetPhantomStatus(true);
                     SetPhantomPropertiesOnPart(part, softness, gravity, friction, wind, tension, Force);
                 }
                 else
@@ -2007,11 +2248,14 @@ namespace InWorldz.Phlox.Engine
                 int curve = part.Shape.PathCurve;
                 curve &= (int)(~(Extrusion.Flexible));  // Flexible is NOT a bit mask... hmm. This needed? Should always already be off here.
                 if (curve == 0)
+                {
                     curve = (byte)Extrusion.Straight;         // make sure it's valid.  Zero is not.
+                }
+
                 part.Shape.PathCurve = (byte)curve;
                 part.Shape.FlexiEntry = false;
 
-                if (! part.IsRootPart())
+                if (!part.IsRootPart())
                 {
                     //restores physics for this part
                     part.PhysicsShapeChanged();
@@ -2031,9 +2275,9 @@ namespace InWorldz.Phlox.Engine
             part.Shape.FlexiDrag = friction;
             part.Shape.FlexiWind = wind;
             part.Shape.FlexiTension = tension;
-            part.Shape.FlexiForceX = (float)Force.X;
-            part.Shape.FlexiForceY = (float)Force.Y;
-            part.Shape.FlexiForceZ = (float)Force.Z;
+            part.Shape.FlexiForceX = Force.X;
+            part.Shape.FlexiForceY = Force.Y;
+            part.Shape.FlexiForceZ = Force.Z;
             part.Shape.PathCurve = (byte)Extrusion.Flexible;
         }
 
@@ -2051,14 +2295,16 @@ namespace InWorldz.Phlox.Engine
         private void SetPointLight(SceneObjectPart part, bool light, LSL_Vector color, float intensity, float radius, float falloff)
         {
             if (part == null)
+            {
                 return;
+            }
 
             if (light)
             {
                 part.Shape.LightEntry = true;
-                part.Shape.LightColorR = Util.Clip((float)color.X, 0.0f, 1.0f);
-                part.Shape.LightColorG = Util.Clip((float)color.Y, 0.0f, 1.0f);
-                part.Shape.LightColorB = Util.Clip((float)color.Z, 0.0f, 1.0f);
+                part.Shape.LightColorR = Util.Clip(color.X, 0.0f, 1.0f);
+                part.Shape.LightColorG = Util.Clip(color.Y, 0.0f, 1.0f);
+                part.Shape.LightColorB = Util.Clip(color.Z, 0.0f, 1.0f);
                 part.Shape.LightIntensity = intensity;
                 part.Shape.LightRadius = radius;
                 part.Shape.LightFalloff = falloff;
@@ -2074,7 +2320,7 @@ namespace InWorldz.Phlox.Engine
 
         public LSL_Vector llGetColor(int face)
         {
-            
+
             return GetColor(m_host, face);
         }
 
@@ -2095,9 +2341,9 @@ namespace InWorldz.Phlox.Engine
                     rgb.Z += texcolor.B;
                 }
 
-                rgb.X /= (float)part.GetNumberOfSides();
-                rgb.Y /= (float)part.GetNumberOfSides();
-                rgb.Z /= (float)part.GetNumberOfSides();
+                rgb.X /= part.GetNumberOfSides();
+                rgb.Y /= part.GetNumberOfSides();
+                rgb.Z /= part.GetNumberOfSides();
 
                 return rgb;
             }
@@ -2126,7 +2372,9 @@ namespace InWorldz.Phlox.Engine
             var parts = GetLinkPrimsOnly(linknumber);
 
             foreach (SceneObjectPart part in parts)
+            {
                 SetTexture(part, texture, face);
+            }
 
             ScriptSleep(200);
         }
@@ -2136,7 +2384,9 @@ namespace InWorldz.Phlox.Engine
             UUID textureID = KeyOrName(texture);
 
             if (textureID == UUID.Zero)
+            {
                 return;
+            }
 
             Primitive.TextureEntry tex = part.Shape.Textures;
 
@@ -2165,12 +2415,16 @@ namespace InWorldz.Phlox.Engine
                         }
                     }
                 }
-                if (tex.DefaultTexture.TextureID != textureID) {
+                if (tex.DefaultTexture.TextureID != textureID)
+                {
                     tex.DefaultTexture.TextureID = textureID;
                     textureChanged = true;
                 }
                 if (textureChanged)
+                {
                     part.UpdateTexture(tex);
+                }
+
                 return;
             }
         }
@@ -2187,8 +2441,8 @@ namespace InWorldz.Phlox.Engine
             if (face >= 0 && face < part.GetNumberOfSides())
             {
                 Primitive.TextureEntryFace texface = tex.CreateFace((uint)face);
-                texface.RepeatU = (float)u;
-                texface.RepeatV = (float)v;
+                texface.RepeatU = u;
+                texface.RepeatV = v;
                 tex.FaceTextures[face] = texface;
                 part.UpdateTexture(tex);
                 return;
@@ -2199,12 +2453,12 @@ namespace InWorldz.Phlox.Engine
                 {
                     if (tex.FaceTextures[i] != null)
                     {
-                        tex.FaceTextures[i].RepeatU = (float)u;
-                        tex.FaceTextures[i].RepeatV = (float)v;
+                        tex.FaceTextures[i].RepeatU = u;
+                        tex.FaceTextures[i].RepeatV = v;
                     }
                 }
-                tex.DefaultTexture.RepeatU = (float)u;
-                tex.DefaultTexture.RepeatV = (float)v;
+                tex.DefaultTexture.RepeatU = u;
+                tex.DefaultTexture.RepeatV = v;
                 part.UpdateTexture(tex);
                 return;
             }
@@ -2300,16 +2554,22 @@ namespace InWorldz.Phlox.Engine
         private string ConditionalTextureNameOrUUID(SceneObjectPart part, UUID assetID)
         {
             if (assetID == UUID.Zero)
+            {
                 return UUID.Zero.ToString();
+            }
 
             // We need to provide the name if present in the prim.
             string result = InventoryName(assetID);
             if (!String.IsNullOrEmpty(result))
+            {
                 return result;
+            }
 
             // Not present in the prim, if full-perm object, return the UUID.
             if (IsFullPerm(part.OwnerMask))
+            {
                 return assetID.ToString();
+            }
 
             // Not a full-perm object, and the texture was not found
             // in the prim, so hide the texture ID to the caller.
@@ -2336,7 +2596,9 @@ namespace InWorldz.Phlox.Engine
         {
             float dist = Vector3.Mag(target - anchor);
             if (dist <= limit)
+            {
                 return target;  // just return it unchanged
+            }
 
             // Clamp new position at limit
             return (target - anchor) * limit / dist + anchor;
@@ -2382,25 +2644,29 @@ namespace InWorldz.Phlox.Engine
 
             LSL_Vector real_vec = target;
             if (isLimited)
+            {
                 real_vec = SetPosAdjust(anchor, target, limit);
+            }
 
             if (group == null)
             {
-                part.UpdateOffSet(new Vector3((float)real_vec.X, (float)real_vec.Y, (float)real_vec.Z));
+                part.UpdateOffSet(new Vector3(real_vec.X, real_vec.Y, real_vec.Z));
                 return;
             }
 
             if (group.InTransit)
+            {
                 return;
+            }
 
             if (group.RootPart == part)
             {
                 SceneObjectGroup parent = group;
-                parent.UpdateGroupPosition(new Vector3((float)real_vec.X, (float)real_vec.Y, (float)real_vec.Z), false);
+                parent.UpdateGroupPosition(new Vector3(real_vec.X, real_vec.Y, real_vec.Z), false);
             }
             else
             {
-                part.OffsetPosition = new Vector3((float)real_vec.X, (float)real_vec.Y, (float)real_vec.Z);
+                part.OffsetPosition = new Vector3(real_vec.X, real_vec.Y, real_vec.Z);
                 SceneObjectGroup parent = group;
                 parent.HasGroupChanged = true;
                 part.ScheduleTerseUpdate();
@@ -2430,10 +2696,14 @@ namespace InWorldz.Phlox.Engine
         private LSL_Vector GetPartLocalPos(SceneObjectPart part)
         {
             if (part.ParentID == 0)
+            {
                 return new LSL_Vector(part.AbsolutePosition);
+            }
 
             if (part.LinkNum == 0 || part.LinkNum == 1)
+            {
                 return new LSL_Vector(part.AttachedPos);
+            }
 
             return new LSL_Vector(part.OffsetPosition);
         }
@@ -2470,7 +2740,7 @@ namespace InWorldz.Phlox.Engine
 
         public void llSetLocalRot(LSL_Rotation rot)
         {
-            
+
             SetRot(m_host, Rot2Quaternion(rot));
             ScriptSleep(200);
         }
@@ -2478,7 +2748,9 @@ namespace InWorldz.Phlox.Engine
         private void SetRot(SceneObjectPart part, Quaternion rot)
         {
             if (part.ParentGroup.InTransit)
+            {
                 return;
+            }
 
             part.UpdateRotation(rot);
         }
@@ -2494,7 +2766,7 @@ namespace InWorldz.Phlox.Engine
             {
                 return llGetRootRotation();
             }
-            
+
             Quaternion q = m_host.GetWorldRotation();
             return new LSL_Rotation(q.X, q.Y, q.Z, q.W);
         }
@@ -2510,15 +2782,24 @@ namespace InWorldz.Phlox.Engine
                     if (avatar != null)
                     {
                         if ((avatar.AgentControlFlags & (uint)AgentManager.ControlFlags.AGENT_CONTROL_MOUSELOOK) != 0)
+                        {
                             q = avatar.CameraRotation; // Mouselook
+                        }
                         else
+                        {
                             q = avatar.Rotation; // Currently infrequently updated so may be inaccurate
+                        }
                     }
                     else
+                    {
                         q = part.ParentGroup.GroupRotation; // Likely never get here but just in case
+                    }
                 }
                 else
+                {
                     q = part.ParentGroup.GroupRotation; // just the group rotation
+                }
+
                 return new LSL_Rotation(q.X, q.Y, q.Z, q.W);
             }
             q = part.GetWorldRotation();
@@ -2557,7 +2838,7 @@ namespace InWorldz.Phlox.Engine
 
         public int llTarget(LSL_Vector position, float range)
         {
-            return m_host.registerTargetWaypoint(new Vector3((float)position.X, (float)position.Y, (float)position.Z), (float)range);
+            return m_host.registerTargetWaypoint(new Vector3(position.X, position.Y, position.Z), range);
         }
 
         public void llTargetRemove(int number)
@@ -2583,13 +2864,13 @@ namespace InWorldz.Phlox.Engine
             {
                 Util.ForceValidRegionXYZ(ref target);
             }
-            
+
             m_host.MoveToTarget(new Vector3(target.X, target.Y, target.Z), tau);
         }
 
         public void llStopMoveToTarget()
         {
-            
+
             m_host.StopMoveToTarget();
         }
 
@@ -2633,7 +2914,8 @@ namespace InWorldz.Phlox.Engine
             return m_host.ParentGroup.RootPart.Velocity;
         }
 
-        public LSL_Vector iwGetAngularVelocity()
+        public LSL_Vector iwGetAngularVelocity() { return halGetAngularVelocity(); }
+        public LSL_Vector halGetAngularVelocity()
         {
             return m_host.ParentGroup.RootPart.PhysicalAngularVelocity;
         }
@@ -2663,27 +2945,34 @@ namespace InWorldz.Phlox.Engine
             return Util.UnixTimeSinceEpoch();
         }
 
-        public int iwGetLocalTime()
+        public int iwGetLocalTime() { return halGetLocalTime(); }
+        public int halGetLocalTime()
         {
             return Util.LocalUnixTimeSinceEpoch();
         }
 
-        public int iwGetLocalTimeOffset()
+        public int iwGetLocalTimeOffset() { return halGetLocalTimeOffset(); }
+        public int halGetLocalTimeOffset()
         {
             return Util.LocalTimeOffset();
         }
 
-        public string iwFormatTime(int unixtime, int isUTC, string format)
+        public string iwFormatTime(int unixtime, int isUTC, string format) { return halFormatTime(unixtime, isUTC, format); }
+        public string halFormatTime(int unixtime, int isUTC, string format)
         {
             DateTime date = Util.UnixToUTCDateTime(unixtime);
-            if (isUTC == 0) {
+            if (isUTC == 0)
+            {
                 // local time zone
                 date.AddSeconds(Util.LocalTimeOffset());
                 date = DateTime.SpecifyKind(date, DateTimeKind.Local);
             }
 
             if (String.IsNullOrEmpty(format))
+            {
                 format = "yyyy'-'MM'-'dd' 'HH':'mm':'ss";
+            }
+
             return date.ToString(format);
         }
 
@@ -3066,9 +3355,14 @@ namespace InWorldz.Phlox.Engine
                 transactionID = money.ObjectGiveMoney(m_host.ParentGroup.RootPart.UUID, m_host.ParentGroup.RootPart.OwnerID, toID, amount, out reason);
                 success = String.IsNullOrEmpty(transactionID) ? 0 : 1;
                 if (success != 0)
+                {
                     data = String.Format("{0},{1}", transactionID, amount);
+                }
                 else
+                {
                     data = reason;
+                }
+
                 return sendEvent ? eventID.ToString() : transactionID;
             }
             catch (Exception e)
@@ -3094,7 +3388,8 @@ namespace InWorldz.Phlox.Engine
         }
 
         // There is no event, so no event key, instead it returns the actual transaction ID, or error tag on error.
-        public string iwGiveMoney(string destination, int amount)
+        public string iwGiveMoney(string destination, int amount) { return halGiveMoney(destination, amount); }
+        public string halGiveMoney(string destination, int amount)
         {
             return GiveMoney(destination, amount, false);
         }
@@ -3123,37 +3418,52 @@ namespace InWorldz.Phlox.Engine
             // ScriptSleep(100);
         }
 
-        public int iwClampInt(int value, int min, int max)
+        public int iwClampInt(int value, int min, int max) { return halClampInt(value, min, max); }
+        public int halClampInt(int value, int min, int max)
         {
             //Min and max are equal, nothing to do
-            if (min == max) return min;
+            if (min == max)
+            {
+                return min;
+            }
 
             //max is less than min, switch the math inputs
-            if (max < min) return Math.Min(min, Math.Max(value, max));
+            if (max < min)
+            {
+                return Math.Min(min, Math.Max(value, max));
+            }
 
             //inputs are good, clamp the values
             return Math.Min(max, Math.Max(value, min));
         }
 
-        public float iwClampFloat(float value, float min, float max)
+        public float iwClampFloat(float value, float min, float max) { return halClampFloat(value, min, max); }
+        public float halClampFloat(float value, float min, float max)
         {
             //Min and max are equal, nothing to do
-            if (min == max) return min;
+            if (min == max)
+            {
+                return min;
+            }
 
             //max is less than min, switch the math inputs
-            if (max < min) return Math.Min(min, Math.Max(value, max));
+            if (max < min)
+            {
+                return Math.Min(min, Math.Max(value, max));
+            }
 
             //inputs are good, clamp the values
             return Math.Min(max, Math.Max(value, min));
         }
 
-        public int iwCheckRezError(Vector3 pos, int isTemp, int landImpact)
+        public int iwCheckRezError(Vector3 pos, int isTemp, int landImpact) { return halCheckRezError(pos, isTemp, landImpact); }
+        public int halCheckRezError(Vector3 pos, int isTemp, int landImpact)
         {
             return m_host.ParentGroup.Scene.CheckRezError(m_host.OwnerID, m_host.UUID, pos, isTemp != 0, landImpact);
         }
 
-        public string iwRezAt(string inventory, bool rezAtRoot, LSL_Vector pos, LSL_Vector vel, LSL_Rotation rot, int param,
-            out int sleepTime)
+        public string iwRezAt(string inventory, bool rezAtRoot, LSL_Vector pos, LSL_Vector vel, LSL_Rotation rot, int param, out int sleepTime) { return halRezAt(inventory, rezAtRoot, pos, vel, rot, param, out sleepTime); }
+        public string halRezAt(string inventory, bool rezAtRoot, LSL_Vector pos, LSL_Vector vel, LSL_Rotation rot, int param, out int sleepTime)
         {
             string result = UUID.Zero.ToString();
 
@@ -3172,7 +3482,7 @@ namespace InWorldz.Phlox.Engine
                 return result;
             }
 
-            float dist = (float)llVecDist(llGetPos(), pos);
+            float dist = llVecDist(llGetPos(), pos);
             if (dist > 10.0f)
             {
                 ScriptShoutError("Unable to create requested object. Position exceeds 10m distance limit.");
@@ -3189,12 +3499,12 @@ namespace InWorldz.Phlox.Engine
                     // make sure we're an object.
                     if (inv.Value.InvType != (int)InventoryType.Object)
                     {
-                        ScriptShoutError("Unable to create requested object. Inventory item '"+inv.Value.Name+"' is something other than an object.");
+                        ScriptShoutError("Unable to create requested object. Inventory item '" + inv.Value.Name + "' is something other than an object.");
                         sleepTime = 0;
                         return result;
                     }
 
-                    Vector3 llpos = new Vector3((float)pos.X, (float)pos.Y, (float)pos.Z);
+                    Vector3 llpos = new Vector3(pos.X, pos.Y, pos.Z);
 
                     // test if we're further away then 10m
                     if (Util.GetDistanceTo(llpos, m_host.AbsolutePosition) > 10)
@@ -3243,8 +3553,8 @@ namespace InWorldz.Phlox.Engine
                     foreach (var grp in new_group)
                     {
                         result = grp.RootPart.UUID.ToString();
-                        m_ScriptEngine.PostObjectEvent(m_host.LocalId, 
-                            new EventParams("object_rez", new Object[] {result}, new DetectParams[0])
+                        m_ScriptEngine.PostObjectEvent(m_host.LocalId,
+                            new EventParams("object_rez", new Object[] { result }, new DetectParams[0])
                         );
                     }
 
@@ -3258,14 +3568,15 @@ namespace InWorldz.Phlox.Engine
             return result;
         }
 
-        public void iwRezAtRoot(string inventory, LSL_Vector pos, LSL_Vector vel, LSL_Rotation rot, int param)
+        public void iwRezAtRoot(string inventory, LSL_Vector pos, LSL_Vector vel, LSL_Rotation rot, int param) { halRezAtRoot(inventory, pos, vel, rot, param); }
+        public void halRezAtRoot(string inventory, LSL_Vector pos, LSL_Vector vel, LSL_Rotation rot, int param)
         {
             string ret = String.Empty;
             int sleepTime = 0;
 
             try
             {
-                ret = iwRezAt(inventory, true, pos, vel, rot, param, out sleepTime);
+                ret = halRezAt(inventory, true, pos, vel, rot, param, out sleepTime);
             }
             finally
             {
@@ -3279,7 +3590,7 @@ namespace InWorldz.Phlox.Engine
 
             try
             {
-                iwRezAt(inventory, true, pos, vel, rot, param, out sleepTime);
+                halRezAt(inventory, true, pos, vel, rot, param, out sleepTime);
             }
             finally
             {
@@ -3287,14 +3598,15 @@ namespace InWorldz.Phlox.Engine
             }
         }
 
-        public void iwRezObject(string inventory, LSL_Vector pos, LSL_Vector vel, LSL_Rotation rot, int param)
+        public void iwRezObject(string inventory, LSL_Vector pos, LSL_Vector vel, LSL_Rotation rot, int param) { halRezObject(inventory, pos, vel, rot, param); }
+        public void halRezObject(string inventory, LSL_Vector pos, LSL_Vector vel, LSL_Rotation rot, int param)
         {
             string ret = String.Empty;
             int sleepTime = 0;
 
             try
             {
-                ret = iwRezAt(inventory, false, pos, vel, rot, param, out sleepTime);
+                ret = halRezAt(inventory, false, pos, vel, rot, param, out sleepTime);
             }
             finally
             {
@@ -3308,7 +3620,7 @@ namespace InWorldz.Phlox.Engine
 
             try
             {
-                iwRezAt(inventory, false, pos, vel, rot, param, out sleepTime);
+                halRezAt(inventory, false, pos, vel, rot, param, out sleepTime);
             }
             finally
             {
@@ -3322,7 +3634,8 @@ namespace InWorldz.Phlox.Engine
             ScriptShoutError("Unable to create new object at <" + spos + ">. " + errtext);
         }
 
-        public string iwRezPrim(LSL_List primParams, LSL_List particleSystem, LSL_List inventory,  LSL_Vector lslpos, LSL_Vector lslvel, LSL_Rotation lslrot, int param)
+        public string iwRezPrim(LSL_List primParams, LSL_List particleSystem, LSL_List inventory, LSL_Vector lslpos, LSL_Vector lslvel, LSL_Rotation lslrot, int param) { return halRezPrim(primParams, particleSystem, inventory, lslpos, lslvel, lslrot, param); }
+        public string halRezPrim(LSL_List primParams, LSL_List particleSystem, LSL_List inventory, LSL_Vector lslpos, LSL_Vector lslvel, LSL_Rotation lslrot, int param)
         {
             Vector3 pos = new Vector3(lslpos);
             Quaternion rot = new Quaternion(lslrot);
@@ -3361,7 +3674,10 @@ namespace InWorldz.Phlox.Engine
 
                                 found = true;
                                 if (inv.Value.Type == ScriptBaseClass.INVENTORY_SCRIPT)
+                                {
                                     includesScripts = true;
+                                }
+
                                 itemsToCopy.Add(inv.Value);
                                 break;
                             }
@@ -3421,13 +3737,17 @@ namespace InWorldz.Phlox.Engine
             PrimParticleSystem(part, particleSystem);
 
             if (vel != Vector3.Zero)
+            {
                 new_group.SetVelocity(vel, false);
+            }
 
             part.ScheduleFullUpdate(PrimUpdateFlags.FindBest);
 
             // if a script was specified, start it now
             if (includesScripts)
+            {
                 part.ParentGroup.CreateScriptInstances(param, OpenSim.Region.Framework.ScriptStartFlags.PostOnRez, m_host.ParentGroup.Scene.DefaultScriptEngine, 0, null);
+            }
 
             // Notify the rezzer part that the new group was created
             m_ScriptEngine.PostObjectEvent(m_host.LocalId, new EventParams(
@@ -3446,7 +3766,7 @@ namespace InWorldz.Phlox.Engine
 
             //translate the target vector to a new origin based on our current from vector
             LSL_Vector targetNewOrigin = target - from;
- 
+
             //the forward vector
             LSL_Vector forward = LSL_Vector.UnitZ;
 
@@ -3520,7 +3840,7 @@ namespace InWorldz.Phlox.Engine
                 //apply the rotation angle against this axis
                 newRot = LSL_Rotation.CreateFromAxisAngle(rotAxis, angle);
                 newRot.Normalize();
-                
+
                 //cross our new forward direction with world Z to get a local level RIGHT/LEFT vector
                 LSL_Vector newFwd = LSL_Vector.Normalize(forward * newRot);
 
@@ -3545,7 +3865,7 @@ namespace InWorldz.Phlox.Engine
                 newRot = newRot * levelingRotation;
             }
 
-            
+
             // Orient the object to the angle calculated. Use
             // llRotLookAt because it handles both nonphysical and physical rotations.
             llRotLookAt(newRot, strength, damping);
@@ -3559,11 +3879,15 @@ namespace InWorldz.Phlox.Engine
         public void llSetTimerEvent(float sec)
         {
             if (sec < 0.0f)
+            {
                 sec = 0.0f;
+            }
 
             if (sec != 0.0f && sec < m_MinTimerInterval)
+            {
                 sec = m_MinTimerInterval;
-            
+            }
+
             // Setting timer repeat
             m_ScriptEngine.SetTimerEvent(m_localID, m_itemID, sec);
         }
@@ -3587,9 +3911,13 @@ namespace InWorldz.Phlox.Engine
             lock (m_host.TaskInventory)
             {
                 if (!m_host.TaskInventory.ContainsKey(InventorySelf()))
+                {
                     return;
+                }
                 else
+                {
                     item = m_host.TaskInventory[InventorySelf()];
+                }
             }
 
             //m_log.WarnFormat("[LSL]: '{0}' TakeControlsInternal controls={1}, accept={2}, pass_on={3}, fromCrossing={4} requiredAvatar={5}",
@@ -3633,7 +3961,9 @@ namespace InWorldz.Phlox.Engine
                         m_ScriptEngine.ChangeScriptEnabledLandStatus(parentGroup, true);
 
                         if (pass_on != 0)
+                        {
                             presence.ResendVehicleControls();   // ensure that true,false cases are sent after others (like true, true)
+                        }
                     }
                 }
                 else
@@ -3653,7 +3983,9 @@ namespace InWorldz.Phlox.Engine
                 oldControls = (int)controlParams[0];
                 oldPassOn = (int)controlParams[2];
                 if ((int)controlParams[1] == 0) // if accept == false
+                {
                     oldControls = ~oldControls;
+                }
             }
             else
             {
@@ -3665,7 +3997,9 @@ namespace InWorldz.Phlox.Engine
             lock (m_host.TaskInventory)
             {
                 if (!m_host.TaskInventory.ContainsKey(InventorySelf()))
+                {
                     return;
+                }
 
                 item = m_host.TaskInventory[InventorySelf()];
             }
@@ -3673,7 +4007,9 @@ namespace InWorldz.Phlox.Engine
             //     item.Name, isUnloading, releasePerms, silent, checkPerms);
 
             if (checkPerms & (item.PermsGranter == UUID.Zero))
+            {
                 return;
+            }
 
             SceneObjectGroup parentGroup = m_host.ParentGroup;
             if (parentGroup == null)
@@ -3683,7 +4019,9 @@ namespace InWorldz.Phlox.Engine
             }
 
             if (checkPerms && !CheckRuntimePerms(item, item.PermsGranter, ScriptBaseClass.PERMISSION_TAKE_CONTROLS))
+            {
                 return; // no permission to release controls
+            }
 
             bool hadControls = item.HasScriptedControls;
 
@@ -3722,7 +4060,10 @@ namespace InWorldz.Phlox.Engine
                 // Remove Take Control permission.
                 item.PermsMask &= ~ScriptBaseClass.PERMISSION_TAKE_CONTROLS;
                 if (item.PermsMask == 0)
+                {
                     item.PermsGranter = UUID.Zero;
+                }
+
                 PermsChange(item, item.PermsGranter, item.PermsMask);
             }
         }
@@ -3760,9 +4101,11 @@ namespace InWorldz.Phlox.Engine
 
         public void llReleaseURL(string url)
         {
-            
+
             if (m_UrlModule != null)
+            {
                 m_UrlModule.ReleaseURL(url);
+            }
         }
 
         public void llAttachToAvatar(int attachment)
@@ -3778,16 +4121,22 @@ namespace InWorldz.Phlox.Engine
         private void AttachInternal(int attachment, AttachFlags flags)
         {
             if (m_host.ParentGroup.IsAttachment)
+            {
                 return;
+            }
 
             TaskInventoryItem item;
 
             lock (m_host.TaskInventory)
             {
                 if (!m_host.TaskInventory.ContainsKey(InventorySelf()))
+                {
                     return;
+                }
                 else
+                {
                     item = m_host.TaskInventory[InventorySelf()];
+                }
             }
 
             if (item.PermsGranter != m_host.OwnerID)
@@ -3805,7 +4154,9 @@ namespace InWorldz.Phlox.Engine
                 SceneObjectGroup grp = m_host.ParentGroup;
 
                 if (presence == null)
+                {
                     return; // don't crash the script
+                }
 
                 if ((flags & AttachFlags.Temp) != 0 && item.PermsGranter != m_host.OwnerID)
                 {
@@ -3832,20 +4183,28 @@ namespace InWorldz.Phlox.Engine
         public void llDetachFromAvatar()
         {
             if (m_host.ParentGroup.RootPart.AttachmentPoint == 0)
+            {
                 return;
+            }
 
             TaskInventoryItem item;
 
             lock (m_host.TaskInventory)
             {
                 if (!m_host.TaskInventory.ContainsKey(InventorySelf()))
+                {
                     return;
+                }
                 else
+                {
                     item = m_host.TaskInventory[InventorySelf()];
+                }
             }
 
             if (item.PermsGranter != m_host.OwnerID)
+            {
                 return;
+            }
 
             if (CheckRuntimePerms(item, m_host.OwnerID, ScriptBaseClass.PERMISSION_ATTACH))
             {
@@ -3854,7 +4213,9 @@ namespace InWorldz.Phlox.Engine
 
                 ScenePresence presence = World.GetScenePresence(item.PermsGranter);
                 if (presence == null)
+                {
                     return; // don't crash the script
+                }
 
                 m_ScriptEngine.World.DetachSingleAttachmentToInv(itemID,
                         presence.ControllingClient);
@@ -3863,19 +4224,19 @@ namespace InWorldz.Phlox.Engine
 
         public void llTakeCamera(string avatar)
         {
-            
+
             Deprecated("llTakeCamera");
         }
 
         public void llReleaseCamera(string avatar)
         {
-            
+
             Deprecated("llReleaseCamera");
         }
 
         public string llGetOwner()
         {
-            
+
 
             return m_host.ObjectOwner.ToString();
         }
@@ -3895,19 +4256,24 @@ namespace InWorldz.Phlox.Engine
             //m_pendingFriendRequests.Add(friendTransactionID, fromAgentID);
 
             GridInstantMessage msg = new GridInstantMessage();
-			msg.fromAgentID = new Guid(m_host.OwnerID.ToString()); // fromAgentID.Guid;
+            msg.fromAgentID = new Guid(m_host.OwnerID.ToString()); // fromAgentID.Guid;
             msg.toAgentID = agentId.Guid;
-			msg.imSessionID = new Guid(m_host.UUID.ToString()); // This is the item we're mucking with here
+            msg.imSessionID = new Guid(m_host.UUID.ToString()); // This is the item we're mucking with here
             msg.timestamp = (uint)Util.UnixTimeSinceEpoch();// timestamp;
             msg.fromAgentName = m_host.Name;
             // Cap the message length at 1024.
             if (message != null && message.Length > 1024)
+            {
                 msg.message = message.Substring(0, 1024);
+            }
             else
+            {
                 msg.message = message;
+            }
+
             msg.dialog = (byte)InstantMessageDialog.MessageFromObject;
             msg.fromGroup = false;// fromGroup;
-            msg.offline = (byte)1; //yes, store for fetching missed IMs on login
+            msg.offline = 1; //yes, store for fetching missed IMs on login
             msg.ParentEstateID = 0; //ParentEstateID;
             msg.Position = m_host.AbsolutePosition;
             msg.RegionID = World.RegionInfo.RegionID.Guid;//RegionID.Guid;
@@ -3919,7 +4285,8 @@ namespace InWorldz.Phlox.Engine
 
             if (m_TransferModule != null)
             {
-                m_TransferModule.SendInstantMessage(msg, delegate(bool success) { });
+                m_TransferModule.SendInstantMessage(msg, delegate (bool success)
+                { });
             }
         }
 
@@ -3931,7 +4298,9 @@ namespace InWorldz.Phlox.Engine
             {
                 UUID agentId = UUID.Zero;
                 if (UUID.TryParse(user, out agentId) && (agentId != UUID.Zero))
+                {
                     SendIM(agentId, message);
+                }
             }
             finally
             {
@@ -3947,7 +4316,9 @@ namespace InWorldz.Phlox.Engine
             {
                 IEmailModule emailModule = m_ScriptEngine.World.RequestModuleInterface<IEmailModule>();
                 if (emailModule == null)
+                {
                     return;
+                }
 
                 emailModule.SendEmail(m_host.UUID, address, subject, message);
             }
@@ -3965,20 +4336,24 @@ namespace InWorldz.Phlox.Engine
             {
                 IGetEmailModule emailModule = m_ScriptEngine.World.RequestModuleInterface<IGetEmailModule>();
                 if (emailModule == null)
+                {
                     return;
+                }
 
                 Email email = emailModule.GetNextEmail(m_host.UUID, address, subject);
                 if (email == null)
+                {
                     return;
+                }
 
                 m_ScriptEngine.PostObjectEvent(m_host.LocalId,
                         new EventParams("email",
                         new Object[] {
-                        (string)(email.time),
-                        (string)(email.sender),
-                        (string)(email.subject),
-                        (string)(email.message),
-                        (int)(email.numLeft)},
+                        email.time,
+                        email.sender,
+                        email.subject,
+                        email.message,
+                        email.numLeft},
                         new DetectParams[0]));
             }
             finally
@@ -3989,7 +4364,7 @@ namespace InWorldz.Phlox.Engine
 
         public string llGetKey()
         {
-            
+
             return m_host.UUID.ToString();
         }
 
@@ -3999,7 +4374,7 @@ namespace InWorldz.Phlox.Engine
             {
                 if (!m_host.ParentGroup.IsDeleted)
                 {
-                    m_host.ParentGroup.RootPart.SetBuoyancy((float)buoyancy);
+                    m_host.ParentGroup.RootPart.SetBuoyancy(buoyancy);
                 }
             }
         }
@@ -4026,7 +4401,7 @@ namespace InWorldz.Phlox.Engine
 
         public void llStopHover()
         {
-            
+
             if (m_host.PhysActor != null)
             {
                 m_host.StopHover();
@@ -4035,7 +4410,7 @@ namespace InWorldz.Phlox.Engine
 
         public void llMinEventDelay(float delay)
         {
-            
+
             try
             {
                 m_ScriptEngine.SetMinEventDelay(m_itemID, delay);
@@ -4053,7 +4428,7 @@ namespace InWorldz.Phlox.Engine
         /// </summary>
         public void llSoundPreload(string sound)
         {
-            
+
         }
 
         public void llRotLookAt(LSL_Rotation target, float strength, float damping)
@@ -4082,20 +4457,28 @@ namespace InWorldz.Phlox.Engine
         {
             UUID invItemID = InventorySelf();
             if (invItemID == UUID.Zero)
+            {
                 return;
+            }
 
             TaskInventoryItem item;
 
             lock (m_host.TaskInventory)
             {
                 if (!m_host.TaskInventory.ContainsKey(InventorySelf()))
+                {
                     return;
+                }
                 else
+                {
                     item = m_host.TaskInventory[InventorySelf()];
+                }
             }
 
             if (item.PermsGranter == UUID.Zero)
+            {
                 return;
+            }
 
             if (CheckRuntimePerms(item, item.PermsGranter, ScriptBaseClass.PERMISSION_TRIGGER_ANIMATION))
             {
@@ -4108,11 +4491,18 @@ namespace InWorldz.Phlox.Engine
                     UUID animID = InventoryKey(part, anim, (int)AssetType.Animation);
                     //UUID animID = GetInventoryKey(part, anim);
                     if (animID == UUID.Zero)
+                    {
                         result = presence.AddAnimation(anim, m_host.UUID);
+                    }
                     else
+                    {
                         result = presence.AddAnimation(animID, m_host.UUID);
+                    }
+
                     if (!String.IsNullOrEmpty(result))
+                    {
                         ScriptShoutError(result);
+                    }
                 }
                 else
                 {
@@ -4120,10 +4510,13 @@ namespace InWorldz.Phlox.Engine
                     // See Mantis #2798 http://bugs.inworldz.com/mantis/view.php?id=2798
                     item.PermsMask &= ~ScriptBaseClass.PERMISSION_TRIGGER_ANIMATION;
                     if (item.PermsMask == 0)
+                    {
                         item.PermsGranter = UUID.Zero;
+                    }
+
                     PermsChange(item, item.PermsGranter, item.PermsMask);
                     m_ScriptEngine.PostScriptEvent(m_itemID, new EventParams(
-                            "run_time_permissions", new Object[] { (int)(item.PermsMask) }, new DetectParams[0]));
+                            "run_time_permissions", new Object[] { item.PermsMask }, new DetectParams[0]));
                     // SL displays "llStopAnimation: Script trying to stop animations but agent not found" in the first call
                     // and then "llStopAnimation: Unable to find agent, releasing animation permissions" on the second call.
                     // However this is pointless and disruptive to role-play and other users in general. Let's not emulate that.
@@ -4137,12 +4530,19 @@ namespace InWorldz.Phlox.Engine
             StartAnimation(m_host, anim);
         }
 
-        public void iwStartLinkAnimation(int linknumber, string anim)
+        public void iwStartLinkAnimation(int linknumber, string anim) { halStartLinkAnimation(linknumber, anim); }
+        public void halStartLinkAnimation(int linknumber, string anim)
         {
-            if (linknumber < 0) return;
+            if (linknumber < 0)
+            {
+                return;
+            }
+
             var part = GetLinkOnePrimOnly(linknumber);
             if (part != null)
+            {
                 StartAnimation(part, anim);
+            }
         }
 
         /*
@@ -4204,20 +4604,28 @@ namespace InWorldz.Phlox.Engine
         {
             UUID invItemID = InventorySelf();
             if (invItemID == UUID.Zero)
+            {
                 return;
+            }
 
             TaskInventoryItem item;
 
             lock (m_host.TaskInventory)
             {
                 if (!m_host.TaskInventory.ContainsKey(InventorySelf()))
+                {
                     return;
+                }
                 else
+                {
                     item = m_host.TaskInventory[InventorySelf()];
+                }
             }
 
             if (item.PermsGranter == UUID.Zero)
+            {
                 return;
+            }
 
             if (CheckRuntimePerms(item, item.PermsGranter, ScriptBaseClass.PERMISSION_TRIGGER_ANIMATION))
             {
@@ -4233,9 +4641,13 @@ namespace InWorldz.Phlox.Engine
                 if ((presence != null) && (!presence.IsChildAgent))
                 {
                     if (animID == UUID.Zero)
+                    {
                         presence.RemoveAnimation(anim);
+                    }
                     else
+                    {
                         presence.RemoveAnimation(animID);
+                    }
                 }
                 else
                 {
@@ -4243,10 +4655,13 @@ namespace InWorldz.Phlox.Engine
                     // See Mantis #2798 http://bugs.inworldz.com/mantis/view.php?id=2798
                     item.PermsMask &= ~ScriptBaseClass.PERMISSION_TRIGGER_ANIMATION;
                     if (item.PermsMask == 0)
+                    {
                         item.PermsGranter = UUID.Zero;
+                    }
+
                     PermsChange(item, item.PermsGranter, item.PermsMask);
                     m_ScriptEngine.PostScriptEvent(m_itemID, new EventParams(
-                            "run_time_permissions", new Object[] { (int)(item.PermsMask) }, new DetectParams[0]));
+                            "run_time_permissions", new Object[] { item.PermsMask }, new DetectParams[0]));
                     // SL displays "llStopAnimation: Script trying to stop animations but agent not found" in the first call
                     // and then "llStopAnimation: Unable to find agent, releasing animation permissions" on the second call.
                     // However this is pointless and disruptive to role-play and other users in general. Let's not emulate that.
@@ -4260,15 +4675,21 @@ namespace InWorldz.Phlox.Engine
             StopAnimation(m_host, anim);
         }
 
-        public void iwStopLinkAnimation(int linknumber, string anim)
+        public void iwStopLinkAnimation(int linknumber, string anim) { halStopLinkAnimation(linknumber, anim); }
+        public void halStopLinkAnimation(int linknumber, string anim)
         {
-            if (linknumber < 0) return;
+            if (linknumber < 0)
+            {
+                return;
+            }
 
             var part = GetLinkOnePrimOnly(linknumber);
             if (part != null)
+            {
                 StopAnimation(part, anim);
+            }
         }
-        
+
         /*
         public void llStopAnimation(string anim)
         {
@@ -4328,13 +4749,13 @@ namespace InWorldz.Phlox.Engine
 
         public void llPointAt(LSL_Vector pos)
         {
-            
+
             NotImplemented("llPointAt");
         }
 
         public void llStopPointAt()
         {
-            
+
             NotImplemented("llStopPointAt");
         }
 
@@ -4366,12 +4787,15 @@ namespace InWorldz.Phlox.Engine
             PrimTargetOmega(m_host, axis, spinrate, gain);
         }
 
-        public void iwLinkTargetOmega(int linknumber, LSL_Vector axis, float spinrate, float gain)
+        public void iwLinkTargetOmega(int linknumber, LSL_Vector axis, float spinrate, float gain) { halLinkTargetOmega(linknumber, axis, spinrate, gain); }
+        public void halLinkTargetOmega(int linknumber, LSL_Vector axis, float spinrate, float gain)
         {
             var parts = GetLinkPrimsOnly(linknumber);
 
             foreach (SceneObjectPart part in parts)
+            {
                 PrimTargetOmega(part, axis, spinrate, gain);
+            }
         }
 
         public int llGetStartParameter()
@@ -4389,16 +4813,26 @@ namespace InWorldz.Phlox.Engine
         {
             // For performance reasons, don't make this call if it's a dialog to yourself.
             if (targetUser == m_host.OwnerID)
+            {
                 return false;
+            }
 
             if (m_muteListModule == null)
+            {
                 m_muteListModule = m_host.ParentGroup.Scene.RequestModuleInterface<IMuteListModule>();
+            }
+
             if (m_muteListModule != null)
             {
                 if (m_muteListModule.IsMuted(m_host.OwnerID, targetUser))
+                {
                     return true; // recipient has object owner muted
+                }
+
                 if (m_muteListModule.IsMuted(m_host.ParentGroup.UUID, targetUser))
+                {
                     return true; // recipient has this object muted
+                }
             }
             return false;
         }
@@ -4453,7 +4887,7 @@ namespace InWorldz.Phlox.Engine
                     else
                     {
                         SceneObjectPart parent = presence.GetSitTargetPart();
-                        if(parent != null && parent.ObjectOwner == m_host.OwnerID)
+                        if (parent != null && parent.ObjectOwner == m_host.OwnerID)
                         {
                             implicitPerms = ScriptBaseClass.PERMISSION_TRIGGER_ANIMATION;
                         }
@@ -4467,7 +4901,9 @@ namespace InWorldz.Phlox.Engine
         private bool CheckRuntimePerms(TaskInventoryItem item, UUID agentID, int needs)
         {
             if (item.PermsGranter != agentID)
+            {
                 return false;
+            }
 
             return ((item.PermsMask & needs) == needs);
         }
@@ -4476,10 +4912,14 @@ namespace InWorldz.Phlox.Engine
         {
             int implicitPerms = GetImplicitPermissions(item, agentID);
             if (implicitPerms == 0)
+            {
                 return false;
+            }
 
             if ((perm & (~implicitPerms)) != 0) // requesting more than implicit perms
+            {
                 return false;   // needs user prompt
+            }
 
             lock (m_host.TaskInventory)
             {
@@ -4490,7 +4930,7 @@ namespace InWorldz.Phlox.Engine
 
             m_ScriptEngine.PostScriptEvent(m_itemID, new EventParams(
                 "run_time_permissions", new Object[] {
-                    (int)(item.PermsMask) },
+                    item.PermsMask },
                     new DetectParams[0]));
 
             return true;    // that's enough, all done
@@ -4501,12 +4941,16 @@ namespace InWorldz.Phlox.Engine
             UUID agentID = new UUID();
 
             if (!UUID.TryParse(agent, out agentID))
+            {
                 return;
+            }
 
             UUID invItemID = InventorySelf();
 
             if (invItemID == UUID.Zero)
+            {
                 return; // Not in a prim? How??
+            }
 
             TaskInventoryItem item;
             lock (m_host.TaskInventory)
@@ -4535,17 +4979,21 @@ namespace InWorldz.Phlox.Engine
 
                 m_ScriptEngine.PostScriptEvent(m_itemID, new EventParams(
                         "run_time_permissions", new Object[] {
-                        (int)(0) },
+                        0 },
                         new DetectParams[0]));
 
                 return;
             }
 
             if (item.PermsGranter != agentID || (perm & ScriptBaseClass.PERMISSION_TAKE_CONTROLS) == 0)
+            {
                 ReleaseControlsInternal(false, true, false, false);
+            }
 
             if (RequestImplicitPermissions(perm, item, agentID))
+            {
                 return; // all done, only implicit perms were requested
+            }
 
             // Otherwise we need to prompt the user for permission.
             ScenePresence presence = World.GetScenePresence(agentID);
@@ -4557,8 +5005,8 @@ namespace InWorldz.Phlox.Engine
                 // Requested agent is not in range, refuse perms, or muted
                 ScriptSleep(200);
                 m_ScriptEngine.PostScriptEvent(
-                    m_itemID, 
-                    new EventParams("run_time_permissions",  new Object[] { (int)(0) },
+                    m_itemID,
+                    new EventParams("run_time_permissions", new Object[] { 0 },
                     new DetectParams[0]));
                 return;
             }
@@ -4573,7 +5021,9 @@ namespace InWorldz.Phlox.Engine
             // Okay, now we need to ask the user for permission.
             string ownerName = resolveName(m_host.ParentGroup.RootPart.OwnerID);
             if (String.IsNullOrEmpty(ownerName))
+            {
                 ownerName = "(hippos)";
+            }
 
             lock (m_host.TaskInventory)
             {
@@ -4595,7 +5045,10 @@ namespace InWorldz.Phlox.Engine
         private void ClearWaitingForScriptAnswer(IClientAPI client)
         {
             if ((m_waitingForScriptAnswer == null) || (client != m_waitingForScriptAnswer))
+            {
                 return;
+            }
+
             client.OnScriptAnswer -= handleScriptAnswer;
             m_waitingForScriptAnswer = null;
         }
@@ -4608,18 +5061,27 @@ namespace InWorldz.Phlox.Engine
         void handleScriptAnswer(IClientAPI client, UUID taskID, UUID itemID, int answer)
         {
             if (taskID != m_host.UUID)
+            {
                 return;
+            }
+
             if ((m_waitingForScriptAnswer == null) || (client != m_waitingForScriptAnswer))
+            {
                 return;
+            }
 
             ClearWaitingForScriptAnswer(client);
 
             UUID invItemID = InventorySelf();
             if (invItemID == UUID.Zero)
+            {
                 return;
+            }
 
             if ((answer & ScriptBaseClass.PERMISSION_TAKE_CONTROLS) == 0)
+            {
                 ReleaseControlsInternal(false, true, false, false);
+            }
 
             TaskInventoryItem item;
             lock (m_host.TaskInventory)
@@ -4630,7 +5092,7 @@ namespace InWorldz.Phlox.Engine
 
             m_ScriptEngine.PostScriptEvent(m_itemID, new EventParams(
                     "run_time_permissions", new Object[] {
-                    (int)(item.PermsMask) },
+                    item.PermsMask },
                     new DetectParams[0]));
         }
 
@@ -4638,12 +5100,22 @@ namespace InWorldz.Phlox.Engine
         void handleMustReleaseControls(ScenePresence presence, SceneObjectPart part, TaskInventoryItem item, bool silent)
         {
             if (part != m_host)
+            {
                 return; // not for me
+            }
+
             if (item == null)
+            {
                 return; // no item to release from
+            }
+
             if (item.PermsGranter != UUID.Zero)
+            {
                 if (item.PermsGranter != presence.UUID)
+                {
                     return; // not for me
+                }
+            }
 
             UUID invItemID = InventorySelf();
             if (invItemID != UUID.Zero)
@@ -4651,12 +5123,17 @@ namespace InWorldz.Phlox.Engine
                 lock (m_host.TaskInventory)
                 {
                     if (!m_host.TaskInventory.ContainsKey(item.ItemID))
+                    {
                         return; // item not in the contents of this prim
+                    }
 
                     item = m_host.TaskInventory[invItemID];
                 }
             }
-            if (!IsMyScript(part, item)) return;
+            if (!IsMyScript(part, item))
+            {
+                return;
+            }
 
             // m_log.WarnFormat("[LSL]: handleMustReleaseControls {0}: releasing controls for {1}", part.Name, item.Name);
 
@@ -4669,7 +5146,10 @@ namespace InWorldz.Phlox.Engine
                 item.PermsMask &= ~ScriptBaseClass.PERMISSION_TAKE_CONTROLS;
                 item.PermsMask &= ~ScriptBaseClass.PERMISSION_CONTROL_CAMERA;
                 if (item.PermsMask == 0)
+                {
                     item.PermsGranter = UUID.Zero;
+                }
+
                 PermsChange(item, item.PermsGranter, item.PermsMask);
             }
         }
@@ -4700,7 +5180,10 @@ namespace InWorldz.Phlox.Engine
                     {
                         int perms = item.PermsMask;
                         if (m_automaticLinkPermission)
+                        {
                             perms |= ScriptBaseClass.PERMISSION_CHANGE_LINKS;
+                        }
+
                         return perms;
                     }
                 }
@@ -4711,7 +5194,7 @@ namespace InWorldz.Phlox.Engine
 
         public int llGetLinkNumber()
         {
-            
+
 
             if (m_host.ParentGroup.PartCount > 1)
             {
@@ -4728,13 +5211,17 @@ namespace InWorldz.Phlox.Engine
             var parts = GetLinkPrimsOnly(linknumber);
 
             foreach (SceneObjectPart part in parts)
+            {
                 SetColor(part, color, face);
+            }
         }
 
         public void llCreateLink(string target, int parent)
         {
             if (m_host.ParentGroup.IsAttachment)
+            {
                 return; // Fail silently if attached
+            }
 
             UUID invItemID = InventorySelf();
 
@@ -4754,23 +5241,36 @@ namespace InWorldz.Phlox.Engine
             IClientAPI client = null;
             ScenePresence sp = World.GetScenePresence(item.PermsGranter);
             if (sp != null)
+            {
                 client = sp.ControllingClient;
+            }
 
             if (!World.Permissions.CanEditObject(m_host.ParentGroup.UUID, client.AgentId, (uint)PermissionMask.Modify))
+            {
                 return; // host object is not editable
+            }
 
             SceneObjectPart targetPart = World.GetSceneObjectPart((UUID)target);
 
             if (targetPart == null)
+            {
                 return; // target UUID does not exist here
+            }
 
             if (targetPart.ParentGroup.RootPart.AttachmentPoint != 0)
+            {
                 return; // Fail silently if attached
+            }
 
             if (!World.Permissions.CanEditObject(targetPart.ParentGroup.UUID, client.AgentId, (uint)PermissionMask.Modify))
+            {
                 return; // target object is not editable
+            }
+
             if ((targetPart.ParentGroup.RootPart.OwnerMask & (uint)PermissionMask.Modify) != (uint)PermissionMask.Modify)
+            {
                 return; // target is no-mod
+            }
 
             // Group 1 will have the new root prim, group 2 is being added.
             SceneObjectGroup group1 = null, group2 = null;
@@ -4786,12 +5286,17 @@ namespace InWorldz.Phlox.Engine
             }
 
             if (group1.OwnerID != group2.OwnerID)
+            {
                 return; // Fail silently two different owners
+            }
+
             if (group1.RootPart == group2.RootPart)
+            {
                 return; // Fail silently, target is already in the link set
+            }
 
             // after this, group2 doesn't really exist anymore (no prims)
-            group1.LinkOtherGroupPrimsToThisGroup(group2); 
+            group1.LinkOtherGroupPrimsToThisGroup(group2);
 
             group1.TriggerScriptChangedEvent(Changed.LINK);
             group1.RootPart.AddFlag(PrimFlags.CreateSelected);
@@ -4799,14 +5304,16 @@ namespace InWorldz.Phlox.Engine
             group1.ScheduleGroupForFullUpdate(PrimUpdateFlags.ForcedFullUpdate);
 
             if (client != null)
+            {
                 group1.GetProperties(client);
+            }
 
             ScriptSleep(1000);
         }
 
         public void llBreakLink(int linknum)
         {
-            
+
             UUID invItemID = InventorySelf();
 
             TaskInventoryItem item;
@@ -4823,12 +5330,17 @@ namespace InWorldz.Phlox.Engine
             }
 
             if (linknum < ScriptBaseClass.LINK_THIS)
+            {
                 return;
+            }
 
             SceneObjectGroup parentPrim = m_host.ParentGroup;
 
             if (parentPrim.RootPart.AttachmentPoint != 0)
+            {
                 return; // Fail silently if attached
+            }
+
             SceneObjectPart childPrim = null;
 
             switch (linknum)
@@ -4851,7 +5363,10 @@ namespace InWorldz.Phlox.Engine
                 default:
                     childPrim = parentPrim.GetLinkNumPart(linknum);
                     if (childPrim.UUID == m_host.UUID)
+                    {
                         childPrim = null;
+                    }
+
                     break;
             }
 
@@ -4879,7 +5394,9 @@ namespace InWorldz.Phlox.Engine
             else
             {
                 if (childPrim == null)
+                {
                     return;
+                }
 
                 parentPrim.DelinkFromGroup(childPrim.LocalId, true);
                 parentPrim.TriggerScriptChangedEvent(Changed.LINK);
@@ -4888,10 +5405,12 @@ namespace InWorldz.Phlox.Engine
 
         public void llBreakAllLinks()
         {
-            
+
             SceneObjectGroup parentPrim = m_host.ParentGroup;
             if (parentPrim.RootPart.AttachmentPoint != 0)
+            {
                 return; // Fail silently if attached
+            }
 
             foreach (SceneObjectPart part in parentPrim.GetPartsExcluding(parentPrim.RootPart))
             {
@@ -4953,7 +5472,9 @@ namespace InWorldz.Phlox.Engine
             string result = UUID.Zero.ToString();
 
             if (linknum > m_host.ParentGroup.LinkCount)
+            {
                 return result;
+            }
 
             if (linknum > m_host.ParentGroup.PartCount)
             {
@@ -4967,7 +5488,9 @@ namespace InWorldz.Phlox.Engine
             {
                 // Single prim, only one non-NULL_KEY return
                 if ((linknum == 0) || (linknum == ScriptBaseClass.LINK_THIS))
+                {
                     result = m_host.Name;
+                }
             }
             else
             {
@@ -4984,9 +5507,14 @@ namespace InWorldz.Phlox.Engine
                             break;
                         default:
                             if (linknum >= 0)
+                            {
                                 part = m_host.ParentGroup.GetLinkNumPart(linknum);
+                            }
                             else
+                            {
                                 part = m_host.ParentGroup.GetLinkNumPart(2);
+                            }
+
                             break;
                     }
                 }
@@ -5007,15 +5535,22 @@ namespace InWorldz.Phlox.Engine
                             break;
                         default:
                             if (linknum < 0)
+                            {
                                 part = m_host.ParentGroup.RootPart;
+                            }
                             else
                             if (linknum > 0)
+                            {
                                 part = m_host.ParentGroup.GetLinkNumPart(linknum);
+                            }
+
                             break;
                     }
                 }
                 if (part != null)
+                {
                     result = part.Name;
+                }
             }
 
             return result;
@@ -5042,7 +5577,8 @@ namespace InWorldz.Phlox.Engine
         {
             return GetInventoryNumber(m_host, type);
         }
-        public int iwGetLinkInventoryNumber(int linknumber, int type)
+        public int iwGetLinkInventoryNumber(int linknumber, int type) { return halGetLinkInventoryNumber(linknumber, type); }
+        public int halGetLinkInventoryNumber(int linknumber, int type)
         {
             int count = 0;
             var parts = GetLinkPrimsOnly(linknumber);
@@ -5062,15 +5598,26 @@ namespace InWorldz.Phlox.Engine
                 int val1 = OrderLSL.IndexOf(char.ToUpper(c1));
                 int val2 = OrderLSL.IndexOf(char.ToUpper(c2));
                 if ((val1 != -1) && (val2 != -1))   // both in range above
+                {
                     return val1 - val2;     // normal comparison
+                }
 
                 // any value outside the range will do, so long as it's consistently calculated
                 if ((val1 == -1) && (val2 == -1))
+                {
                     return c1 - c2; // both are outside range
+                }
+
                 if (val1 == val2)
+                {
                     return 0;
+                }
+
                 if (val1 == -1)
+                {
                     return 1;   // only val1 outside range, sort after val2
+                }
+
                 return -1;      // only val2 outside range, sort after val1
             }
 
@@ -5084,16 +5631,21 @@ namespace InWorldz.Phlox.Engine
                 {
                     int cmp = CompareChars(name1[x], name2[x]);
                     if (cmp != 0)
+                    {
                         return cmp;
+                    }
                 }
                 if (name1.Length < name2.Length)
+                {
                     return -1;
+                }
+
                 return 1;
             }
         }
         public static IComparer InvNameSorter()
         {
-            return (IComparer)new InvNameComparer();
+            return new InvNameComparer();
         }
 
         public string GetInventoryName(SceneObjectPart part, int type, int number)
@@ -5127,38 +5679,50 @@ namespace InWorldz.Phlox.Engine
         {
             return GetInventoryName(m_host, type, number);
         }
-        public string iwGetLinkInventoryName(int linknumber, int type, int number)
+        public string iwGetLinkInventoryName(int linknumber, int type, int number) { return halGetLinkInventoryName(linknumber, type, number); }
+        public string halGetLinkInventoryName(int linknumber, int type, int number)
         {
             string name = String.Empty;
             var part = GetLinkOnePrimOnly(linknumber);
             if (part != null)
+            {
                 name = GetInventoryName(part, type, number);
+            }
 
             return name;
         }
 
         private LSL_List SearchInventory(SceneObjectPart part, int type, string pattern, int matchType)
         {
-            if(matchType > 2)
+            if (matchType > 2)
             {
-                if (matchType == 3) LSLError("IW_MATCH_COUNT is not a valid matching type for iwSearchInventory or iwSearchLinkInventory.");
-                else if (matchType == 4) LSLError("IW_MATCH_COUNT_REGEX is not a valid matching type for iwSearchInventory or iwSearchLinkInventory.");
+                if (matchType == 3)
+                {
+                    LSLError("IW_MATCH_COUNT is not a valid matching type for iwSearchInventory or iwSearchLinkInventory.");
+                }
+                else if (matchType == 4)
+                {
+                    LSLError("IW_MATCH_COUNT_REGEX is not a valid matching type for iwSearchInventory or iwSearchLinkInventory.");
+                }
+
                 return new LSL_List();
             }
             ArrayList keys = new ArrayList();
-            lock(part.TaskInventory)
+            lock (part.TaskInventory)
             {
-                foreach(KeyValuePair<UUID, TaskInventoryItem> inv in part.TaskInventory)
+                foreach (KeyValuePair<UUID, TaskInventoryItem> inv in part.TaskInventory)
                 {
-                    if(inv.Value.Type == type || type == -1)
+                    if (inv.Value.Type == type || type == -1)
                     {
                         if (String.IsNullOrEmpty(pattern) || iwMatchString(inv.Value.Name, pattern, matchType) == 1)
+                        {
                             keys.Add(inv.Value.Name);
+                        }
                     }
                 }
             }
 
-            if(keys.Count > 0)
+            if (keys.Count > 0)
             {
                 keys.Sort(InvNameSorter());
                 return new LSL_List(keys.ToArray());
@@ -5168,19 +5732,29 @@ namespace InWorldz.Phlox.Engine
             return new LSL_List();
         }
 
-        public LSL_List iwSearchInventory(int type, string pattern, int matchType)
+        public LSL_List iwSearchInventory(int type, string pattern, int matchType) { return halSearchInventory(type, pattern, matchType); }
+        public LSL_List halSearchInventory(int type, string pattern, int matchType)
         {
             return SearchInventory(m_host, type, pattern, matchType);
         }
 
-        public LSL_List iwSearchLinkInventory(int link, int type, string pattern, int matchtype)
+        public LSL_List iwSearchLinkInventory(int link, int type, string pattern, int matchtype) { return halSearchLinkInventory(link, type, pattern, matchtype); }
+        public LSL_List halSearchLinkInventory(int link, int type, string pattern, int matchtype)
         {
-            if (link < 0) return new LSL_List();
+            if (link < 0)
+            {
+                return new LSL_List();
+            }
+
             var part = GetLinkOnePrimOnly(link);
             if (part != null)
+            {
                 return SearchInventory(part, type, pattern, matchtype);
+            }
             else
+            {
                 return new LSL_List();
+            }
         }
 
         public int GetPartScriptTotal(SceneObjectPart part, int which)
@@ -5201,7 +5775,10 @@ namespace InWorldz.Phlox.Engine
                                 break;
                             case ScriptBaseClass.OBJECT_RUNNING_SCRIPT_COUNT:
                                 if (engine.GetScriptState(inv.Value.ItemID))
+                                {
                                     total++;
+                                }
+
                                 break;
                             case ScriptBaseClass.OBJECT_SCRIPT_MEMORY:  // total mem possible (128K)
                                 total += engine.GetMaxMemory();
@@ -5237,10 +5814,14 @@ namespace InWorldz.Phlox.Engine
             }
 
             if (which != ScriptBaseClass.OBJECT_SCRIPT_TIME)
+            {
                 return total;
+            }
 
             if (scriptTimes.Count < 1)
+            {
                 return 0.0f;
+            }
 
             // OBJECT_SCRIPT_TIME is seconds not ms
             return (float)(scriptTimes.Average() / 1000.0);
@@ -5249,7 +5830,7 @@ namespace InWorldz.Phlox.Engine
         public int GetObjectScriptTotal(SceneObjectGroup group, int which)
         {
             int total = 0;
-            group.ForEachPart(delegate(SceneObjectPart part)
+            group.ForEachPart(delegate (SceneObjectPart part)
             {
                 total += GetPartScriptTotal(part, which);
             });
@@ -5259,7 +5840,7 @@ namespace InWorldz.Phlox.Engine
         public float GetObjectScriptTotalFloat(SceneObjectGroup group, int which)
         {
             float total = 0;
-            group.ForEachPart(delegate(SceneObjectPart part)
+            group.ForEachPart(delegate (SceneObjectPart part)
             {
                 total += GetPartScriptTotalFloat(part, which);
             });
@@ -5272,7 +5853,8 @@ namespace InWorldz.Phlox.Engine
             List<SceneObjectGroup> attachments = sp.GetAttachments();
             foreach (SceneObjectGroup group in attachments)
             {
-                switch (which) {
+                switch (which)
+                {
                     case ScriptBaseClass.OBJECT_RUNNING_SCRIPT_COUNT:
                     case ScriptBaseClass.OBJECT_TOTAL_SCRIPT_COUNT:
                     case ScriptBaseClass.OBJECT_SCRIPT_MEMORY:
@@ -5292,7 +5874,8 @@ namespace InWorldz.Phlox.Engine
             List<SceneObjectGroup> attachments = sp.GetAttachments();
             foreach (SceneObjectGroup group in attachments)
             {
-                switch (which) {
+                switch (which)
+                {
                     case ScriptBaseClass.OBJECT_SCRIPT_TIME:
                         scriptTimes.Add(GetObjectScriptTotalFloat(group, which));
                         break;
@@ -5300,10 +5883,14 @@ namespace InWorldz.Phlox.Engine
             }
 
             if (which != ScriptBaseClass.OBJECT_SCRIPT_TIME)
+            {
                 return total;
+            }
 
             if (scriptTimes.Count < 1)
+            {
                 return 0.0f;
+            }
 
             // OBJECT_SCRIPT_TIME is seconds not ms
             return (float)(scriptTimes.Average() / 1000.0);
@@ -5411,7 +5998,9 @@ namespace InWorldz.Phlox.Engine
                         World.MoveTaskInventoryItem(destId, remoteClient, UUID.Zero, part, objId, false, out reason);
 
                 if (agentItem == null)
+                {
                     return DeliverReasonToResult(reason);
+                }
 
                 byte dialog = (byte)InstantMessageDialog.TaskInventoryOffered;
                 byte[] bucket = new byte[1];
@@ -5422,13 +6011,14 @@ namespace InWorldz.Phlox.Engine
 
                 GridInstantMessage msg = new GridInstantMessage(World,
                         rootPart.OwnerID, rootPart.Name, destId,
-                            dialog, false, "'"+objName+"'  ( "+URL+" )",
+                            dialog, false, "'" + objName + "'  ( " + URL + " )",
                         agentItem.ID, true, rootPart.AbsolutePosition,
                         bucket);
 
                 if (m_TransferModule != null)
                 {
-                        m_TransferModule.SendInstantMessage(msg, delegate(bool success) { });
+                    m_TransferModule.SendInstantMessage(msg, delegate (bool success)
+                    { });
                 }
             }
             else
@@ -5452,15 +6042,25 @@ namespace InWorldz.Phlox.Engine
                 {
                     rc = _GiveInventory(part, destination, inventory, out needsDelay);
                     if (rc != ScriptBaseClass.IW_DELIVER_NONE)
+                    {
                         return; // give results from the first matching prim only
+                    }
                 }
             }
             finally
             {
                 // C# cannot handle: includeRC ? rc : null
                 object result = null;
-                if (includeRC) result = rc;
-                if (!needsDelay) delay = 0;
+                if (includeRC)
+                {
+                    result = rc;
+                }
+
+                if (!needsDelay)
+                {
+                    delay = 0;
+                }
+
                 m_ScriptEngine.SysReturn(m_itemID, result, delay);
             }
         }
@@ -5468,11 +6068,13 @@ namespace InWorldz.Phlox.Engine
         {
             GiveLinkInventory(ScriptBaseClass.LINK_THIS, destination, inventory, 2000, false);
         }
-        public void iwGiveLinkInventory(int linknumber, string destination, string inventory)
+        public void iwGiveLinkInventory(int linknumber, string destination, string inventory) { halGiveLinkInventory(linknumber, destination, inventory); }
+        public void halGiveLinkInventory(int linknumber, string destination, string inventory)
         {
             GiveLinkInventory(linknumber, destination, inventory, 2000, false);
         }
-        public void iwDeliverInventory(int linknumber, string destination, string inventory)
+        public void iwDeliverInventory(int linknumber, string destination, string inventory) { halDeliverInventory(linknumber, destination, inventory); }
+        public void halDeliverInventory(int linknumber, string destination, string inventory)
         {
             GiveLinkInventory(linknumber, destination, inventory, 100, true);
         }
@@ -5495,33 +6097,36 @@ namespace InWorldz.Phlox.Engine
         {
             RemoveLinkInventory(m_host, name);
         }
-        public void iwRemoveLinkInventory(int linknumber, string name)
+        public void iwRemoveLinkInventory(int linknumber, string name) { halRemoveLinkInventory(linknumber, name); }
+        public void halRemoveLinkInventory(int linknumber, string name)
         {
             var parts = GetLinkPrimsOnly(linknumber);
             foreach (SceneObjectPart part in parts)
+            {
                 RemoveLinkInventory(part, name);
+            }
         }
 
 
         private void PrimSetText(SceneObjectPart part, string text, LSL_Vector color, double alpha)
         {
-            
-            Vector3 av3 = new Vector3(Util.Clip((float)color.X, 0.0f, 1.0f),
-                                      Util.Clip((float)color.Y, 0.0f, 1.0f),
-                                      Util.Clip((float)color.Z, 0.0f, 1.0f));
+
+            Vector3 av3 = new Vector3(Util.Clip(color.X, 0.0f, 1.0f),
+                                      Util.Clip(color.Y, 0.0f, 1.0f),
+                                      Util.Clip(color.Z, 0.0f, 1.0f));
             part.SetText(text, av3, Util.Clip((float)alpha, 0.0f, 1.0f));
             part.ParentGroup.HasGroupChanged = true;
         }
 
         public void llSetText(string text, LSL_Vector color, float alpha)
         {
-            
+
             PrimSetText(m_host, text, color, alpha);
         }
 
         public float llWater(LSL_Vector offset)
         {
-            
+
             return (float)World.RegionInfo.RegionSettings.WaterHeight;
         }
 
@@ -5533,8 +6138,8 @@ namespace InWorldz.Phlox.Engine
         private bool IsScriptOwnerFriendOf(UUID uuid)
         {
             List<FriendListItem> friends = World.CommsManager.UserService.GetUserFriendList(uuid);
-            FriendListItem friend = 
-                friends.Find(delegate(FriendListItem f)
+            FriendListItem friend =
+                friends.Find(delegate (FriendListItem f)
                 {
                     return f.Friend == m_host.OwnerID;
                 });
@@ -5554,7 +6159,9 @@ namespace InWorldz.Phlox.Engine
                     Scene scene = m_host.ParentGroup.Scene;
                     ScenePresence SP = scene.GetScenePresence(uuid);
                     if (SP != null) // user is here, always allow this
+                    {
                         reply = "1";
+                    }
                     else
                     if ((userProfile == null) || (!userProfile.CurrentAgent.AgentOnline))
                     {
@@ -5568,7 +6175,9 @@ namespace InWorldz.Phlox.Engine
                     else
                     {   // user is online... are they in this region?
                         if (IsScriptOwnerFriendOf(uuid))
+                        {
                             reply = "1";
+                        }
                         else
                         {
                             UserPreferencesData prefs = scene.CommsManager.UserService.RetrieveUserPreferences(uuid);
@@ -5578,7 +6187,9 @@ namespace InWorldz.Phlox.Engine
                                 // This is where we check the "Only friend and groups know I'm online" option.
                                 // Only applies to friends (not groups) in InWorldz (for now at least).
                                 if (prefs.ListedInDirectory)
+                                {
                                     reply = "1";
+                                }
                             }
                         }
                     }
@@ -5591,7 +6202,10 @@ namespace InWorldz.Phlox.Engine
                 case ScriptBaseClass.DATA_BORN: // "YYYY-MM-DD"
                     DateTime born = new DateTime(1970, 1, 1, 0, 0, 0, 0);
                     if (userProfile != null)
+                    {
                         born = born.AddSeconds(userProfile.Created);
+                    }
+
                     reply = born.ToString("yyyy-MM-dd");
                     break;
 
@@ -5605,7 +6219,10 @@ namespace InWorldz.Phlox.Engine
 
                 case ScriptBaseClass.DATA_ACCOUNT_TYPE:
                     if (userProfile != null)
+                    {
                         reply = userProfile.CustomType; // e.g. "Plus"
+                    }
+
                     break;
 
                 default:
@@ -5614,19 +6231,25 @@ namespace InWorldz.Phlox.Engine
             return true;
         }
 
-        public string iwGetAgentData(string id, int data)
+        public string iwGetAgentData(string id, int data) { return halGetAgentData(id, data); }
+        public string halGetAgentData(string id, int data)
         {
             string reply;
             UUID uuid;
 
             if (UUID.TryParse(id, out uuid))
+            {
                 if (GetAgentData(uuid, data, out reply))
+                {
                     return reply;
+                }
+            }
 
             return String.Empty;
         }
 
-        public int iwIsPlusUser(string id)
+        public int iwIsPlusUser(string id) { return halIsPlusUser(id); }
+        public int halIsPlusUser(string id)
         {
             string accountType = iwGetAgentData(id, ScriptBaseClass.DATA_ACCOUNT_TYPE);
             return m_host.ParentGroup.Scene.RegionInfo.IsPlusUser(accountType.ToLower()) ? 1 : 0;
@@ -5643,8 +6266,12 @@ namespace InWorldz.Phlox.Engine
 
             string reply = String.Empty;
             if (UUID.TryParse(id, out uuid))
+            {
                 if (!GetAgentData(uuid, data, out reply))
+                {
                     reply = String.Empty;
+                }
+            }
 
             m_ScriptEngine.PostObjectEvent(m_localID,
                     new EventParams("dataserver", new Object[] { rq.ToString(), reply },
@@ -5669,7 +6296,7 @@ namespace InWorldz.Phlox.Engine
                         0);
 
                     World.CommsManager.AssetCache.GetAsset(item.AssetID,
-                        delegate(UUID i, AssetBase a)
+                        delegate (UUID i, AssetBase a)
                         {
                             AssetLandmark lm = new AssetLandmark(a);
 
@@ -5687,12 +6314,13 @@ namespace InWorldz.Phlox.Engine
                     return tid.ToString();
                 }
             }
-            
+
             ScriptSleep(1000);
             return String.Empty;
         }
 
-        public string iwRequestAnimationData(string name)
+        public string iwRequestAnimationData(string name) { return halRequestAnimationData(name); }
+        public string halRequestAnimationData(string name)
         {
             TaskInventoryDictionary itemDictionary = (TaskInventoryDictionary)m_host.TaskInventory.Clone();
             foreach (TaskInventoryItem item in itemDictionary.Values)
@@ -5704,22 +6332,22 @@ namespace InWorldz.Phlox.Engine
                                                      m_itemID, item.AssetID.ToString());
 
                     World.CommsManager.AssetCache.GetAsset(item.AssetID,
-                        delegate(UUID i, AssetBase a)
+                        delegate (UUID i, AssetBase a)
                         {
-                            string reply;           
+                            string reply;
                             try
                             {
                                 BinBVHAnimation anim = new BinBVHAnimation(a.Data);
-                                reply = String.Format("{0} {1} {2} {3} {4} {5} {6} {7} {8}", 
-                                                (int)anim.Priority,
-                                                (int)(anim.Loop ? 1 : 0), 
-                                                ((float)anim.Length).ToString("F4"),
-                                                ((float)anim.InPoint).ToString("F4"),
-                                                ((float)anim.OutPoint).ToString("F4"),
-                                                ((float)anim.EaseInTime).ToString("F4"),
-                                                ((float)anim.EaseOutTime).ToString("F4"),
+                                reply = String.Format("{0} {1} {2} {3} {4} {5} {6} {7} {8}",
+                                                anim.Priority,
+                                                anim.Loop ? 1 : 0,
+                                                anim.Length.ToString("F4"),
+                                                anim.InPoint.ToString("F4"),
+                                                anim.OutPoint.ToString("F4"),
+                                                anim.EaseInTime.ToString("F4"),
+                                                anim.EaseOutTime.ToString("F4"),
                                                 (int)anim.HandPose,
-                                                (string)anim.ExpressionName
+                                                anim.ExpressionName
                                                 );
                             }
                             catch (Exception)
@@ -5755,10 +6383,14 @@ namespace InWorldz.Phlox.Engine
                     // agent must be known to this region
                     ScenePresence presence = World.GetScenePresence(agentId);
                     if (presence == null)
+                    {
                         return;
+                    }
 
                     if (!IsTeleportAuthorized(presence))
+                    {
                         return;
+                    }
 
                     presence.ControllingClient.SendTeleportLocationStart();
                     World.TeleportClientHome(agentId, presence.ControllingClient);
@@ -5775,7 +6407,9 @@ namespace InWorldz.Phlox.Engine
             IDialogModule dm = World.RequestModuleInterface<IDialogModule>();
 
             if (dm == null)
+            {
                 return;
+            }
 
             UUID av = new UUID();
             if (!UUID.TryParse(avatar, out av))
@@ -5785,7 +6419,9 @@ namespace InWorldz.Phlox.Engine
             }
 
             if ((message != null) && (message.Length > 1024))
+            {
                 message = message.Substring(0, 1024);
+            }
 
             dm.SendTextBoxToUser(av, message, chat_channel, m_host.Name, m_host.UUID, m_host.OwnerID);
             ScriptSleep(1000);
@@ -5800,7 +6436,8 @@ namespace InWorldz.Phlox.Engine
             }
         }
 
-        public void iwSetGround(int x1, int y1, int x2, int y2, float height)
+        public void iwSetGround(int x1, int y1, int x2, int y2, float height) { halSetGround(x1, y1, x2, y2, height); }
+        public void halSetGround(int x1, int y1, int x2, int y2, float height)
         {
             ITerrainModule tm = m_ScriptEngine.World.RequestModuleInterface<ITerrainModule>();
             if (tm != null)
@@ -5838,11 +6475,13 @@ namespace InWorldz.Phlox.Engine
         public string llGetAnimation(string id)
         {
             // This should only return a value if the avatar is in the same region
-            
+
             UUID avatar = (UUID)id;
             ScenePresence presence = World.GetScenePresence(avatar);
             if (presence == null)
+            {
                 return String.Empty;
+            }
 
             if (m_host.RegionHandle == presence.RegionHandle)
             {
@@ -5853,7 +6492,9 @@ namespace InWorldz.Phlox.Engine
                     AnimationSet currentAnims = presence.Animations;
                     string currentAnimationState = String.Empty;
                     if (animationstateNames.TryGetValue(currentAnims.DefaultAnimation.AnimID, out currentAnimationState))
+                    {
                         return currentAnimationState;
+                    }
                 }
             }
             return String.Empty;
@@ -5877,7 +6518,9 @@ namespace InWorldz.Phlox.Engine
                         partItemID = item.ItemID;
                         int linkNumber = m_host.LinkNum;
                         if (m_host.ParentGroup.LinkCount == 1)  // if there are seated avatars, single-prim becomes multi, else 0
+                        {
                             linkNumber = 0;
+                        }
 
                         object[] resobj = new object[] { linkNumber, num, msg, id };
 
@@ -5908,7 +6551,9 @@ namespace InWorldz.Phlox.Engine
             UUID targetID = UUID.Zero;
 
             if (!UUID.TryParse(target, out targetID))
+            {
                 return;
+            }
 
             ScenePresence pusheeav = null;
             Vector3 PusheePos = Vector3.Zero;
@@ -5921,11 +6566,15 @@ namespace InWorldz.Phlox.Engine
 
                 // Pushee doesn't have a physics actor
                 if (avatar.PhysicsActor == null)
+                {
                     return;
+                }
 
                 // Pushee is in GodMode this pushing object isn't owned by them
                 if (avatar.GodLevel > 0 && m_host.OwnerID != targetID)
+                {
                     return;
+                }
 
                 pusheeav = avatar;
 
@@ -5949,11 +6598,15 @@ namespace InWorldz.Phlox.Engine
 
                 // We can't find object
                 if (pusheeob == null)
+                {
                     return;
+                }
 
                 // Object not pushable.  Not an attachment and has no physics component
                 if (!pusheeob.ParentGroup.IsAttachment && pusheeob.PhysActor == null)
+                {
                     return;
+                }
 
                 PusheePos = pusheeob.AbsolutePosition;
                 pushAllowed = true;
@@ -5966,7 +6619,9 @@ namespace InWorldz.Phlox.Engine
 
                     // We didn't find the parcel but region is push restricted so assume it is NOT ok
                     if (targetlandObj == null)
+                    {
                         return;
+                    }
 
                     // if push disabled, script must be owned by the land owner.  That includes group-deeded land (script object must be deeded too).  It will also work if the script is owned by an estate owner or manager.
                     if (m_host.OwnerID == targetlandObj.landData.OwnerID || World.IsEstateManager(m_host.OwnerID))
@@ -6016,13 +6671,15 @@ namespace InWorldz.Phlox.Engine
                     distance_attenuation = 1f / normalized_units;
                 }
 
-                Vector3 applied_linear_impulse = new Vector3((float)impulse.X, (float)impulse.Y, (float)impulse.Z);
+                Vector3 applied_linear_impulse = new Vector3(impulse.X, impulse.Y, impulse.Z);
                 {
                     float impulse_length = applied_linear_impulse.Length();
 
                     float desired_energy = impulse_length * pusher_mass;
                     if (desired_energy > 0f)
+                    {
                         desired_energy += distance_term;
+                    }
 
                     float scaling_factor = 1f;
                     scaling_factor *= distance_attenuation;
@@ -6040,7 +6697,7 @@ namespace InWorldz.Phlox.Engine
                             {
                                 applied_linear_impulse *= m_host.GetWorldRotation();
                             }
-                            pa.AddForce(applied_linear_impulse, (local!=0) ? ForceType.LocalLinearImpulse : ForceType.GlobalLinearImpulse);
+                            pa.AddForce(applied_linear_impulse, (local != 0) ? ForceType.LocalLinearImpulse : ForceType.GlobalLinearImpulse);
                         }
                     }
                 }
@@ -6090,37 +6747,53 @@ namespace InWorldz.Phlox.Engine
         private int getScriptPrimType(PrimitiveBaseShape primShape)
         {
             if (primShape.SculptEntry)
+            {
                 return ScriptBaseClass.PRIM_TYPE_SCULPT;
+            }
 
             // ProfileCurve seems to combine hole shape and profile curve so we need to only compare against the lower 3 bits
             byte profileCurve = primShape.ProfileCurve;
-            profileCurve &= (byte)0x07;
+            profileCurve &= 0x07;
 
             if (profileCurve == (byte)ProfileShape.Square)
             {
                 if ((primShape.PathCurve == (byte)Extrusion.Straight) || (primShape.PathCurve == (byte)(Extrusion.Flexible)))
+                {
                     return ScriptBaseClass.PRIM_TYPE_BOX;
+                }
                 else if (primShape.PathCurve == (byte)Extrusion.Curve1)
+                {
                     return ScriptBaseClass.PRIM_TYPE_TUBE;
+                }
             }
             else if (profileCurve == (byte)ProfileShape.Circle)
             {
                 if ((primShape.PathCurve == (byte)Extrusion.Straight) || (primShape.PathCurve == (byte)(Extrusion.Flexible)))
+                {
                     return ScriptBaseClass.PRIM_TYPE_CYLINDER;
+                }
                 else if (primShape.PathCurve == (byte)Extrusion.Curve1)
+                {
                     return ScriptBaseClass.PRIM_TYPE_TORUS;
+                }
             }
             else if (profileCurve == (byte)ProfileShape.HalfCircle)
             {
                 if (primShape.PathCurve == (byte)Extrusion.Curve1 || primShape.PathCurve == (byte)Extrusion.Curve2)
+                {
                     return ScriptBaseClass.PRIM_TYPE_SPHERE;
+                }
             }
             else if (profileCurve == (byte)ProfileShape.EquilateralTriangle)
             {
                 if ((primShape.PathCurve == (byte)Extrusion.Straight) || (primShape.PathCurve == (byte)(Extrusion.Flexible)))
+                {
                     return ScriptBaseClass.PRIM_TYPE_PRISM;
+                }
                 else if (primShape.PathCurve == (byte)Extrusion.Curve1)
+                {
                     return ScriptBaseClass.PRIM_TYPE_RING;
+                }
             }
             return ScriptBaseClass.PRIM_TYPE_BOX;
         }
@@ -6134,10 +6807,13 @@ namespace InWorldz.Phlox.Engine
                 primType == ScriptBaseClass.PRIM_TYPE_CYLINDER
                 ||
                 primType == ScriptBaseClass.PRIM_TYPE_PRISM)
-
+            {
                 hasCut = (shape.ProfileBegin > 0) || (shape.ProfileEnd > 0);
+            }
             else
+            {
                 hasCut = (shape.PathBegin > 0) || (shape.PathEnd > 0);
+            }
 
             hasHollow = shape.ProfileHollow > 0;
             hasDimple = (shape.ProfileBegin > 0) || (shape.ProfileEnd > 0); // taken from llSetPrimitiveParms
@@ -6157,7 +6833,9 @@ namespace InWorldz.Phlox.Engine
             var parts = GetLinkPrimsOnly(linknumber);
 
             foreach (SceneObjectPart part in parts)
+            {
                 sides += part.GetNumberOfSides();
+            }
 
             return sides;
         }
@@ -6276,10 +6954,18 @@ namespace InWorldz.Phlox.Engine
             double aa = (a.X * a.X + a.Y * a.Y + a.Z * a.Z + a.W * a.W);
             double bb = (b.X * b.X + b.Y * b.Y + b.Z * b.Z + b.W * b.W);
             double aa_bb = aa * bb;
-            if (aa_bb == 0) return 0.0f;
+            if (aa_bb == 0)
+            {
+                return 0.0f;
+            }
+
             double ab = (a.X * b.X + a.Y * b.Y + a.Z * b.Z + a.W * b.W);
             double quotient = (ab * ab) / aa_bb;
-            if (quotient >= 1.0) return 0.0f;
+            if (quotient >= 1.0)
+            {
+                return 0.0f;
+            }
+
             return (float)Math.Acos(2 * quotient - 1);
         }
 
@@ -6308,7 +6994,10 @@ namespace InWorldz.Phlox.Engine
                     {
                         // Only return the asset ID if full perm or asking for is THIS script.
                         if (IsFullPerm(item.CurrentPermissions) || IsMyScript(part, item))
+                        {
                             assetID = item.AssetID;
+                        }
+
                         break;
                     }
                 }
@@ -6319,14 +7008,18 @@ namespace InWorldz.Phlox.Engine
 
         public string llGetInventoryKey(string name)
         {
-            return GetInventoryKey(m_host, name).ToString(); ;
+            return GetInventoryKey(m_host, name).ToString();
+            ;
         }
 
-        public string iwGetLinkInventoryKey(int linknumber, string name)
+        public string iwGetLinkInventoryKey(int linknumber, string name) { return halGetLinkInventoryKey(linknumber, name); }
+        public string halGetLinkInventoryKey(int linknumber, string name)
         {
             var part = GetLinkOnePrimOnly(linknumber);
             if (part == null)
+            {
                 return UUID.Zero.ToString();
+            }
 
             return GetInventoryKey(part, name).ToString();
         }
@@ -6345,11 +7038,14 @@ namespace InWorldz.Phlox.Engine
             }
             return String.Empty;
         }
-        public string iwGetLinkInventoryDesc(int linknumber, string name)
+        public string iwGetLinkInventoryDesc(int linknumber, string name) { return halGetLinkInventoryDesc(linknumber, name); }
+        public string halGetLinkInventoryDesc(int linknumber, string name)
         {
             var part = GetLinkOnePrimOnly(linknumber);
             if (part == null)
+            {
                 return String.Empty;
+            }
 
             return GetInventoryDesc(part, name);
         }
@@ -6368,11 +7064,14 @@ namespace InWorldz.Phlox.Engine
             }
             return UUID.Zero.ToString();
         }
-        public string iwGetLinkInventoryLastOwner(int linknumber, string name)
+        public string iwGetLinkInventoryLastOwner(int linknumber, string name) { return halGetLinkInventoryLastOwner(linknumber, name); }
+        public string halGetLinkInventoryLastOwner(int linknumber, string name)
         {
             var part = GetLinkOnePrimOnly(linknumber);
             if (part == null)
+            {
                 return UUID.Zero.ToString();
+            }
 
             return GetInventoryLastOwner(part, name);
         }
@@ -6380,9 +7079,13 @@ namespace InWorldz.Phlox.Engine
         public void llAllowInventoryDrop(int add)
         {
             if (add != 0)
+            {
                 m_host.ParentGroup.RootPart.AllowedDrop = true;
+            }
             else
+            {
                 m_host.ParentGroup.RootPart.AllowedDrop = false;
+            }
 
             // Update the object flags
             m_host.ParentGroup.RootPart.DoAggregateScriptEvents();
@@ -6396,9 +7099,9 @@ namespace InWorldz.Phlox.Engine
             // sunPosition estate setting is set in OpenSim.Region.CoreModules.SunModule
             // have to convert from Vector3 (float) to LSL_Vector (double)
             SunFloatVector3 = World.RegionInfo.RegionSettings.SunVector;
-            SunDoubleVector3.X = (float)SunFloatVector3.X;
-            SunDoubleVector3.Y = (float)SunFloatVector3.Y;
-            SunDoubleVector3.Z = (float)SunFloatVector3.Z;
+            SunDoubleVector3.X = SunFloatVector3.X;
+            SunDoubleVector3.Y = SunFloatVector3.Y;
+            SunDoubleVector3.Z = SunFloatVector3.Z;
 
             return SunDoubleVector3;
         }
@@ -6445,7 +7148,7 @@ namespace InWorldz.Phlox.Engine
 
         public float llGetTextureRot(int face)
         {
-            
+
             return GetTextureRot(m_host, face);
         }
 
@@ -6471,10 +7174,13 @@ namespace InWorldz.Phlox.Engine
             return source.IndexOf(pattern);
         }
 
-        public int iwSubStringIndex(string source, string pattern, int offset, int isCaseSensitive)
+        public int iwSubStringIndex(string source, string pattern, int offset, int isCaseSensitive) { return halSubStringIndex(source, pattern, offset, isCaseSensitive); }
+        public int halSubStringIndex(string source, string pattern, int offset, int isCaseSensitive)
         {
-            if (isCaseSensitive!=0)
+            if (isCaseSensitive != 0)
+            {
                 return source.IndexOf(pattern, offset);
+            }
 
             return source.ToUpper().IndexOf(pattern.ToUpper(), offset);
         }
@@ -6488,9 +7194,13 @@ namespace InWorldz.Phlox.Engine
                 {
                     SceneObjectPart obj = World.GetSceneObjectPart(key);
                     if (obj == null)
+                    {
                         return id; // the key is for an agent so just return the key
+                    }
                     else
+                    {
                         return obj.OwnerID.ToString();
+                    }
                 }
                 catch (KeyNotFoundException)
                 {
@@ -6621,9 +7331,15 @@ namespace InWorldz.Phlox.Engine
             }
 
             if (src.Data[index] is int || src.Data[index] is Int32)
+            {
                 return 1;
+            }
+
             if (src.Data[index] is float || src.Data[index] is Single || src.Data[index] is Double)
+            {
                 return 2;
+            }
+
             if (src.Data[index] is string || src.Data[index] is String)
             {
                 UUID tuuid;
@@ -6637,11 +7353,20 @@ namespace InWorldz.Phlox.Engine
                 }
             }
             if (src.Data[index] is LSL_Vector)
+            {
                 return 5;
+            }
+
             if (src.Data[index] is LSL_Rotation)
+            {
                 return 6;
+            }
+
             if (src.Data[index] is LSL_List)
+            {
                 return 7;
+            }
+
             return 0;
 
         }
@@ -6696,7 +7421,10 @@ namespace InWorldz.Phlox.Engine
                         break;
                     case '>':
                         if (parens > 0)
+                        {
                             parens--;
+                        }
+
                         length++;
                         break;
                     case ',':
@@ -6756,7 +7484,9 @@ namespace InWorldz.Phlox.Engine
                 chunks = new int[chunkk];
 
                 for (int i = 0; i < chunkk; i++)
+                {
                     chunks[i] = i;
+                }
 
                 // Knuth shuffle the chunkk index
                 for (int i = chunkk - 1; i >= 1; i--)
@@ -6808,16 +7538,26 @@ namespace InWorldz.Phlox.Engine
 
             //  First step is always to deal with negative indices
             if (start < 0)
+            {
                 start = src.Length + start;
+            }
+
             if (end < 0)
+            {
                 end = src.Length + end;
+            }
 
             //  Out of bounds indices are OK, just trim them
             //  accordingly
             if (start > src.Length)
+            {
                 start = src.Length;
+            }
+
             if (end > src.Length)
+            {
                 end = src.Length;
+            }
 
             //  There may be one or two ranges to be considered
             if (start != end)
@@ -6843,16 +7583,23 @@ namespace InWorldz.Phlox.Engine
                 //  A negative stride reverses the direction of the
                 //  scan producing an inverted list as a result.
                 if (stride == 0)
+                {
                     stride = 1;
+                }
 
                 if (stride > 0)
                 {
                     for (int i = 0; i < src.Length; i += stride)
                     {
                         if (i <= ei[0] && i >= si[0])
+                        {
                             result.Add(src.Data[i]);
+                        }
+
                         if (twopass && i >= si[1] && i <= ei[1])
+                        {
                             result.Add(src.Data[i]);
+                        }
                     }
                 }
                 else if (stride < 0)
@@ -6860,9 +7607,14 @@ namespace InWorldz.Phlox.Engine
                     for (int i = src.Length - 1; i >= 0; i += stride)
                     {
                         if (i <= ei[0] && i >= si[0])
+                        {
                             result.Add(src.Data[i]);
+                        }
+
                         if (twopass && i >= si[1] && i <= ei[1])
+                        {
                             result.Add(src.Data[i]);
+                        }
                     }
                 }
             }
@@ -6872,7 +7624,7 @@ namespace InWorldz.Phlox.Engine
 
         public int llGetRegionAgentCount()
         {
-            return (int)(World.GetAvatars().Count);
+            return World.GetAvatars().Count;
         }
 
         public LSL_Vector llGetRegionCorner()
@@ -6945,8 +7697,13 @@ namespace InWorldz.Phlox.Engine
                     {
                         int j;
                         for (j = 1; j < test.Length; j++)
+                        {
                             if (!src.Data[i + j].Equals(test.Data[j]))
+                            {
                                 break;
+                            }
+                        }
+
                         if (j == test.Length)
                         {
                             index = i;
@@ -6967,11 +7724,15 @@ namespace InWorldz.Phlox.Engine
         private string LimitLength(string text, int maxlen)
         {
             if (text == null)
+            {
                 return String.Empty;
+            }
 
             int len = text.Length;
             if (len <= maxlen)
+            {
                 return text;
+            }
 
             return text.Substring(0, maxlen);
         }
@@ -6990,7 +7751,7 @@ namespace InWorldz.Phlox.Engine
 
         public int llEdgeOfWorld(LSL_Vector pos, LSL_Vector dir)
         {
-            double RegionSize = (double)Constants.RegionSize;
+            double RegionSize = Constants.RegionSize;
             int nx, ny; // relative neighbour position
 
             // The rounded values are just to avoid inaccuracies, like 90 degrees has dir.x of 0.000024 or something
@@ -7008,106 +7769,126 @@ namespace InWorldz.Phlox.Engine
             {
                 nx = 0;
                 if (diry > 0.0)
+                {
                     ny = 1;
+                }
                 else
+                {
                     ny = -1;
+                }
             }
             else
                 if (diry == 0.0)
+            {
+                ny = 0;
+                if (dirx > 0.0)
                 {
-                    ny = 0;
-                    if (dirx > 0.0)
-                        nx = 1;
-                    else
-                        nx = -1;
+                    nx = 1;
                 }
                 else
                 {
-                    // need to find which edge it will pass through
-                    // both dirx and diry are non-zero
-                    // Abs(dirx) as we divide the tests into up or down
-                    double slope = diry / Math.Abs(dirx);
-                    double aslope = Math.Abs(slope);    // we know the direction, just need the ratio
-                    double normx, normy;
-                    if (diry > 0.0)   // up
+                    nx = -1;
+                }
+            }
+            else
+            {
+                // need to find which edge it will pass through
+                // both dirx and diry are non-zero
+                // Abs(dirx) as we divide the tests into up or down
+                double slope = diry / Math.Abs(dirx);
+                double aslope = Math.Abs(slope);    // we know the direction, just need the ratio
+                double normx, normy;
+                if (diry > 0.0)   // up
+                {
+                    if (dirx > 0.0)
                     {
-                        if (dirx > 0.0)
+                        // North-East quadrant
+                        normx = RegionSize - pos.X;
+                        normy = (normx * slope) + pos.Y;
+                        if ((pos.X == pos.Y) && (aslope == 1.0))
                         {
-                            // North-East quadrant
-                            normx = RegionSize - pos.X;
-                            normy = (normx * slope) + pos.Y;
-                            if ((pos.X == pos.Y) && (aslope == 1.0))
-                                return 1;   // reject exact corners so things don't get stuck trying to cross
-                            if (normy <= RegionSize)
-                            {
-                                nx = 1;
-                                ny = 0;
-                            }
-                            else
-                            {
-                                nx = 0;
-                                ny = 1;
-                            }
+                            return 1;   // reject exact corners so things don't get stuck trying to cross
+                        }
+
+                        if (normy <= RegionSize)
+                        {
+                            nx = 1;
+                            ny = 0;
                         }
                         else
                         {
-                            // North-West quadrant
-                            normx = pos.X;
-                            normy = (normx * slope) + pos.Y;
-                            if ((RegionSize - pos.X == pos.Y) && (aslope == 1.0))
-                                return 1;   // reject exact corners so things don't get stuck trying to cross
-                            if (normy <= RegionSize)
-                            {
-                                nx = -1;
-                                ny = 0;
-                            }
-                            else
-                            {
-                                nx = 0;
-                                ny = 1;
-                            }
+                            nx = 0;
+                            ny = 1;
                         }
                     }
                     else
-                    {   // down
-                        if (dirx > 0.0)
+                    {
+                        // North-West quadrant
+                        normx = pos.X;
+                        normy = (normx * slope) + pos.Y;
+                        if ((RegionSize - pos.X == pos.Y) && (aslope == 1.0))
                         {
-                            // South-East quadrant
-                            normx = RegionSize - pos.X;
-                            normy = (normx * slope) + pos.Y;
-                            if ((RegionSize - pos.X == pos.Y) && (aslope == 1.0))
-                                return 1;   // reject exact corners so things don't get stuck trying to cross
-                            if (normy >= 0.0)
-                            {
-                                nx = 1;
-                                ny = 0;
-                            }
-                            else
-                            {
-                                nx = 0;
-                                ny = -1;
-                            }
+                            return 1;   // reject exact corners so things don't get stuck trying to cross
+                        }
+
+                        if (normy <= RegionSize)
+                        {
+                            nx = -1;
+                            ny = 0;
                         }
                         else
                         {
-                            // South-West quadrant
-                            normx = pos.X;
-                            normy = (normx * slope) + pos.Y;
-                            if ((pos.X == pos.Y) && (aslope == 1.0))
-                                return 1;   // reject exact corners so things don't get stuck trying to cross
-                            if (normy >= 0.0)
-                            {
-                                nx = -1;
-                                ny = 0;
-                            }
-                            else
-                            {
-                                nx = 0;
-                                ny = -1;
-                            }
+                            nx = 0;
+                            ny = 1;
                         }
                     }
                 }
+                else
+                {   // down
+                    if (dirx > 0.0)
+                    {
+                        // South-East quadrant
+                        normx = RegionSize - pos.X;
+                        normy = (normx * slope) + pos.Y;
+                        if ((RegionSize - pos.X == pos.Y) && (aslope == 1.0))
+                        {
+                            return 1;   // reject exact corners so things don't get stuck trying to cross
+                        }
+
+                        if (normy >= 0.0)
+                        {
+                            nx = 1;
+                            ny = 0;
+                        }
+                        else
+                        {
+                            nx = 0;
+                            ny = -1;
+                        }
+                    }
+                    else
+                    {
+                        // South-West quadrant
+                        normx = pos.X;
+                        normy = (normx * slope) + pos.Y;
+                        if ((pos.X == pos.Y) && (aslope == 1.0))
+                        {
+                            return 1;   // reject exact corners so things don't get stuck trying to cross
+                        }
+
+                        if (normy >= 0.0)
+                        {
+                            nx = -1;
+                            ny = 0;
+                        }
+                        else
+                        {
+                            nx = 0;
+                            ny = -1;
+                        }
+                    }
+                }
+            }
 
             int neighborX = (int)World.RegionInfo.RegionLocX + nx;
             int neighborY = (int)World.RegionInfo.RegionLocY + ny;
@@ -7144,7 +7925,9 @@ namespace InWorldz.Phlox.Engine
             }
 
             if (agent.IsChildAgent)
+            {
                 return 0; // Fail if they are not in the same region
+            }
 
             // note: in OpenSim, sitting seems to cancel AGENT_ALWAYS_RUN, unlike SL
             if (agent.SetAlwaysRun)
@@ -7156,7 +7939,9 @@ namespace InWorldz.Phlox.Engine
             {
                 flags |= ScriptBaseClass.AGENT_ATTACHMENTS;
                 if (agent.HasScriptedAttachments())
+                {
                     flags |= ScriptBaseClass.AGENT_SCRIPTED;
+                }
             }
 
             if ((agent.AgentControlFlags & (uint)AgentManager.ControlFlags.AGENT_CONTROL_AWAY) != 0)
@@ -7213,7 +7998,7 @@ namespace InWorldz.Phlox.Engine
 
             //Workaround for issue where AGENT_FLYING is sometimes set while sitting
             //Since a seated avatar cannot be flying or in the air, do not set the flags if agent is seated
-            if((flags & ScriptBaseClass.AGENT_SITTING) == 0)
+            if ((flags & ScriptBaseClass.AGENT_SITTING) == 0)
             {
                 if ((agent.AgentControlFlags & (uint)AgentManager.ControlFlags.AGENT_CONTROL_FLY) != 0)
                 {
@@ -7230,7 +8015,7 @@ namespace InWorldz.Phlox.Engine
             // and don't collide when walking downhill, which instantly registers as in-air, briefly. should
             // there be some minimum non-collision threshold time before claiming the avatar is in-air?
             PhysicsActor pa = agent.PhysicsActor;
-            if ((flags & ScriptBaseClass.AGENT_WALKING) == 0 && 
+            if ((flags & ScriptBaseClass.AGENT_WALKING) == 0 &&
                 (flags & ScriptBaseClass.AGENT_SITTING) == 0 &&
                 (flags & ScriptBaseClass.AGENT_CROUCHING) == 0 &&
                 pa != null && !pa.IsColliding)
@@ -7246,15 +8031,32 @@ namespace InWorldz.Phlox.Engine
         public string llGetAgentLanguage(string id)
         {
             UUID agent = new UUID();
-            if (!UUID.TryParse(id, out agent)) return String.Empty;
+            if (!UUID.TryParse(id, out agent))
+            {
+                return String.Empty;
+            }
 
             ScenePresence presence = World.GetScenePresence(agent);
-            if (presence == null) return String.Empty;
-            if (presence.IsChildAgent) return String.Empty;
+            if (presence == null)
+            {
+                return String.Empty;
+            }
+
+            if (presence.IsChildAgent)
+            {
+                return String.Empty;
+            }
 
             AgentPreferencesData prefs = presence.AgentPrefs;
-            if (prefs == null) return String.Empty;
-            if (!prefs.LanguageIsPublic) return String.Empty;
+            if (prefs == null)
+            {
+                return String.Empty;
+            }
+
+            if (!prefs.LanguageIsPublic)
+            {
+                return String.Empty;
+            }
 
             return prefs.Language;
         }
@@ -7268,9 +8070,14 @@ namespace InWorldz.Phlox.Engine
         public void llSetSoundQueueing(int queue)
         {
             if (queue == 0)
+            {
                 m_host.SoundOptions &= (byte)~SoundFlags.Queue;
+            }
             else
+            {
                 m_host.SoundOptions |= (byte)SoundFlags.Queue;
+            }
+
             m_host.ParentGroup.HasGroupChanged = true;
             m_host.ScheduleFullUpdate(PrimUpdateFlags.Sound);
         }
@@ -7309,7 +8116,9 @@ namespace InWorldz.Phlox.Engine
 
             //ALL_SIDES
             if (face == ScriptBaseClass.ALL_SIDES)
+            {
                 face = 255;
+            }
 
             pTexAnim.Face = (uint)face;
             pTexAnim.Length = (float)length;
@@ -7325,7 +8134,7 @@ namespace InWorldz.Phlox.Engine
 
         public void llSetTextureAnim(int mode, int face, int sizex, int sizey, float start, float length, float rate)
         {
-            
+
             SetPrimTextureAnim(m_host, mode, face, sizex, sizey, start, length, rate);
         }
 
@@ -7335,13 +8144,15 @@ namespace InWorldz.Phlox.Engine
             var parts = GetLinkPrimsOnly(linknumber);
 
             foreach (SceneObjectPart part in parts)
+            {
                 SetPrimTextureAnim(part, mode, face, sizex, sizey, start, length, rate);
+            }
         }
 
         public void llTriggerSoundLimited(string sound, float volume, LSL_Vector top_north_east,
                                           LSL_Vector bottom_south_west)
         {
-            
+
             NotImplemented("llTriggerSoundLimited");
         }
 
@@ -7352,11 +8163,31 @@ namespace InWorldz.Phlox.Engine
 
         private float H2RGB(float v1, float v2, float vH)
         {
-            if (vH < 0) vH += 1;
-            if (vH > 1) vH -= 1;
-            if ((6f * vH) < 1) return (v1 + (v2 - v1) * 6f * vH);
-            if ((2f * vH) < 1) return (v2);
-            if ((3f * vH) < 2) return (v1 + (v2 - v1) * ((2f / 3f) - vH) * 6f);
+            if (vH < 0)
+            {
+                vH += 1;
+            }
+
+            if (vH > 1)
+            {
+                vH -= 1;
+            }
+
+            if ((6f * vH) < 1)
+            {
+                return (v1 + (v2 - v1) * 6f * vH);
+            }
+
+            if ((2f * vH) < 1)
+            {
+                return (v2);
+            }
+
+            if ((3f * vH) < 2)
+            {
+                return (v1 + (v2 - v1) * ((2f / 3f) - vH) * 6f);
+            }
+
             return v1;
         }
 
@@ -7366,13 +8197,23 @@ namespace InWorldz.Phlox.Engine
             float S = input.Y;
             float L = input.Z;
 
-            if (S == 0) return new Vector3(L, L, L);
+            if (S == 0)
+            {
+                return new Vector3(L, L, L);
+            }
 
-            float v1=0;
-            float v2=0;
+            float v1 = 0;
+            float v2 = 0;
 
-            if (L < 0.5) v2 = L * (1 + S);
-            else v2 = (L + S) - (S * L);
+            if (L < 0.5)
+            {
+                v2 = L * (1 + S);
+            }
+            else
+            {
+                v2 = (L + S) - (S * L);
+            }
+
             v1 = 2 * L - v2;
 
             return new Vector3(
@@ -7394,18 +8235,40 @@ namespace InWorldz.Phlox.Engine
             }
 
             float vH = H * 6f;
-            if (vH == 6) vH = 0;
+            if (vH == 6)
+            {
+                vH = 0;
+            }
+
             int i = (int)vH;
             float v1 = V * (1 - S);
             float v2 = V * (1 - S * (vH - i));
             float v3 = V * (1 - S * (1 - (vH - i)));
 
-            if (i == 0) return new Vector3(V, v3, v1);
-            else if (i == 1) return new Vector3(v2, V, v1);
-            else if (i == 2) return new Vector3(v1, V, v3);
-            else if (i == 3) return new Vector3(v1, v2, V);
-            else if (i == 4) return new Vector3(v3, v1, V);
-            else return new Vector3(V, v1, v2);
+            if (i == 0)
+            {
+                return new Vector3(V, v3, v1);
+            }
+            else if (i == 1)
+            {
+                return new Vector3(v2, V, v1);
+            }
+            else if (i == 2)
+            {
+                return new Vector3(v1, V, v3);
+            }
+            else if (i == 3)
+            {
+                return new Vector3(v1, v2, V);
+            }
+            else if (i == 4)
+            {
+                return new Vector3(v3, v1, V);
+            }
+            else
+            {
+                return new Vector3(V, v1, v2);
+            }
         }
 
         private Vector3 RGB_TO_HSV(Vector3 input)
@@ -7429,12 +8292,28 @@ namespace InWorldz.Phlox.Engine
                 float vG = (((max - G) / 6f) + (max / 2f)) / delta;
                 float vB = (((max - B) / 6f) + (max / 2f)) / delta;
 
-                if (R == max) H = vB - vG;
-                else if (G == max) H = (1f / 3f) + vR - vB;
-                else if (B == max) H = (2f / 3f) + vG - vR;
+                if (R == max)
+                {
+                    H = vB - vG;
+                }
+                else if (G == max)
+                {
+                    H = (1f / 3f) + vR - vB;
+                }
+                else if (B == max)
+                {
+                    H = (2f / 3f) + vG - vR;
+                }
 
-                if (H < 0) H += 1f;
-                if (H > 1) H -= 1f;
+                if (H < 0)
+                {
+                    H += 1f;
+                }
+
+                if (H > 1)
+                {
+                    H -= 1f;
+                }
             }
             return new Vector3(H, S, V);
         }
@@ -7452,50 +8331,95 @@ namespace InWorldz.Phlox.Engine
             float H = 0;
             float S = 0;
             float L = (max + min) / 2f;
-            if(delta != 0) {
-                if(L < 0.5) S = delta / (max + min);
-                else S = delta / (2 - max - min);
+            if (delta != 0)
+            {
+                if (L < 0.5)
+                {
+                    S = delta / (max + min);
+                }
+                else
+                {
+                    S = delta / (2 - max - min);
+                }
 
                 float vR = (((max - R) / 6f) + (max / 2f)) / delta;
                 float vG = (((max - G) / 6f) + (max / 2f)) / delta;
                 float vB = (((max - B) / 6f) + (max / 2f)) / delta;
 
-                if(max == R) H = vB - vG;
-                else if(max == G) H = (1f / 3f) + vR - vB;
-                else if(max == B) H = (2f / 3f) + vG - vR;
+                if (max == R)
+                {
+                    H = vB - vG;
+                }
+                else if (max == G)
+                {
+                    H = (1f / 3f) + vR - vB;
+                }
+                else if (max == B)
+                {
+                    H = (2f / 3f) + vG - vR;
+                }
 
-                if(H < 0) H += 1f;
-                if(H > 1) H -= 1f;
+                if (H < 0)
+                {
+                    H += 1f;
+                }
+
+                if (H > 1)
+                {
+                    H -= 1f;
+                }
             }
             return new Vector3(H, S, L);
         }
 
-        public Vector3 iwColorConvert(Vector3 input, int color1, int color2)
+        public Vector3 iwColorConvert(Vector3 input, int color1, int color2) { return halColorConvert(input, color1, color2); }
+        public Vector3 halColorConvert(Vector3 input, int color1, int color2)
         {
-            if (color1 == color2) return input;
-            
-            if (color1 == 1) input = HSL_TO_RGB(input);
-            else if (color1 == 2) input = HSV_TO_RGB(input);
+            if (color1 == color2)
+            {
+                return input;
+            }
 
-            if (color2 == 1) return RGB_TO_HSL(input);
-            else if (color2 == 2) return RGB_TO_HSV(input);
+            if (color1 == 1)
+            {
+                input = HSL_TO_RGB(input);
+            }
+            else if (color1 == 2)
+            {
+                input = HSV_TO_RGB(input);
+            }
+
+            if (color2 == 1)
+            {
+                return RGB_TO_HSL(input);
+            }
+            else if (color2 == 2)
+            {
+                return RGB_TO_HSV(input);
+            }
+
             return input;
         }
 
-        public Vector3 iwNameToColor(string name)
+        public Vector3 iwNameToColor(string name) { return halNameToColor(name); }
+        public Vector3 halNameToColor(string name)
         {
             Color c = Color.FromName(name.Replace(" ", null));
-            return new Vector3(c.R/255f, c.G/255f, c.B/255f);
+            return new Vector3(c.R / 255f, c.G / 255f, c.B / 255f);
         }
 
-        public int iwVerifyType(string str, int type)
+        public int iwVerifyType(string str, int type) { return halVerifyType(str, type); }
+        public int halVerifyType(string str, int type)
         {
             switch (type)
             {
                 case 0:  // No Type
                     foreach (var index in new int[] { 1, 2, 4, 5, 6 })
                     {
-                        if (iwVerifyType(str, index) == 1) return index;
+                        if (iwVerifyType(str, index) == 1)
+                        {
+                            return index;
+                        }
                     }
                     return 3;
                 case 1:  // TYPE_INTEGER
@@ -7508,11 +8432,19 @@ namespace InWorldz.Phlox.Engine
                     UUID k;
                     return UUID.TryParse(str, out k) ? 1 : 0;
                 case 5:  // TYPE_VECTOR
-                    if (Regex.Matches(str, ",").Count != 2) return 0;
+                    if (Regex.Matches(str, ",").Count != 2)
+                    {
+                        return 0;
+                    }
+
                     Vector3 v;
                     return Vector3.TryParse(str, out v) ? 1 : 0;
                 case 6:  // TYPE_ROTATION
-                    if (Regex.Matches(str, ",").Count != 3) return 0;
+                    if (Regex.Matches(str, ",").Count != 3)
+                    {
+                        return 0;
+                    }
+
                     Quaternion q;
                     return Quaternion.TryParse(str, out q) ? 1 : 0;
                 case 3:  // TYPE_STRING
@@ -7524,19 +8456,28 @@ namespace InWorldz.Phlox.Engine
 
         private Object AutoCastString(string str)
         {
-            if(String.IsNullOrEmpty(str)) return str;
+            if (String.IsNullOrEmpty(str))
+            {
+                return str;
+            }
 
             int c = str.Length - str.Replace(".", String.Empty).Length;
 
             if (c == 1)
             {
                 float f;
-                if (float.TryParse(str, out f)) return f;
+                if (float.TryParse(str, out f))
+                {
+                    return f;
+                }
             }
             else if (c == 0)
             {
                 int i;
-                if (int.TryParse(str, out i)) return i;
+                if (int.TryParse(str, out i))
+                {
+                    return i;
+                }
             }
 
             if (str.StartsWith("<") && str.EndsWith(">"))
@@ -7545,18 +8486,26 @@ namespace InWorldz.Phlox.Engine
                 if (c == 2)
                 {
                     Vector3 vec;
-                    if (Vector3.TryParse(str, out vec)) return vec;
+                    if (Vector3.TryParse(str, out vec))
+                    {
+                        return vec;
+                    }
                 }
                 else if (c == 3)
                 {
                     Quaternion quat;
-                    if (Quaternion.TryParse(str, out quat)) return quat;
+                    if (Quaternion.TryParse(str, out quat))
+                    {
+                        return quat;
+                    }
                 }
             }
-            
-            if(str.Length == 36) {
+
+            if (str.Length == 36)
+            {
                 UUID k;
-                if(UUID.TryParse(str, out k)) {
+                if (UUID.TryParse(str, out k))
+                {
                     return k.ToString();
                 }
             }
@@ -7566,7 +8515,11 @@ namespace InWorldz.Phlox.Engine
 
         private string iwParseString2ListSub(string str, int trimString, int doCapitalize)
         {
-            if (String.IsNullOrEmpty(str)) return str;
+            if (String.IsNullOrEmpty(str))
+            {
+                return str;
+            }
+
             if (trimString != 0)
             {
                 str = llStringTrim(str, trimString);
@@ -7588,14 +8541,20 @@ namespace InWorldz.Phlox.Engine
             return str;
         }
 
-        public LSL_List iwParseString2List(string str, LSL_List separators, LSL_List in_spacers, LSL_List args) {
-            if(String.IsNullOrEmpty(str)) return new LSL_List();
+        public LSL_List iwParseString2List(string str, LSL_List separators, LSL_List in_spacers, LSL_List args) { return halParseString2List(str, separators, in_spacers, args); }
+        public LSL_List halParseString2List(string str, LSL_List separators, LSL_List in_spacers, LSL_List args)
+        {
+            if (String.IsNullOrEmpty(str))
+            {
+                return new LSL_List();
+            }
+
             List<object> ret = new List<object>();
             List<object> spacers = new List<object>();
 
             //List<object> argList = new List<object>();
             //Handling for optional parser arguments
-            bool keepNulls=false;
+            bool keepNulls = false;
             int trimString = 0;
             int maxSplits = 0;
             int totalSplits = 0;
@@ -7606,13 +8565,17 @@ namespace InWorldz.Phlox.Engine
                 int argLen = args.Length;
                 for (int i = 0; i < argLen; i += 2)
                 {
-                    if ((args.Data[i] is string) == false) continue;
+                    if ((args.Data[i] is string) == false)
+                    {
+                        continue;
+                    }
+
                     string argName = args.GetLSLStringItem(i).ToLower();
 
                     switch (argName)
                     {
                         case "keepnulls":
-                            keepNulls = (args.GetLSLIntegerItem(i+1) == 1);
+                            keepNulls = (args.GetLSLIntegerItem(i + 1) == 1);
                             break;
                         case "trimstrings":
                             trimString = args.GetLSLIntegerItem(i + 1);
@@ -7637,7 +8600,11 @@ namespace InWorldz.Phlox.Engine
                             break;
                         case "autocast":
                             autoCast = args.GetLSLIntegerItem(i + 1);
-                            if (autoCast < 1 || autoCast > 2) autoCast = 0;
+                            if (autoCast < 1 || autoCast > 2)
+                            {
+                                autoCast = 0;
+                            }
+
                             break;
                         default:
                             break;
@@ -7703,12 +8670,18 @@ namespace InWorldz.Phlox.Engine
                 {
                     if (cindex > 0)
                     {
-                        string temp = iwParseString2ListSub((string)(str.Substring(0, cindex)), trimString, doCapitalize);
+                        string temp = iwParseString2ListSub(str.Substring(0, cindex), trimString, doCapitalize);
                         if (!String.IsNullOrEmpty(temp) || keepNulls == true)
                         {
                             totalSplits++;
-                            if(autoCast > 0) ret.Add(AutoCastString(temp));
-                            else ret.Add(temp);
+                            if (autoCast > 0)
+                            {
+                                ret.Add(AutoCastString(temp));
+                            }
+                            else
+                            {
+                                ret.Add(temp);
+                            }
                         }
                     }
                     else if (cindex == 0 || keepNulls == true)
@@ -7727,12 +8700,18 @@ namespace InWorldz.Phlox.Engine
                     {
                         if (spacer.ToString() == cdeli)
                         {
-                            string temp = iwParseString2ListSub((string)cdeli, trimString, doCapitalize);
+                            string temp = iwParseString2ListSub(cdeli, trimString, doCapitalize);
                             if (!String.IsNullOrEmpty(temp) || keepNulls == true)
                             {
                                 totalSplits++;
-                                if (autoCast == 2) ret.Add(AutoCastString((string)cdeli));
-                                else ret.Add((string)(cdeli));
+                                if (autoCast == 2)
+                                {
+                                    ret.Add(AutoCastString(cdeli));
+                                }
+                                else
+                                {
+                                    ret.Add(cdeli);
+                                }
                             }
                             break;
                         }
@@ -7759,7 +8738,10 @@ namespace InWorldz.Phlox.Engine
                     */
 
                     str = str.Substring(cindex + cdeli.Length);
-                    if (maxSplits > 0 && totalSplits >= maxSplits) break;
+                    if (maxSplits > 0 && totalSplits >= maxSplits)
+                    {
+                        break;
+                    }
                 }
             } while (dfound);
 
@@ -7767,8 +8749,14 @@ namespace InWorldz.Phlox.Engine
 
             if (!String.IsNullOrEmpty(str) || keepNulls == true)
             {
-                if (autoCast > 1) ret.Add(AutoCastString((string)str));
-                else ret.Add((string)(str));
+                if (autoCast > 1)
+                {
+                    ret.Add(AutoCastString(str));
+                }
+                else
+                {
+                    ret.Add(str);
+                }
             }
 
             return new LSL_List(ret);
@@ -7784,7 +8772,7 @@ namespace InWorldz.Phlox.Engine
                 foreach (var spacer in in_spacers.Data)
                 {
                     bool found = false;
-                    foreach (var separator  in separators.Data)
+                    foreach (var separator in separators.Data)
                     {
                         if (separator.ToString() == spacer.ToString())
                         {
@@ -7837,14 +8825,14 @@ namespace InWorldz.Phlox.Engine
                 {
                     if (cindex > 0)
                     {
-                        ret.Add((string)(str.Substring(0, cindex)));
+                        ret.Add(str.Substring(0, cindex));
                     }
                     // Cannot use spacers.Contains() because spacers may be either type String or LSLString
                     foreach (var spacer in spacers)
                     {
                         if (spacer.ToString() == cdeli)
                         {
-                            ret.Add((string)(cdeli));
+                            ret.Add(cdeli);
                             break;
                         }
                     }
@@ -7853,7 +8841,7 @@ namespace InWorldz.Phlox.Engine
             } while (dfound);
             if (!String.IsNullOrEmpty(str))
             {
-                ret.Add((string)(str));
+                ret.Add(str);
             }
 
             return new LSL_List(ret);
@@ -7889,9 +8877,12 @@ namespace InWorldz.Phlox.Engine
         public string llGetLandOwnerAt(LSL_Vector pos)
         {
             UUID owner = UUID.Zero;
-            ILandObject parcel = World.LandChannel.GetLandObject((float)pos.X, (float)pos.Y);
+            ILandObject parcel = World.LandChannel.GetLandObject(pos.X, pos.Y);
             if (parcel != null)
+            {
                 owner = parcel.landData.OwnerID;
+            }
+
             return owner.ToString();
         }
 
@@ -7902,7 +8893,7 @@ namespace InWorldz.Phlox.Engine
         /// </summary>
         public LSL_Vector llGetAgentSize(string id)
         {
-            
+
             ScenePresence avatar = World.GetScenePresence((UUID)id);
             LSL_Vector agentSize;
             if (avatar == null || avatar.IsChildAgent) // Fail if not in the same region
@@ -7923,25 +8914,37 @@ namespace InWorldz.Phlox.Engine
             {
                 // It's an avatar.
                 if (presence.IsChildAgent) // Return flase for child agents
+                {
                     return false;
+                }
+
                 return (presence.ControllingClient.ActiveGroupId == groupId);
             }
             // Not a user, let's try an object part.
             SceneObjectPart SOP = World.GetSceneObjectPart(targetId);
             if (SOP == null)
+            {
                 return false;
+            }
 
             return (SOP.GroupID == groupId);
         }
 
-        public int iwActiveGroup(string target, string group)
+        public int iwActiveGroup(string target, string group) { return halActiveGroup(target, group); }
+        public int halActiveGroup(string target, string group)
         {
             UUID targetId = new UUID();
             UUID groupId = new UUID();
             if (!UUID.TryParse(target, out targetId))
+            {
                 return 0;
+            }
+
             if (!UUID.TryParse(group, out groupId))
+            {
                 return 0;
+            }
+
             return HasMatchingGroup(targetId, groupId) ? 1 : 0;
         }
 
@@ -7949,8 +8952,15 @@ namespace InWorldz.Phlox.Engine
         {
             UUID targetId = new UUID();
             if (!UUID.TryParse(target, out targetId))
+            {
                 return 0;
-            if (targetId == UUID.Zero && m_host.GroupID == UUID.Zero) return 1;
+            }
+
+            if (targetId == UUID.Zero && m_host.GroupID == UUID.Zero)
+            {
+                return 1;
+            }
+
             return HasMatchingGroup(targetId, m_host.GroupID) ? 1 : 0;
         }
 
@@ -8004,7 +9014,10 @@ namespace InWorldz.Phlox.Engine
             // hinge effect as an object passes over the triangles in a terrain square.
             Vector3 result = World.Heightmap.CalculateNormalAt(validated.X, validated.Y);
             if (wantSlope)
+            {
                 result = World.Heightmap.NormalToSlope(result);
+            }
+
             return new LSL_Vector(result);
         }
 
@@ -8015,13 +9028,14 @@ namespace InWorldz.Phlox.Engine
 
         public LSL_Vector llGroundNormal(LSL_Vector offset)
         {
-//            return GroundVector(offset, false);
+            //            return GroundVector(offset, false);
             // Instead of the above, let's return the falue as defined by the LSL wiki
             LSL_Vector x = llGroundSlope(offset);
             return new LSL_Vector(x.X, x.Y, 1.0f);
         }
 
-        public LSL_Vector iwGroundSurfaceNormal(LSL_Vector offset)
+        public LSL_Vector iwGroundSurfaceNormal(LSL_Vector offset) { return halGroundSurfaceNormal(offset); }
+        public LSL_Vector halGroundSurfaceNormal(LSL_Vector offset)
         {
             Vector3 pos = m_host.AbsolutePosition + new Vector3(offset);
             LSL_Vector validated = ValidLocation(pos.X, pos.Y, pos.Z, false);
@@ -8031,15 +9045,15 @@ namespace InWorldz.Phlox.Engine
 
         public LSL_Vector llGroundContour(LSL_Vector offset)
         {
-            
+
             LSL_Vector x = llGroundSlope(offset);
             return new LSL_Vector(-x.Y, x.X, 0.0f);
         }
 
         public int llGetAttached()
         {
-            
-            return (int)m_host.ParentGroup.RootPart.AttachmentPoint;
+
+            return m_host.ParentGroup.RootPart.AttachmentPoint;
         }
 
         public int llGetFreeMemory()
@@ -8055,36 +9069,41 @@ namespace InWorldz.Phlox.Engine
         public int LIMIT_128K = 128 * 1024;
         public int llGetMemoryLimit()
         {
-			return LIMIT_128K;
+            return LIMIT_128K;
         }
 
         public int llSetMemoryLimit(int limit)
         {
-			if (limit == LIMIT_128K)
+            if (limit == LIMIT_128K)
+            {
                 return 1;
+            }
 
             return 0;
         }
 
         public int llGetFreeURLs()
         {
-            
+
             if (m_UrlModule != null)
-                return (int)(m_UrlModule.GetFreeUrls());
-            return (int)(0);
+            {
+                return m_UrlModule.GetFreeUrls();
+            }
+
+            return 0;
         }
 
 
         public string llGetRegionName()
         {
-            
+
             return World.RegionInfo.RegionName;
         }
 
         public float llGetRegionTimeDilation()
         {
-            
-            return (float)World.TimeDilation;
+
+            return World.TimeDilation;
         }
 
         /// <summary>
@@ -8092,7 +9111,7 @@ namespace InWorldz.Phlox.Engine
         /// </summary>
         public float llGetRegionFPS()
         {
-            
+
             return World.SimulatorFPS;
         }
 
@@ -8169,17 +9188,23 @@ namespace InWorldz.Phlox.Engine
         private float LimitFloat(float value, float limit, bool allowNegative)
         {
             if (value > limit)
+            {
                 value = limit;
+            }
 
             if (allowNegative)
             {
                 if (value < -limit)
+                {
                     value = -limit;
+                }
             }
             else
             {
                 if (value < 0.0f)
+                {
                     value = 0.0f;
+                }
             }
 
             return value;
@@ -8200,7 +9225,7 @@ namespace InWorldz.Phlox.Engine
         const float MIN_SRC_BURST_RATE = 0.05f; // See Mantis http://inworldz.com/mantis/view.php?id=955
         public void PrimParticleSystem(SceneObjectPart part, LSL_List rules)
         {
-            
+
             if (rules.Length == 0)
             {
                 part.RemoveParticleSystem();
@@ -8218,60 +9243,60 @@ namespace InWorldz.Phlox.Engine
                 {
                     switch ((int)rules.Data[i])
                     {
-                        case (int)ScriptBaseClass.PSYS_PART_FLAGS:
+                        case ScriptBaseClass.PSYS_PART_FLAGS:
                             prules.PartDataFlags = (Primitive.ParticleSystem.ParticleDataFlags)(uint)rules.GetLSLIntegerItem(i + 1);
                             break;
 
-                        case (int)ScriptBaseClass.PSYS_PART_START_COLOR:
+                        case ScriptBaseClass.PSYS_PART_START_COLOR:
                             tempv = rules.GetVector3Item(i + 1);
-                            prules.PartStartColor.R = (float)tempv.X;
-                            prules.PartStartColor.G = (float)tempv.Y;
-                            prules.PartStartColor.B = (float)tempv.Z;
+                            prules.PartStartColor.R = tempv.X;
+                            prules.PartStartColor.G = tempv.Y;
+                            prules.PartStartColor.B = tempv.Z;
                             break;
 
-                        case (int)ScriptBaseClass.PSYS_PART_START_ALPHA:
-                            tempf = (float)rules.GetLSLFloatItem(i + 1);
+                        case ScriptBaseClass.PSYS_PART_START_ALPHA:
+                            tempf = rules.GetLSLFloatItem(i + 1);
                             prules.PartStartColor.A = tempf;
                             break;
 
-                        case (int)ScriptBaseClass.PSYS_PART_END_COLOR:
+                        case ScriptBaseClass.PSYS_PART_END_COLOR:
                             tempv = rules.GetVector3Item(i + 1);
-                            prules.PartEndColor.R = (float)tempv.X;
-                            prules.PartEndColor.G = (float)tempv.Y;
-                            prules.PartEndColor.B = (float)tempv.Z;
+                            prules.PartEndColor.R = tempv.X;
+                            prules.PartEndColor.G = tempv.Y;
+                            prules.PartEndColor.B = tempv.Z;
                             break;
 
-                        case (int)ScriptBaseClass.PSYS_PART_END_ALPHA:
-                            tempf = (float)rules.GetLSLFloatItem(i + 1);
+                        case ScriptBaseClass.PSYS_PART_END_ALPHA:
+                            tempf = rules.GetLSLFloatItem(i + 1);
                             prules.PartEndColor.A = tempf;
                             break;
 
-                        case (int)ScriptBaseClass.PSYS_PART_START_SCALE:
+                        case ScriptBaseClass.PSYS_PART_START_SCALE:
                             tempv = rules.GetVector3Item(i + 1);
                             prules.PartStartScaleX = LimitScaleForByteEncoding(tempv.X);
                             prules.PartStartScaleY = LimitScaleForByteEncoding(tempv.Y);
                             break;
 
-                        case (int)ScriptBaseClass.PSYS_PART_END_SCALE:
+                        case ScriptBaseClass.PSYS_PART_END_SCALE:
                             tempv = rules.GetVector3Item(i + 1);
                             prules.PartEndScaleX = LimitScaleForByteEncoding(tempv.X);
                             prules.PartEndScaleY = LimitScaleForByteEncoding(tempv.Y);
                             break;
 
-                        case (int)ScriptBaseClass.PSYS_PART_MAX_AGE:
-                            tempf = (float)rules.GetLSLFloatItem(i + 1);
+                        case ScriptBaseClass.PSYS_PART_MAX_AGE:
+                            tempf = rules.GetLSLFloatItem(i + 1);
                             prules.PartMaxAge = LimitFloat(tempf, 30.0f, false);
                             break;
 
-                        case (int)ScriptBaseClass.PSYS_SRC_ACCEL:
+                        case ScriptBaseClass.PSYS_SRC_ACCEL:
                             tempv = rules.GetVector3Item(i + 1);
                             prules.PartAcceleration.X = LimitFloat(tempv.X, 100.0f, true);
                             prules.PartAcceleration.Y = LimitFloat(tempv.Y, 100.0f, true);
                             prules.PartAcceleration.Z = LimitFloat(tempv.Z, 100.0f, true);
                             break;
 
-                        case (int)ScriptBaseClass.PSYS_SRC_PATTERN:
-                            tempi = (int)rules.GetLSLIntegerItem(i + 1);
+                        case ScriptBaseClass.PSYS_SRC_PATTERN:
+                            tempi = rules.GetLSLIntegerItem(i + 1);
                             prules.Pattern = (Primitive.ParticleSystem.SourcePattern)tempi;
                             break;
 
@@ -8279,54 +9304,57 @@ namespace InWorldz.Phlox.Engine
                         // PSYS_SRC_OUTERANGLE and PSYS_SRC_ANGLE_END also use the same variable. The
                         // client tells the difference between the two by looking at the 0x02 bit in
                         // the PartFlags variable.
-                        case (int)ScriptBaseClass.PSYS_SRC_INNERANGLE:
-                            tempf = (float)rules.GetLSLFloatItem(i + 1);
-                            prules.InnerAngle = (float)tempf;
+                        case ScriptBaseClass.PSYS_SRC_INNERANGLE:
+                            tempf = rules.GetLSLFloatItem(i + 1);
+                            prules.InnerAngle = tempf;
                             prules.PartFlags &= 0xFFFFFFFD; // Make sure new angle format is off.
                             break;
 
-                        case (int)ScriptBaseClass.PSYS_SRC_OUTERANGLE:
-                            tempf = (float)rules.GetLSLFloatItem(i + 1);
-                            prules.OuterAngle = (float)tempf;
+                        case ScriptBaseClass.PSYS_SRC_OUTERANGLE:
+                            tempf = rules.GetLSLFloatItem(i + 1);
+                            prules.OuterAngle = tempf;
                             prules.PartFlags &= 0xFFFFFFFD; // Make sure new angle format is off.
                             break;
 
-                        case (int)ScriptBaseClass.PSYS_SRC_TEXTURE:
+                        case ScriptBaseClass.PSYS_SRC_TEXTURE:
                             prules.Texture = KeyOrName(rules.GetLSLStringItem(i + 1));
                             break;
 
-                        case (int)ScriptBaseClass.PSYS_SRC_BURST_RATE:
-                            tempf = (float)rules.GetLSLFloatItem(i + 1);
+                        case ScriptBaseClass.PSYS_SRC_BURST_RATE:
+                            tempf = rules.GetLSLFloatItem(i + 1);
                             if (tempf < MIN_SRC_BURST_RATE)
+                            {
                                 tempf = MIN_SRC_BURST_RATE;
-                            prules.BurstRate = (float)tempf;
+                            }
+
+                            prules.BurstRate = tempf;
                             break;
 
-                        case (int)ScriptBaseClass.PSYS_SRC_BURST_PART_COUNT:
-                            prules.BurstPartCount = (byte)(int)rules.GetLSLIntegerItem(i + 1);
+                        case ScriptBaseClass.PSYS_SRC_BURST_PART_COUNT:
+                            prules.BurstPartCount = (byte)rules.GetLSLIntegerItem(i + 1);
                             break;
 
-                        case (int)ScriptBaseClass.PSYS_SRC_BURST_RADIUS:
-                            tempf = (float)rules.GetLSLFloatItem(i + 1);
+                        case ScriptBaseClass.PSYS_SRC_BURST_RADIUS:
+                            tempf = rules.GetLSLFloatItem(i + 1);
                             prules.BurstRadius = LimitFloat(tempf, 50.0f, false);
                             break;
 
-                        case (int)ScriptBaseClass.PSYS_SRC_BURST_SPEED_MIN:
-                            tempf = (float)rules.GetLSLFloatItem(i + 1);
-                            prules.BurstSpeedMin = (float)tempf;
+                        case ScriptBaseClass.PSYS_SRC_BURST_SPEED_MIN:
+                            tempf = rules.GetLSLFloatItem(i + 1);
+                            prules.BurstSpeedMin = tempf;
                             break;
 
-                        case (int)ScriptBaseClass.PSYS_SRC_BURST_SPEED_MAX:
-                            tempf = (float)rules.GetLSLFloatItem(i + 1);
-                            prules.BurstSpeedMax = (float)tempf;
+                        case ScriptBaseClass.PSYS_SRC_BURST_SPEED_MAX:
+                            tempf = rules.GetLSLFloatItem(i + 1);
+                            prules.BurstSpeedMax = tempf;
                             break;
 
-                        case (int)ScriptBaseClass.PSYS_SRC_MAX_AGE:
-                            tempf = (float)rules.GetLSLFloatItem(i + 1);
-                            prules.MaxAge = (float)tempf;
+                        case ScriptBaseClass.PSYS_SRC_MAX_AGE:
+                            tempf = rules.GetLSLFloatItem(i + 1);
+                            prules.MaxAge = tempf;
                             break;
 
-                        case (int)ScriptBaseClass.PSYS_SRC_TARGET_KEY:
+                        case ScriptBaseClass.PSYS_SRC_TARGET_KEY:
                             UUID key = UUID.Zero;
                             if (UUID.TryParse(rules.Data[i + 1].ToString(), out key))
                             {
@@ -8338,43 +9366,43 @@ namespace InWorldz.Phlox.Engine
                             }
                             break;
 
-                        case (int)ScriptBaseClass.PSYS_SRC_OMEGA:
+                        case ScriptBaseClass.PSYS_SRC_OMEGA:
                             // AL: This is an assumption, since it is the only thing that would match.
                             tempv = rules.GetVector3Item(i + 1);
-                            prules.AngularVelocity.X = (float)tempv.X;
-                            prules.AngularVelocity.Y = (float)tempv.Y;
-                            prules.AngularVelocity.Z = (float)tempv.Z;
+                            prules.AngularVelocity.X = tempv.X;
+                            prules.AngularVelocity.Y = tempv.Y;
+                            prules.AngularVelocity.Z = tempv.Z;
                             break;
 
-                        case (int)ScriptBaseClass.PSYS_SRC_ANGLE_BEGIN:
-                            tempf = (float)rules.GetLSLFloatItem(i + 1);
-                            prules.InnerAngle = (float)tempf;
+                        case ScriptBaseClass.PSYS_SRC_ANGLE_BEGIN:
+                            tempf = rules.GetLSLFloatItem(i + 1);
+                            prules.InnerAngle = tempf;
                             prules.PartFlags |= 0x02; // Set new angle format.
                             break;
 
-                        case (int)ScriptBaseClass.PSYS_SRC_ANGLE_END:
-                            tempf = (float)rules.GetLSLFloatItem(i + 1);
-                            prules.OuterAngle = (float)tempf;
+                        case ScriptBaseClass.PSYS_SRC_ANGLE_END:
+                            tempf = rules.GetLSLFloatItem(i + 1);
+                            prules.OuterAngle = tempf;
                             prules.PartFlags |= 0x02; // Set new angle format.
                             break;
 
-                        case (int)ScriptBaseClass.PSYS_PART_START_GLOW:
-                            tempf = (float)rules.GetLSLFloatItem(i + 1);
+                        case ScriptBaseClass.PSYS_PART_START_GLOW:
+                            tempf = rules.GetLSLFloatItem(i + 1);
                             prules.PartStartGlow = tempf;
                             break;
 
-                        case (int)ScriptBaseClass.PSYS_PART_END_GLOW:
-                            tempf = (float)rules.GetLSLFloatItem(i + 1);
+                        case ScriptBaseClass.PSYS_PART_END_GLOW:
+                            tempf = rules.GetLSLFloatItem(i + 1);
                             prules.PartEndGlow = tempf;
                             break;
 
-                        case (int)ScriptBaseClass.PSYS_PART_BLEND_FUNC_SOURCE:
-                            tempi = (int)rules.GetLSLIntegerItem(i + 1);
+                        case ScriptBaseClass.PSYS_PART_BLEND_FUNC_SOURCE:
+                            tempi = rules.GetLSLIntegerItem(i + 1);
                             prules.BlendFuncSource = (byte)tempi;
                             break;
 
-                        case (int)ScriptBaseClass.PSYS_PART_BLEND_FUNC_DEST:
-                            tempi = (int)rules.GetLSLIntegerItem(i + 1);
+                        case ScriptBaseClass.PSYS_PART_BLEND_FUNC_DEST:
+                            tempi = rules.GetLSLIntegerItem(i + 1);
                             prules.BlendFuncDest = (byte)tempi;
                             break;
                     }
@@ -8399,7 +9427,9 @@ namespace InWorldz.Phlox.Engine
             var parts = GetLinkPrimsOnly(linknumber);
 
             foreach (SceneObjectPart part in parts)
+            {
                 PrimParticleSystem(part, rules);
+            }
         }
 
         public void llGroundRepel(float height, int water, float tau)
@@ -8409,7 +9439,7 @@ namespace InWorldz.Phlox.Engine
                 PIDHoverFlag hoverType = PIDHoverFlag.Ground | PIDHoverFlag.Repel;
                 if (water != 0)
                 {
-                    hoverType = PIDHoverFlag.Ground  | PIDHoverFlag.Water | PIDHoverFlag.Repel;
+                    hoverType = PIDHoverFlag.Ground | PIDHoverFlag.Water | PIDHoverFlag.Repel;
                 }
 
                 m_host.SetHoverHeight(height, hoverType, tau);
@@ -8423,7 +9453,9 @@ namespace InWorldz.Phlox.Engine
                 foreach (KeyValuePair<UUID, TaskInventoryItem> inv in part.TaskInventory)
                 {
                     if (inv.Value.Name == name)
+                    {
                         return inv.Key;
+                    }
                 }
             }
 
@@ -8450,22 +9482,33 @@ namespace InWorldz.Phlox.Engine
             // check if destination is a part (much faster than checking if it's an avatar)
             SceneObjectPart destPart = m_host.ParentGroup.Scene.GetSceneObjectPart(destID);
             if (destPart == null)
+            {
                 itemList = new List<UUID>();
+            }
+
             foreach (Object item in inventory.Data)
             {
                 UUID itemID = UUID.Zero;
                 if (!UUID.TryParse(item.ToString(), out itemID))
+                {
                     itemID = GetTaskInventoryItem(part, item.ToString());
+                }
 
                 // If being called from iwDeliver...(), we need to 
                 // abort any delivery with missing items and return error code.
                 if (includeRC && (itemID == UUID.Zero))
+                {
                     return ScriptBaseClass.IW_DELIVER_ITEM; // item is missing
+                }
 
                 if (destPart != null)   // give to another prim
+                {
                     World.MoveTaskInventoryItem(destID, part, itemID);
+                }
                 else   // give to a user inventory
+                {
                     itemList.Add(itemID);
+                }
             }
 
             if (destPart != null)
@@ -8482,7 +9525,9 @@ namespace InWorldz.Phlox.Engine
             string reason;
             UUID folderID = m_ScriptEngine.World.MoveTaskInventoryItems(destID, category, part, itemList, out reason);
             if (folderID == UUID.Zero)
+            {
                 return DeliverReasonToResult(reason);
+            }
 
             byte dialog = (byte)InstantMessageDialog.TaskInventoryOffered;
             byte[] bucket = new byte[1];
@@ -8493,12 +9538,16 @@ namespace InWorldz.Phlox.Engine
 
             GridInstantMessage msg = new GridInstantMessage(World,
                     rootPart.OwnerID, rootPart.Name, destID,
-                    dialog, false, "'"+category+"'  ( "+URL+" )",
+                    dialog, false, "'" + category + "'  ( " + URL + " )",
                     folderID, true, rootPart.AbsolutePosition,
                     bucket);
 
             if (m_TransferModule != null)
-                m_TransferModule.SendInstantMessage(msg, delegate(bool success) { });
+            {
+                m_TransferModule.SendInstantMessage(msg, delegate (bool success)
+                { });
+            }
+
             return ScriptBaseClass.IW_DELIVER_OK;
         }
 
@@ -8513,15 +9562,25 @@ namespace InWorldz.Phlox.Engine
                 {
                     rc = _GiveLinkInventoryList(part, destination, category, inventory, includeRC, out needsDelay);
                     if (rc != ScriptBaseClass.IW_DELIVER_NONE)
+                    {
                         return; // give results from the first matching prim only
+                    }
                 }
             }
             finally
             {
                 // C# cannot handle: includeRC ? rc : null
                 object result = null;
-                if (includeRC) result = rc;
-                if (!needsDelay) delay = 0;
+                if (includeRC)
+                {
+                    result = rc;
+                }
+
+                if (!needsDelay)
+                {
+                    delay = 0;
+                }
+
                 m_ScriptEngine.SysReturn(m_itemID, result, delay);
             }
         }
@@ -8529,11 +9588,13 @@ namespace InWorldz.Phlox.Engine
         {
             GiveInventoryList(ScriptBaseClass.LINK_THIS, destination, category, inventory, 3000, false);
         }
-        public void iwGiveLinkInventoryList(int linknumber, string destination, string category, LSL_List inventory)
+        public void iwGiveLinkInventoryList(int linknumber, string destination, string category, LSL_List inventory) { halGiveLinkInventoryList(linknumber, destination, category, inventory); }
+        public void halGiveLinkInventoryList(int linknumber, string destination, string category, LSL_List inventory)
         {
             GiveInventoryList(linknumber, destination, category, inventory, 3000, false);
         }
-        public void iwDeliverInventoryList(int linknumber, string destination, string category, LSL_List inventory)
+        public void iwDeliverInventoryList(int linknumber, string destination, string category, LSL_List inventory) { halDeliverInventoryList(linknumber, destination, category, inventory); }
+        public void halDeliverInventoryList(int linknumber, string destination, string category, LSL_List inventory)
         {
             GiveInventoryList(linknumber, destination, category, inventory, 100, true);
         }
@@ -8611,7 +9672,7 @@ namespace InWorldz.Phlox.Engine
             {
                 if (!m_host.ParentGroup.IsDeleted)
                 {
-                    if (float.IsNaN(rot.X) || float.IsNaN(rot.Y) || float.IsNaN(rot.Z) || float.IsNaN(rot.W) ||  !RotationParamsValidator.IsValid(param))
+                    if (float.IsNaN(rot.X) || float.IsNaN(rot.Y) || float.IsNaN(rot.Z) || float.IsNaN(rot.W) || !RotationParamsValidator.IsValid(param))
                     {
                         LSLError("llSetVehicleRotationParam(" + param.ToString() + ", " + rot.ToString() + ") is not valid.");
                         return;
@@ -8634,7 +9695,9 @@ namespace InWorldz.Phlox.Engine
 
                 // Not implemented
                 if ((flags & (int)VehicleFlags.CameraDecoupled) != 0)
+                {
                     LSLError("VEHICLE_FLAG_CAMERA_DECOUPLED is not implemented.");
+                }
             }
         }
 
@@ -8651,7 +9714,7 @@ namespace InWorldz.Phlox.Engine
 
         public void llLinkSitTarget(int linknumber, LSL_Vector offset, LSL_Rotation rot)
         {
-            Vector3 sitPos = new Vector3((float)offset.X, (float)offset.Y, (float)offset.Z);
+            Vector3 sitPos = new Vector3(offset.X, offset.Y, offset.Z);
             Quaternion sitRot = Rot2Quaternion(rot);
             bool isActive = (sitPos != Vector3.Zero) || (sitRot != Quaternion.Identity);
 
@@ -8675,7 +9738,8 @@ namespace InWorldz.Phlox.Engine
             // We'll spin through the "list" but return the values from the first match with a sit target.
             // Should only be one match, but if the script specified LINK_ALL_OTHERS or another wildcard,
             // then this function will return the first match.
-            foreach (SceneObjectPart part in parts) {
+            foreach (SceneObjectPart part in parts)
+            {
                 SitTargetInfo sitInfo = part.ParentGroup.SitTargetForPart(part.UUID);
                 if (IncludeSitTargetOnly)
                 {
@@ -8690,10 +9754,14 @@ namespace InWorldz.Phlox.Engine
                     part.ForEachSittingAvatar((ScenePresence sp) =>
                     {
                         if (seatedAvatar == UUID.Zero)
+                        {
                             seatedAvatar = sp.UUID;
+                        }
                     });
                     if (seatedAvatar != UUID.Zero)
+                    {
                         break;
+                    }
                 }
             }
             return seatedAvatar.ToString();
@@ -8707,12 +9775,14 @@ namespace InWorldz.Phlox.Engine
             return (AvatarOnSitTarget(linknum, true));
         }
         // Same as above but does not require a non-zero sit target
-        public string iwAvatarOnLink(int linknum)
+        public string iwAvatarOnLink(int linknum) { return halAvatarOnLink(linknum); }
+        public string halAvatarOnLink(int linknum)
         {
             return (AvatarOnSitTarget(linknum, false));
         }
 
-        public string iwGetLastOwner()
+        public string iwGetLastOwner() { return halGetLastOwner(); }
+        public string halGetLastOwner()
         {
             return m_host.LastOwnerID.ToString();
         }
@@ -8733,19 +9803,19 @@ namespace InWorldz.Phlox.Engine
                     landObject.landData.ParcelAccessList.Add(entry);
                 }
             }
-            
+
             ScriptSleep(100);
         }
 
         public void llSetTouchText(string text)
         {
-            
+
             m_host.TouchName = text;
         }
 
         public void llSetSitText(string text)
         {
-            
+
             m_host.SitName = text;
         }
 
@@ -8762,19 +9832,19 @@ namespace InWorldz.Phlox.Engine
 
         public void llSetCameraEyeOffset(LSL_Vector offset)
         {
-            
-            m_host.SetCameraEyeOffset(new Vector3((float)offset.X, (float)offset.Y, (float)offset.Z));
+
+            m_host.SetCameraEyeOffset(new Vector3(offset.X, offset.Y, offset.Z));
         }
 
         public void llSetCameraAtOffset(LSL_Vector offset)
         {
-            
-            m_host.SetCameraAtOffset(new Vector3((float)offset.X, (float)offset.Y, (float)offset.Z));
+
+            m_host.SetCameraAtOffset(new Vector3(offset.X, offset.Y, offset.Z));
         }
 
         public string llDumpList2String(LSL_List src, string seperator)
         {
-            
+
             if (src.Length == 0)
             {
                 return String.Empty;
@@ -8791,8 +9861,8 @@ namespace InWorldz.Phlox.Engine
 
         public int llScriptDanger(LSL_Vector pos)
         {
-            
-            bool result = World.ScriptDanger(m_host.LocalId, new Vector3((float)pos.X, (float)pos.Y, (float)pos.Z));
+
+            bool result = World.ScriptDanger(m_host.LocalId, new Vector3(pos.X, pos.Y, pos.Z));
             if (result)
             {
                 return 1;
@@ -8809,9 +9879,10 @@ namespace InWorldz.Phlox.Engine
             IDialogModule dm = World.RequestModuleInterface<IDialogModule>();
 
             if (dm == null)
+            {
                 return;
+            }
 
-            
             UUID av = new UUID();
             if (!UUID.TryParse(avatar, out av))
             {
@@ -8885,7 +9956,7 @@ namespace InWorldz.Phlox.Engine
 
         public void llRemoteLoadScript(string target, string name, int running, int start_param)
         {
-            
+
             // Report an error as it does in SL
             ScriptShoutError("Deprecated. Please use llRemoteLoadScriptPin instead.");
             // ScriptSleep(3000);
@@ -8893,41 +9964,45 @@ namespace InWorldz.Phlox.Engine
 
         public void llSetRemoteScriptAccessPin(int pin)
         {
-            
+
             m_host.ScriptAccessPin = pin;
         }
 
-		//Functions same as llRemoteLoadScriptPin, but returns an integer flag to indicate success,
-		//  instead of calling ScriptShoutError
-		public int iwRemoteLoadScriptPin(string target, string name, int pin, int running, int start_param) {
-			return RemoteLoadScriptPin(target, name, pin, running, start_param, false);
-		}
-
-		public void llRemoteLoadScriptPin(string target, string name, int pin, int running, int start_param) {
-			RemoteLoadScriptPin (target, name, pin, running, start_param, true);
-		}
-
-		//A proxy for llRemoteLoadScriptPin and iwRemoteLoadScriptPin
-		//Uses integer constants as return codes to indicate success or failure
-		//  IW_REMOTELOAD_SUCCESS =  1	Function succeeded
-		//  IW_REMOTELOAD_FAILURE =  0	Function failed, for various reasons
-		//  IW_REMOTELOAD_BAD_PIN = -1	The pin did not match the target's pin
-		//  IW_REMOTELOAD_NO_PIN  = -2	The target did not have a pin set
-		public int RemoteLoadScriptPin(string target, string name, int pin, int running, int start_param, bool doShout)
+        //Functions same as llRemoteLoadScriptPin, but returns an integer flag to indicate success,
+        //  instead of calling ScriptShoutError
+        public int iwRemoteLoadScriptPin(string target, string name, int pin, int running, int start_param) { return halRemoteLoadScriptPin(target, name, pin, running, start_param); }
+        public int halRemoteLoadScriptPin(string target, string name, int pin, int running, int start_param)
         {
-			if (pin == 0) {
-				ScriptShoutError ("llRemoteLoadScriptPin: PIN cannot be zero.");
-				ScriptSleep(3000);
-				return 0;
-			}
-            
+            return RemoteLoadScriptPin(target, name, pin, running, start_param, false);
+        }
+
+        public void llRemoteLoadScriptPin(string target, string name, int pin, int running, int start_param)
+        {
+            RemoteLoadScriptPin(target, name, pin, running, start_param, true);
+        }
+
+        //A proxy for llRemoteLoadScriptPin and iwRemoteLoadScriptPin
+        //Uses integer constants as return codes to indicate success or failure
+        //  IW_REMOTELOAD_SUCCESS =  1	Function succeeded
+        //  IW_REMOTELOAD_FAILURE =  0	Function failed, for various reasons
+        //  IW_REMOTELOAD_BAD_PIN = -1	The pin did not match the target's pin
+        //  IW_REMOTELOAD_NO_PIN  = -2	The target did not have a pin set
+        public int RemoteLoadScriptPin(string target, string name, int pin, int running, int start_param, bool doShout)
+        {
+            if (pin == 0)
+            {
+                ScriptShoutError("llRemoteLoadScriptPin: PIN cannot be zero.");
+                ScriptSleep(3000);
+                return 0;
+            }
+
             bool found = false;
             UUID destId = UUID.Zero;
             UUID srcId = UUID.Zero;
 
             if (!UUID.TryParse(target, out destId))
             {
-				llSay(0, "Could not parse key " + target);
+                llSay(0, "Could not parse key " + target);
                 return 0;
             }
 
@@ -8935,17 +10010,17 @@ namespace InWorldz.Phlox.Engine
             SceneObjectPart part = m_host.ParentGroup.Scene.GetSceneObjectPart(destId);
             if (part == null)
             {
-				ScriptShoutError("llRemoteLoadScriptPin: Target prim ["+destId.ToString()+"] not found.");
+                ScriptShoutError("llRemoteLoadScriptPin: Target prim [" + destId.ToString() + "] not found.");
                 return 0;
             }
             if (m_host.OwnerID != part.OwnerID)
             {
-				ScriptShoutError("llRemoteLoadScriptPin: Target prim ownership does not match.");
+                ScriptShoutError("llRemoteLoadScriptPin: Target prim ownership does not match.");
                 return 0;
             }
             if (m_host.UUID == destId)
             {
-				ScriptShoutError("llRemoteLoadScriptPin: Target prim cannot be the source prim.");
+                ScriptShoutError("llRemoteLoadScriptPin: Target prim cannot be the source prim.");
                 return 0;
             }
 
@@ -8969,56 +10044,70 @@ namespace InWorldz.Phlox.Engine
 
             if (!found)
             {
-				llSay(0, "Could not find script " + name);
+                llSay(0, "Could not find script " + name);
                 return 0;
             }
 
             // the rest of the permission checks are done in RezScript, so check the pin there as well
             string result = World.RezScript(srcId, m_host, destId, pin, running, start_param);
-			int ret = 1;
+            int ret = 1;
             if (!String.IsNullOrEmpty(result))
             {
                 // validation error updating script
-				if (result == "PIN") {    // special case for public error (let's not match the silly SL "illegal" text)
-					if (doShout)
-						ShoutError ("llRemoteLoadScriptPin: Script update denied - PIN mismatch.");
-					ret = -1;
-				} else if (result == "NO PIN") {
-					if(doShout)
-						ShoutError ("llRemoteLoadScriptPin: Script update denied - PIN not set.");
-					ret = -2;
-				} else {
-					ScriptShoutError ("llRemoteLoadScriptPin: " + result);
-					ret = 0;
-				}
+                if (result == "PIN")
+                {    // special case for public error (let's not match the silly SL "illegal" text)
+                    if (doShout)
+                    {
+                        ShoutError("llRemoteLoadScriptPin: Script update denied - PIN mismatch.");
+                    }
+
+                    ret = -1;
+                }
+                else if (result == "NO PIN")
+                {
+                    if (doShout)
+                    {
+                        ShoutError("llRemoteLoadScriptPin: Script update denied - PIN not set.");
+                    }
+
+                    ret = -2;
+                }
+                else
+                {
+                    ScriptShoutError("llRemoteLoadScriptPin: " + result);
+                    ret = 0;
+                }
             }
             // this will cause the delay even if the script pin or permissions were wrong - seems ok
             ScriptSleep(3000);
-			return ret;
+            return ret;
         }
 
         public void llOpenRemoteDataChannel()
         {
-            
+
             IXMLRPC xmlrpcMod = m_ScriptEngine.World.RequestModuleInterface<IXMLRPC>();
             if (xmlrpcMod.IsEnabled())
             {
                 UUID channelID = xmlrpcMod.OpenXMLRPCChannel(m_localID, m_itemID, UUID.Zero);
                 IXmlRpcRouter xmlRpcRouter = m_ScriptEngine.World.RequestModuleInterface<IXmlRpcRouter>();
                 if (xmlRpcRouter != null)
+                {
                     xmlRpcRouter.RegisterNewReceiver(m_ScriptEngine.ScriptModule, channelID, m_host.UUID, m_itemID, "http://" + System.Environment.MachineName + ":" + xmlrpcMod.Port.ToString() + "/");
-                object[] resobj = new object[] { (int)(1), channelID.ToString(), UUID.Zero.ToString(), String.Empty, (int)(0), String.Empty };
+                }
+
+                object[] resobj = new object[] { 1, channelID.ToString(), UUID.Zero.ToString(), String.Empty, 0, String.Empty };
                 m_ScriptEngine.PostScriptEvent(m_itemID, new EventParams(
                         "remote_data", resobj,
                         new DetectParams[0]));
             }
-            
+
             ScriptSleep(1000);
         }
 
         public string llSendRemoteData(string channel, string dest, int idata, string sdata)
         {
-            
+
             IXMLRPC xmlrpcMod = m_ScriptEngine.World.RequestModuleInterface<IXMLRPC>();
             ScriptSleep(3000);
             return (xmlrpcMod.SendRemoteData(m_localID, m_itemID, channel, dest, idata, sdata)).ToString();
@@ -9026,7 +10115,7 @@ namespace InWorldz.Phlox.Engine
 
         public void llRemoteDataReply(string channel, string message_id, string sdata, int idata)
         {
-            
+
             IXMLRPC xmlrpcMod = m_ScriptEngine.World.RequestModuleInterface<IXMLRPC>();
             xmlrpcMod.RemoteDataReply(channel, message_id, sdata, idata);
             ScriptSleep(3000);
@@ -9034,7 +10123,7 @@ namespace InWorldz.Phlox.Engine
 
         public void llCloseRemoteDataChannel(string channel)
         {
-            
+
             IXMLRPC xmlrpcMod = m_ScriptEngine.World.RequestModuleInterface<IXMLRPC>();
             xmlrpcMod.CloseXMLRPCChannel((UUID)channel);
             ScriptSleep(1000);
@@ -9047,11 +10136,12 @@ namespace InWorldz.Phlox.Engine
 
         public string llSHA1String(string src)
         {
-            
+
             return Util.SHA1Hash(src).ToLower();
         }
 
-        public string iwSHA256String(string src)
+        public string iwSHA256String(string src) { return halSHA256String(src); }
+        public string halSHA256String(string src)
         {
             return OpenMetaverse.Utils.SHA256String(src).ToLower();
         }
@@ -9060,12 +10150,12 @@ namespace InWorldz.Phlox.Engine
         {
             ObjectShapePacket.ObjectDataBlock shapeBlock = new ObjectShapePacket.ObjectDataBlock();
 
-            if (holeshape != (int)ScriptBaseClass.PRIM_HOLE_DEFAULT &&
-                holeshape != (int)ScriptBaseClass.PRIM_HOLE_CIRCLE &&
-                holeshape != (int)ScriptBaseClass.PRIM_HOLE_SQUARE &&
-                holeshape != (int)ScriptBaseClass.PRIM_HOLE_TRIANGLE)
+            if (holeshape != ScriptBaseClass.PRIM_HOLE_DEFAULT &&
+                holeshape != ScriptBaseClass.PRIM_HOLE_CIRCLE &&
+                holeshape != ScriptBaseClass.PRIM_HOLE_SQUARE &&
+                holeshape != ScriptBaseClass.PRIM_HOLE_TRIANGLE)
             {
-                holeshape = (int)ScriptBaseClass.PRIM_HOLE_DEFAULT;
+                holeshape = ScriptBaseClass.PRIM_HOLE_DEFAULT;
             }
             shapeBlock.ProfileCurve = (byte)holeshape;
             if (cut.X < 0f)
@@ -9382,19 +10472,21 @@ namespace InWorldz.Phlox.Engine
             }
 
             if (sculptId == UUID.Zero)
+            {
                 return;
+            }
 
             shapeBlock.ObjectLocalID = part.LocalId;
             shapeBlock.PathScaleX = 100;
             shapeBlock.PathScaleY = 150;
 
-            if (sculptType != (int)ScriptBaseClass.PRIM_SCULPT_TYPE_CYLINDER &&
-                sculptType != (int)ScriptBaseClass.PRIM_SCULPT_TYPE_PLANE &&
-                sculptType != (int)ScriptBaseClass.PRIM_SCULPT_TYPE_SPHERE &&
-                sculptType != (int)ScriptBaseClass.PRIM_SCULPT_TYPE_TORUS)
+            if (sculptType != ScriptBaseClass.PRIM_SCULPT_TYPE_CYLINDER &&
+                sculptType != ScriptBaseClass.PRIM_SCULPT_TYPE_PLANE &&
+                sculptType != ScriptBaseClass.PRIM_SCULPT_TYPE_SPHERE &&
+                sculptType != ScriptBaseClass.PRIM_SCULPT_TYPE_TORUS)
             {
                 // default
-                sculptType = (int)ScriptBaseClass.PRIM_SCULPT_TYPE_SPHERE;
+                sculptType = ScriptBaseClass.PRIM_SCULPT_TYPE_SPHERE;
                 typeBits = sculptOptions | sculptType;
             }
 
@@ -9430,7 +10522,9 @@ namespace InWorldz.Phlox.Engine
             IReadOnlyCollection<object> links;
 
             if (newPart == null) // normal SetPrimParams
+            {
                 links = GetLinkParts(linknumber, true);
+            }
             else                // iwRezPart call
             {
                 // force it to use newPart
@@ -9448,22 +10542,27 @@ namespace InWorldz.Phlox.Engine
                 LSL_Vector v;
                 LSL_Rotation r;
 
-                if (code == (int)ScriptBaseClass.PRIM_LINK_TARGET)
+                if (code == ScriptBaseClass.PRIM_LINK_TARGET)
                 {
                     if (remain < 1)
+                    {
                         return;
-                    linknumber = (int)rules.GetLSLIntegerItem(idx++);
+                    }
+
+                    linknumber = rules.GetLSLIntegerItem(idx++);
                     remain = rules.Length - idx;
 
                     links = GetLinkParts(linknumber, true);
                 }
-                
+
                 switch (code)
                 {
-                    case (int)ScriptBaseClass.PRIM_POSITION:
-                    case (int)ScriptBaseClass.PRIM_POS_LOCAL:   // same as PRIM_POSITION on a SET operation
+                    case ScriptBaseClass.PRIM_POSITION:
+                    case ScriptBaseClass.PRIM_POS_LOCAL:   // same as PRIM_POSITION on a SET operation
                         if (remain < 1)
+                        {
                             return;
+                        }
 
                         v = rules.GetVector3Item(idx++);
                         foreach (var o in links)
@@ -9482,9 +10581,11 @@ namespace InWorldz.Phlox.Engine
                             }
                         }
                         break;
-                    case (int)ScriptBaseClass.PRIM_SIZE:
+                    case ScriptBaseClass.PRIM_SIZE:
                         if (remain < 1)
+                        {
                             return;
+                        }
 
                         v = rules.GetVector3Item(idx++);
                         foreach (var o in links)
@@ -9496,9 +10597,11 @@ namespace InWorldz.Phlox.Engine
                             }
                         }
                         break;
-                    case (int)ScriptBaseClass.PRIM_ROT_LOCAL:
+                    case ScriptBaseClass.PRIM_ROT_LOCAL:
                         if (remain < 1)
+                        {
                             return;
+                        }
 
                         LSL_Rotation lq = rules.GetQuaternionItem(idx++);
                         foreach (var o in links)
@@ -9517,9 +10620,11 @@ namespace InWorldz.Phlox.Engine
                             }
                         }
                         break;
-                    case (int)ScriptBaseClass.PRIM_PHYSICS_SHAPE_TYPE:
+                    case ScriptBaseClass.PRIM_PHYSICS_SHAPE_TYPE:
                         if (remain < 1)
+                        {
                             return;
+                        }
 
                         int pshape_type = rules.GetLSLIntegerItem(idx++);
 
@@ -9537,9 +10642,11 @@ namespace InWorldz.Phlox.Engine
                         }
 
                         break;
-                    case (int)ScriptBaseClass.PRIM_ROTATION:
+                    case ScriptBaseClass.PRIM_ROTATION:
                         if (remain < 1)
+                        {
                             return;
+                        }
 
                         LSL_Rotation q = rules.GetQuaternionItem(idx++);
                         // try to let this work as in SL...
@@ -9578,12 +10685,15 @@ namespace InWorldz.Phlox.Engine
 
                         break;
 
-                    case (int)ScriptBaseClass.PRIM_OMEGA:
+                    case ScriptBaseClass.PRIM_OMEGA:
                         if (remain < 3)
+                        {
                             return;
+                        }
+
                         LSL_Vector axis = rules.GetVector3Item(idx++);
-                        double spinrate = (float)rules.GetLSLFloatItem(idx++);
-                        double gain = (float)rules.GetLSLFloatItem(idx++);
+                        double spinrate = rules.GetLSLFloatItem(idx++);
+                        double gain = rules.GetLSLFloatItem(idx++);
 
                         foreach (var o in links)
                         {
@@ -9595,11 +10705,13 @@ namespace InWorldz.Phlox.Engine
                         }
                         break;
 
-                    case (int)ScriptBaseClass.PRIM_TYPE:
+                    case ScriptBaseClass.PRIM_TYPE:
                         if (remain < 3)
+                        {
                             return;
+                        }
 
-                        code = (int)rules.GetLSLIntegerItem(idx++);
+                        code = rules.GetLSLIntegerItem(idx++);
 
                         remain = rules.Length - idx;
                         float hollow;
@@ -9614,13 +10726,15 @@ namespace InWorldz.Phlox.Engine
 
                         switch (code)
                         {
-                            case (int)ScriptBaseClass.PRIM_TYPE_BOX:
+                            case ScriptBaseClass.PRIM_TYPE_BOX:
                                 if (remain < 6)
+                                {
                                     return;
+                                }
 
-                                face = (int)rules.GetLSLIntegerItem(idx++);
+                                face = rules.GetLSLIntegerItem(idx++);
                                 v = rules.GetVector3Item(idx++); // cut
-                                hollow = (float)rules.GetLSLFloatItem(idx++);
+                                hollow = rules.GetLSLFloatItem(idx++);
                                 twist = rules.GetVector3Item(idx++);
                                 taper_b = rules.GetVector3Item(idx++);
                                 topshear = rules.GetVector3Item(idx++);
@@ -9635,13 +10749,15 @@ namespace InWorldz.Phlox.Engine
                                 }
                                 break;
 
-                            case (int)ScriptBaseClass.PRIM_TYPE_CYLINDER:
+                            case ScriptBaseClass.PRIM_TYPE_CYLINDER:
                                 if (remain < 6)
+                                {
                                     return;
+                                }
 
-                                face = (int)rules.GetLSLIntegerItem(idx++); // holeshape
+                                face = rules.GetLSLIntegerItem(idx++); // holeshape
                                 v = rules.GetVector3Item(idx++); // cut
-                                hollow = (float)rules.GetLSLFloatItem(idx++);
+                                hollow = rules.GetLSLFloatItem(idx++);
                                 twist = rules.GetVector3Item(idx++);
                                 taper_b = rules.GetVector3Item(idx++);
                                 topshear = rules.GetVector3Item(idx++);
@@ -9657,13 +10773,15 @@ namespace InWorldz.Phlox.Engine
                                 }
                                 break;
 
-                            case (int)ScriptBaseClass.PRIM_TYPE_PRISM:
+                            case ScriptBaseClass.PRIM_TYPE_PRISM:
                                 if (remain < 6)
+                                {
                                     return;
+                                }
 
-                                face = (int)rules.GetLSLIntegerItem(idx++); // holeshape
+                                face = rules.GetLSLIntegerItem(idx++); // holeshape
                                 v = rules.GetVector3Item(idx++); //cut
-                                hollow = (float)rules.GetLSLFloatItem(idx++);
+                                hollow = rules.GetLSLFloatItem(idx++);
                                 twist = rules.GetVector3Item(idx++);
                                 taper_b = rules.GetVector3Item(idx++);
                                 topshear = rules.GetVector3Item(idx++);
@@ -9678,13 +10796,15 @@ namespace InWorldz.Phlox.Engine
                                 }
                                 break;
 
-                            case (int)ScriptBaseClass.PRIM_TYPE_SPHERE:
+                            case ScriptBaseClass.PRIM_TYPE_SPHERE:
                                 if (remain < 5)
+                                {
                                     return;
+                                }
 
-                                face = (int)rules.GetLSLIntegerItem(idx++); // holeshape
+                                face = rules.GetLSLIntegerItem(idx++); // holeshape
                                 v = rules.GetVector3Item(idx++); // cut
-                                hollow = (float)rules.GetLSLFloatItem(idx++);
+                                hollow = rules.GetLSLFloatItem(idx++);
                                 twist = rules.GetVector3Item(idx++);
                                 taper_b = rules.GetVector3Item(idx++); // dimple
                                 foreach (var o in links)
@@ -9698,21 +10818,23 @@ namespace InWorldz.Phlox.Engine
                                 }
                                 break;
 
-                            case (int)ScriptBaseClass.PRIM_TYPE_TORUS:
+                            case ScriptBaseClass.PRIM_TYPE_TORUS:
                                 if (remain < 11)
+                                {
                                     return;
+                                }
 
-                                face = (int)rules.GetLSLIntegerItem(idx++); // holeshape
+                                face = rules.GetLSLIntegerItem(idx++); // holeshape
                                 v = rules.GetVector3Item(idx++); //cut
-                                hollow = (float)rules.GetLSLFloatItem(idx++);
+                                hollow = rules.GetLSLFloatItem(idx++);
                                 twist = rules.GetVector3Item(idx++);
                                 holesize = rules.GetVector3Item(idx++);
                                 topshear = rules.GetVector3Item(idx++);
                                 profilecut = rules.GetVector3Item(idx++);
                                 taper_b = rules.GetVector3Item(idx++); // taper_a
-                                revolutions = (float)rules.GetLSLFloatItem(idx++);
-                                radiusoffset = (float)rules.GetLSLFloatItem(idx++);
-                                skew = (float)rules.GetLSLFloatItem(idx++);
+                                revolutions = rules.GetLSLFloatItem(idx++);
+                                radiusoffset = rules.GetLSLFloatItem(idx++);
+                                skew = rules.GetLSLFloatItem(idx++);
                                 foreach (var o in links)
                                 {
                                     if (o is SceneObjectPart)
@@ -9724,21 +10846,23 @@ namespace InWorldz.Phlox.Engine
                                 }
                                 break;
 
-                            case (int)ScriptBaseClass.PRIM_TYPE_TUBE:
+                            case ScriptBaseClass.PRIM_TYPE_TUBE:
                                 if (remain < 11)
+                                {
                                     return;
+                                }
 
-                                face = (int)rules.GetLSLIntegerItem(idx++); // holeshape
+                                face = rules.GetLSLIntegerItem(idx++); // holeshape
                                 v = rules.GetVector3Item(idx++); //cut
-                                hollow = (float)rules.GetLSLFloatItem(idx++);
+                                hollow = rules.GetLSLFloatItem(idx++);
                                 twist = rules.GetVector3Item(idx++);
                                 holesize = rules.GetVector3Item(idx++);
                                 topshear = rules.GetVector3Item(idx++);
                                 profilecut = rules.GetVector3Item(idx++);
                                 taper_b = rules.GetVector3Item(idx++); // taper_a
-                                revolutions = (float)rules.GetLSLFloatItem(idx++);
-                                radiusoffset = (float)rules.GetLSLFloatItem(idx++);
-                                skew = (float)rules.GetLSLFloatItem(idx++);
+                                revolutions = rules.GetLSLFloatItem(idx++);
+                                radiusoffset = rules.GetLSLFloatItem(idx++);
+                                skew = rules.GetLSLFloatItem(idx++);
                                 foreach (var o in links)
                                 {
                                     if (o is SceneObjectPart)
@@ -9750,21 +10874,23 @@ namespace InWorldz.Phlox.Engine
                                 }
                                 break;
 
-                            case (int)ScriptBaseClass.PRIM_TYPE_RING:
+                            case ScriptBaseClass.PRIM_TYPE_RING:
                                 if (remain < 11)
+                                {
                                     return;
+                                }
 
-                                face = (int)rules.GetLSLIntegerItem(idx++); // holeshape
+                                face = rules.GetLSLIntegerItem(idx++); // holeshape
                                 v = rules.GetVector3Item(idx++); //cut
-                                hollow = (float)rules.GetLSLFloatItem(idx++);
+                                hollow = rules.GetLSLFloatItem(idx++);
                                 twist = rules.GetVector3Item(idx++);
                                 holesize = rules.GetVector3Item(idx++);
                                 topshear = rules.GetVector3Item(idx++);
                                 profilecut = rules.GetVector3Item(idx++);
                                 taper_b = rules.GetVector3Item(idx++); // taper_a
-                                revolutions = (float)rules.GetLSLFloatItem(idx++);
-                                radiusoffset = (float)rules.GetLSLFloatItem(idx++);
-                                skew = (float)rules.GetLSLFloatItem(idx++);
+                                revolutions = rules.GetLSLFloatItem(idx++);
+                                radiusoffset = rules.GetLSLFloatItem(idx++);
+                                skew = rules.GetLSLFloatItem(idx++);
                                 foreach (var o in links)
                                 {
                                     if (o is SceneObjectPart)
@@ -9776,12 +10902,14 @@ namespace InWorldz.Phlox.Engine
                                 }
                                 break;
 
-                            case (int)ScriptBaseClass.PRIM_TYPE_SCULPT:
+                            case ScriptBaseClass.PRIM_TYPE_SCULPT:
                                 if (remain < 2)
+                                {
                                     return;
+                                }
 
                                 string map = rules.Data[idx++].ToString();
-                                face = (int)rules.GetLSLIntegerItem(idx++); // type
+                                face = rules.GetLSLIntegerItem(idx++); // type
                                 foreach (var o in links)
                                 {
                                     if (o is SceneObjectPart)
@@ -9796,9 +10924,12 @@ namespace InWorldz.Phlox.Engine
 
                         break;  // PRIM_TYPE
 
-                    case (int)ScriptBaseClass.PRIM_SLICE:
+                    case ScriptBaseClass.PRIM_SLICE:
                         if (remain < 1)
+                        {
                             return;
+                        }
+
                         LSL_Vector slice = rules.GetVector3Item(idx++);
 
                         foreach (var o in links)
@@ -9836,15 +10967,17 @@ namespace InWorldz.Phlox.Engine
                         }
                         break;
 
-                    case (int)ScriptBaseClass.PRIM_TEXTURE:
+                    case ScriptBaseClass.PRIM_TEXTURE:
                         if (remain < 5)
+                        {
                             return;
+                        }
 
-                        face = (int)rules.GetLSLIntegerItem(idx++);
+                        face = rules.GetLSLIntegerItem(idx++);
                         string tex = rules.Data[idx++].ToString();
                         LSL_Vector repeats = rules.GetVector3Item(idx++);
                         LSL_Vector offsets = rules.GetVector3Item(idx++);
-                        double rotation = (double)rules.GetLSLFloatItem(idx++);
+                        double rotation = rules.GetLSLFloatItem(idx++);
 
                         foreach (var o in links)
                         {
@@ -9859,12 +10992,14 @@ namespace InWorldz.Phlox.Engine
                         }
                         break;
 
-                    case (int)ScriptBaseClass.IW_PRIM_ALPHA:
+                    case ScriptBaseClass.IW_PRIM_ALPHA:
                         if (remain < 2)
+                        {
                             return;
+                        }
 
-                        face = (int)rules.GetLSLIntegerItem(idx++);
-                        double alphaValue = (double)rules.GetLSLFloatItem(idx++);
+                        face = rules.GetLSLIntegerItem(idx++);
+                        double alphaValue = rules.GetLSLFloatItem(idx++);
 
                         foreach (var o in links)
                         {
@@ -9877,13 +11012,15 @@ namespace InWorldz.Phlox.Engine
 
                         break;
 
-                    case (int)ScriptBaseClass.PRIM_COLOR:
+                    case ScriptBaseClass.PRIM_COLOR:
                         if (remain < 3)
+                        {
                             return;
+                        }
 
-                        face = (int)rules.GetLSLIntegerItem(idx++);
+                        face = rules.GetLSLIntegerItem(idx++);
                         LSL_Vector color = rules.GetVector3Item(idx++);
-                        double alpha = (double)rules.GetLSLFloatItem(idx++);
+                        double alpha = rules.GetLSLFloatItem(idx++);
 
                         foreach (var o in links)
                         {
@@ -9896,16 +11033,18 @@ namespace InWorldz.Phlox.Engine
                         }
                         break;
 
-                    case (int)ScriptBaseClass.PRIM_FLEXIBLE:
+                    case ScriptBaseClass.PRIM_FLEXIBLE:
                         if (remain < 7)
+                        {
                             return;
+                        }
 
                         bool flexi = rules.GetLSLIntegerItem(idx++) == 1;
                         int softness = rules.GetLSLIntegerItem(idx++);
-                        float gravity = (float)rules.GetLSLFloatItem(idx++);
-                        float friction = (float)rules.GetLSLFloatItem(idx++);
-                        float wind = (float)rules.GetLSLFloatItem(idx++);
-                        float tension = (float)rules.GetLSLFloatItem(idx++);
+                        float gravity = rules.GetLSLFloatItem(idx++);
+                        float friction = rules.GetLSLFloatItem(idx++);
+                        float wind = rules.GetLSLFloatItem(idx++);
+                        float tension = rules.GetLSLFloatItem(idx++);
                         LSL_Vector force = rules.GetVector3Item(idx++);
 
                         foreach (var o in links)
@@ -9918,14 +11057,17 @@ namespace InWorldz.Phlox.Engine
                         }
                         break;
 
-                    case (int)ScriptBaseClass.PRIM_POINT_LIGHT:
+                    case ScriptBaseClass.PRIM_POINT_LIGHT:
                         if (remain < 5)
+                        {
                             return;
+                        }
+
                         bool light = rules.GetLSLIntegerItem(idx++) == 1;
                         LSL_Vector lightcolor = rules.GetVector3Item(idx++);
-                        float intensity = (float)rules.GetLSLFloatItem(idx++);
-                        float radius = (float)rules.GetLSLFloatItem(idx++);
-                        float falloff = (float)rules.GetLSLFloatItem(idx++);
+                        float intensity = rules.GetLSLFloatItem(idx++);
+                        float radius = rules.GetLSLFloatItem(idx++);
+                        float falloff = rules.GetLSLFloatItem(idx++);
                         foreach (var o in links)
                         {
                             if (o is SceneObjectPart)
@@ -9938,7 +11080,10 @@ namespace InWorldz.Phlox.Engine
 
                     case ScriptBaseClass.IW_PRIM_PROJECTOR:
                         if (remain < 5)
+                        {
                             return;
+                        }
+
                         bool enabled = rules.GetLSLIntegerItem(idx++) == 1;
                         UUID texID = KeyOrName(rules.Data[idx++].ToString());
                         float field_of_view = rules.GetLSLFloatItem(idx++);
@@ -9971,7 +11116,10 @@ namespace InWorldz.Phlox.Engine
 
                     case ScriptBaseClass.IW_PRIM_PROJECTOR_ENABLED:
                         if (remain < 1)
+                        {
                             return;
+                        }
+
                         bool projector = rules.GetLSLIntegerItem(idx++) == 1;
                         foreach (var o in links)
                         {
@@ -9988,7 +11136,10 @@ namespace InWorldz.Phlox.Engine
 
                     case ScriptBaseClass.IW_PRIM_PROJECTOR_TEXTURE:
                         if (remain < 1)
+                        {
                             return;
+                        }
+
                         tex = rules.Data[idx++].ToString();
                         UUID textureID = KeyOrName(tex);
 
@@ -10014,7 +11165,10 @@ namespace InWorldz.Phlox.Engine
 
                     case ScriptBaseClass.IW_PRIM_PROJECTOR_FOV:
                         if (remain < 1)
+                        {
                             return;
+                        }
+
                         float fov = rules.GetLSLFloatItem(idx++);
                         foreach (var o in links)
                         {
@@ -10031,7 +11185,10 @@ namespace InWorldz.Phlox.Engine
 
                     case ScriptBaseClass.IW_PRIM_PROJECTOR_FOCUS:
                         if (remain < 1)
+                        {
                             return;
+                        }
+
                         float focus = rules.GetLSLFloatItem(idx++);
                         foreach (var o in links)
                         {
@@ -10048,7 +11205,10 @@ namespace InWorldz.Phlox.Engine
 
                     case ScriptBaseClass.IW_PRIM_PROJECTOR_AMBIENCE:
                         if (remain < 1)
+                        {
                             return;
+                        }
+
                         float amb = rules.GetLSLFloatItem(idx++);
                         foreach (var o in links)
                         {
@@ -10063,11 +11223,14 @@ namespace InWorldz.Phlox.Engine
                         }
                         break;
 
-                    case (int)ScriptBaseClass.PRIM_GLOW:
+                    case ScriptBaseClass.PRIM_GLOW:
                         if (remain < 2)
+                        {
                             return;
+                        }
+
                         face = rules.GetLSLIntegerItem(idx++);
-                        float glow = (float)rules.GetLSLFloatItem(idx++);
+                        float glow = rules.GetLSLFloatItem(idx++);
                         foreach (var o in links)
                         {
                             if (o is SceneObjectPart)
@@ -10078,12 +11241,15 @@ namespace InWorldz.Phlox.Engine
                         }
                         break;
 
-                    case (int)ScriptBaseClass.PRIM_BUMP_SHINY:
+                    case ScriptBaseClass.PRIM_BUMP_SHINY:
                         if (remain < 3)
+                        {
                             return;
-                        face = (int)rules.GetLSLIntegerItem(idx++);
-                        int shiny = (int)rules.GetLSLIntegerItem(idx++);
-                        Bumpiness bump = (Bumpiness)Convert.ToByte((int)rules.GetLSLIntegerItem(idx++));
+                        }
+
+                        face = rules.GetLSLIntegerItem(idx++);
+                        int shiny = rules.GetLSLIntegerItem(idx++);
+                        Bumpiness bump = (Bumpiness)Convert.ToByte(rules.GetLSLIntegerItem(idx++));
                         foreach (var o in links)
                         {
                             if (o is SceneObjectPart)
@@ -10094,9 +11260,12 @@ namespace InWorldz.Phlox.Engine
                         }
                         break;
 
-                    case (int)ScriptBaseClass.PRIM_FULLBRIGHT:
+                    case ScriptBaseClass.PRIM_FULLBRIGHT:
                         if (remain < 2)
+                        {
                             return;
+                        }
+
                         face = rules.GetLSLIntegerItem(idx++);
                         bool st = rules.GetLSLIntegerItem(idx++) == 1;
                         foreach (var o in links)
@@ -10109,12 +11278,17 @@ namespace InWorldz.Phlox.Engine
                         }
                         break;
 
-                    case (int)ScriptBaseClass.PRIM_MATERIAL:
+                    case ScriptBaseClass.PRIM_MATERIAL:
                         if (remain < 1)
+                        {
                             return;
+                        }
+
                         int mat = rules.GetLSLIntegerItem(idx++);
                         if (mat < 0 || mat > 7)
+                        {
                             return;
+                        }
 
                         foreach (var o in links)
                         {
@@ -10126,17 +11300,23 @@ namespace InWorldz.Phlox.Engine
                         }
                         break;
 
-                    case (int)ScriptBaseClass.PRIM_PHANTOM:
+                    case ScriptBaseClass.PRIM_PHANTOM:
                         if (remain < 1)
+                        {
                             return;
+                        }
 
                         string ph = rules.Data[idx++].ToString();
                         bool phantom;
 
                         if (ph.Equals("1"))
+                        {
                             phantom = true;
+                        }
                         else
+                        {
                             phantom = false;
+                        }
 
                         foreach (var o in links)
                         {
@@ -10150,16 +11330,23 @@ namespace InWorldz.Phlox.Engine
                         }
                         break;
 
-                    case (int)ScriptBaseClass.PRIM_PHYSICS:
+                    case ScriptBaseClass.PRIM_PHYSICS:
                         if (remain < 1)
+                        {
                             return;
+                        }
+
                         string phy = rules.Data[idx++].ToString();
                         bool physics;
 
                         if (phy.Equals("1"))
+                        {
                             physics = true;
+                        }
                         else
+                        {
                             physics = false;
+                        }
 
                         foreach (var o in links)
                         {
@@ -10173,16 +11360,23 @@ namespace InWorldz.Phlox.Engine
                         }
                         break;
 
-                    case (int)ScriptBaseClass.PRIM_TEMP_ON_REZ:
+                    case ScriptBaseClass.PRIM_TEMP_ON_REZ:
                         if (remain < 1)
+                        {
                             return;
+                        }
+
                         string temp = rules.Data[idx++].ToString();
                         bool tempOnRez;
 
                         if (temp.Equals("1"))
+                        {
                             tempOnRez = true;
+                        }
                         else
+                        {
                             tempOnRez = false;
+                        }
 
                         foreach (var o in links)
                         {
@@ -10194,9 +11388,11 @@ namespace InWorldz.Phlox.Engine
                         }
                         break;
 
-                    case (int)ScriptBaseClass.PRIM_TEXGEN:
+                    case ScriptBaseClass.PRIM_TEXGEN:
                         if (remain < 2)
+                        {
                             return;
+                        }
                         //face,type
                         face = rules.GetLSLIntegerItem(idx++);
                         int style = rules.GetLSLIntegerItem(idx++);
@@ -10210,12 +11406,15 @@ namespace InWorldz.Phlox.Engine
                         }
                         break;
 
-                    case (int)ScriptBaseClass.PRIM_TEXT:
+                    case ScriptBaseClass.PRIM_TEXT:
                         if (remain < 3)
+                        {
                             return;
+                        }
+
                         string primtext = rules.Data[idx++].ToString();
                         LSL_Vector primcolor = rules.GetVector3Item(idx++);
-                        double primalpha = (double)rules.GetLSLFloatItem(idx++);
+                        double primalpha = rules.GetLSLFloatItem(idx++);
                         foreach (var o in links)
                         {
                             if (o is SceneObjectPart)
@@ -10226,9 +11425,12 @@ namespace InWorldz.Phlox.Engine
                         }
                         break;
 
-                    case (int)ScriptBaseClass.PRIM_NAME:
+                    case ScriptBaseClass.PRIM_NAME:
                         if (remain < 1)
+                        {
                             return;
+                        }
+
                         string primname = rules.Data[idx++].ToString();
                         foreach (var o in links)
                         {
@@ -10240,9 +11442,12 @@ namespace InWorldz.Phlox.Engine
                         }
                         break;
 
-                    case (int)ScriptBaseClass.PRIM_DESC:
+                    case ScriptBaseClass.PRIM_DESC:
                         if (remain < 1)
+                        {
                             return;
+                        }
+
                         string primdesc = rules.Data[idx++].ToString();
                         foreach (var o in links)
                         {
@@ -10254,9 +11459,11 @@ namespace InWorldz.Phlox.Engine
                         }
                         break;
 
-                    case (int)ScriptBaseClass.PRIM_SPECULAR:
+                    case ScriptBaseClass.PRIM_SPECULAR:
                         if (remain < 8)
+                        {
                             return;
+                        }
 
                         face = rules.GetLSLIntegerItem(idx++);
                         string specular_tex = rules.Data[idx++].ToString();
@@ -10269,7 +11476,9 @@ namespace InWorldz.Phlox.Engine
                         if (SpecularTextureID == UUID.Zero)
                         {
                             if (UUID.TryParse(specular_tex, out SpecularTextureID) == false)
+                            {
                                 return;
+                            }
 
                             // UUID.Zero here is valid.  It means to clear the normal settings.
                             specular_tex = SpecularTextureID.ToString();
@@ -10305,9 +11514,11 @@ namespace InWorldz.Phlox.Engine
                         }
                         break;
 
-                    case (int)ScriptBaseClass.PRIM_NORMAL:
+                    case ScriptBaseClass.PRIM_NORMAL:
                         if (remain < 5)
+                        {
                             return;
+                        }
 
                         face = rules.GetLSLIntegerItem(idx++);
                         string normal_tex = rules.Data[idx++].ToString();
@@ -10320,7 +11531,9 @@ namespace InWorldz.Phlox.Engine
                         if (NormalTextureID == UUID.Zero)
                         {
                             if (UUID.TryParse(normal_tex, out NormalTextureID) == false)
+                            {
                                 return;
+                            }
 
                             // UUID.Zero here is valid.  It means to clear the normal settings.
                             normal_tex = NormalTextureID.ToString();
@@ -10353,9 +11566,11 @@ namespace InWorldz.Phlox.Engine
                         }
                         break;
 
-                    case (int)ScriptBaseClass.PRIM_ALPHA_MODE:
+                    case ScriptBaseClass.PRIM_ALPHA_MODE:
                         if (remain < 3)
+                        {
                             return;
+                        }
 
                         face = rules.GetLSLIntegerItem(idx++);
                         int alpha_mode = rules.GetLSLIntegerItem(idx++);
@@ -10383,10 +11598,13 @@ namespace InWorldz.Phlox.Engine
                             }
                         }
                         break;
-                    case (int)ScriptBaseClass.PRIM_SIT_TARGET:
+                    case ScriptBaseClass.PRIM_SIT_TARGET:
                         // [ PRIM_SIT_TARGET, integer active, vector offset, rotation rot ] 
                         if (remain < 3)
+                        {
                             return;
+                        }
+
                         bool isActive = rules.GetLSLIntegerItem(idx++) != 0;
                         v = rules.GetVector3Item(idx++);
                         r = rules.GetQuaternionItem(idx++);
@@ -10396,9 +11614,13 @@ namespace InWorldz.Phlox.Engine
                             {
                                 var part = o as SceneObjectPart;
                                 if (isActive)
+                                {
                                     part.SetSitTarget(isActive, v, r, true);
+                                }
                                 else
+                                {
                                     part.RemoveSitTarget();
+                                }
                             }
                         }
                         break;
@@ -10407,14 +11629,14 @@ namespace InWorldz.Phlox.Engine
         }
 
         private void SetRenderMaterialSpecularData(
-            SceneObjectPart part, 
-            int face, 
-            string specular_tex, 
-            LSL_Vector specular_repeats, 
-            LSL_Vector specular_offsets, 
-            float specular_rotation, 
-            LSL_Vector specular_color, 
-            int specular_glossiness, 
+            SceneObjectPart part,
+            int face,
+            string specular_tex,
+            LSL_Vector specular_repeats,
+            LSL_Vector specular_offsets,
+            float specular_rotation,
+            LSL_Vector specular_color,
+            int specular_glossiness,
             int specular_environment
             )
         {
@@ -10422,9 +11644,13 @@ namespace InWorldz.Phlox.Engine
             RenderMaterial material;
 
             if (id == UUID.Zero)
+            {
                 material = (RenderMaterial)RenderMaterial.DefaultMaterial.Clone();
+            }
             else
+            {
                 material = part.Shape.RenderMaterials.GetMaterial(id);
+            }
 
             material.SpecularID = new UUID(specular_tex);
             material.SpecularRepeatX = specular_repeats.X;
@@ -10443,11 +11669,11 @@ namespace InWorldz.Phlox.Engine
         }
 
         private void SetRenderMaterialNormalData(
-            SceneObjectPart part, 
-            int face, 
-            string normal_tex, 
-            LSL_Vector normal_repeats, 
-            LSL_Vector normal_offsets, 
+            SceneObjectPart part,
+            int face,
+            string normal_tex,
+            LSL_Vector normal_repeats,
+            LSL_Vector normal_offsets,
             float normal_rotation
             )
         {
@@ -10455,9 +11681,13 @@ namespace InWorldz.Phlox.Engine
             RenderMaterial material;
 
             if (id == UUID.Zero)
+            {
                 material = (RenderMaterial)RenderMaterial.DefaultMaterial.Clone();
+            }
             else
+            {
                 material = part.Shape.RenderMaterials.GetMaterial(id);
+            }
 
             material.NormalID = new UUID(normal_tex);
             material.NormalRepeatX = normal_repeats.X;
@@ -10470,9 +11700,9 @@ namespace InWorldz.Phlox.Engine
         }
 
         private void SetRenderMaterialAlphaModeData(
-            SceneObjectPart part, 
-            int face, 
-            int alpha_mode, 
+            SceneObjectPart part,
+            int face,
+            int alpha_mode,
             int alpha_mask_cutoff
             )
         {
@@ -10480,9 +11710,13 @@ namespace InWorldz.Phlox.Engine
             RenderMaterial material;
 
             if (id == UUID.Zero)
+            {
                 material = (RenderMaterial)RenderMaterial.DefaultMaterial.Clone();
+            }
             else
+            {
                 material = part.Shape.RenderMaterials.GetMaterial(id);
+            }
 
             material.DiffuseAlphaMode = (byte)alpha_mode;
             material.AlphaMaskCutoff = (byte)alpha_mask_cutoff;
@@ -10504,7 +11738,9 @@ namespace InWorldz.Phlox.Engine
 
             // Signal the change so the region cache gets updated
             if (sop.ParentGroup.Scene != null)
+            {
                 sop.ParentGroup.Scene.EventManager.TriggerRenderMaterialAddedToPrim(sop, id, material);
+            }
 
             // If the new material is replacing one lets record it so we can clean up
             UUID oldMaterialID = UUID.Zero;
@@ -10538,10 +11774,14 @@ namespace InWorldz.Phlox.Engine
                 if (currentMaterialIDs.Contains(oldMaterialID) == false)
                 {
                     if (sop.Shape.RenderMaterials.ContainsMaterial(oldMaterialID) == true)
+                    {
                         sop.Shape.RenderMaterials.RemoveMaterial(oldMaterialID);
+                    }
 
                     if (sop.ParentGroup.Scene != null)
+                    {
                         sop.ParentGroup.Scene.EventManager.TriggerRenderMaterialRemovedFromPrim(sop, oldMaterialID);
+                    }
                 }
             }
         }
@@ -10601,11 +11841,17 @@ namespace InWorldz.Phlox.Engine
             List<object> l = new List<object>();
             ScenePresence av = World.GetScenePresence((UUID)id);
             if (av == null || av.IsChildAgent) // only if in the region
+            {
                 return new LSL_List(l);
+            }
+
             UUID[] anims;
             anims = av.GetAnimationArray();
             foreach (UUID foo in anims)
+            {
                 l.Add(foo.ToString());
+            }
+
             return new LSL_List(l);
         }
 
@@ -10613,8 +11859,10 @@ namespace InWorldz.Phlox.Engine
         {
             ILandObject landObject = World.LandChannel.GetLandObject(m_host.AbsolutePosition.X, m_host.AbsolutePosition.Y);
 
-            if (!World.Permissions.CanEditParcel(m_host.OwnerID, landObject, GroupPowers.ChangeMedia)) 
+            if (!World.Permissions.CanEditParcel(m_host.OwnerID, landObject, GroupPowers.ChangeMedia))
+            {
                 return;
+            }
 
             landObject.SetMusicUrl(url);
 
@@ -10625,12 +11873,15 @@ namespace InWorldz.Phlox.Engine
         {
             ILandObject land = World.LandChannel.GetLandObject(m_host.AbsolutePosition.X, m_host.AbsolutePosition.Y);
             if (land == null)
+            {
                 return String.Empty;
+            }
 
             return land.GetMusicUrl();
         }
 
-        public int iwHasParcelPowers(int operation)
+        public int iwHasParcelPowers(int operation) { return halHasParcelPowers(operation); }
+        public int halHasParcelPowers(int operation)
         {
             ILandObject landObject = World.LandChannel.GetLandObject(m_host.AbsolutePosition.X, m_host.AbsolutePosition.Y);
             GroupPowers powers = (GroupPowers)operation;
@@ -10639,7 +11890,7 @@ namespace InWorldz.Phlox.Engine
 
         public LSL_Vector llGetRootPosition()
         {
-            
+
             return new LSL_Vector(m_host.ParentGroup.AbsolutePosition.X, m_host.ParentGroup.AbsolutePosition.Y, m_host.ParentGroup.AbsolutePosition.Z);
         }
 
@@ -10654,21 +11905,32 @@ namespace InWorldz.Phlox.Engine
         /// </summary>
         public LSL_Rotation llGetRootRotation()
         {
-            
+
             Quaternion q;
             if (m_host.ParentGroup.RootPart.AttachmentPoint != 0)
             {
                 ScenePresence avatar = World.GetScenePresence(m_host.AttachedAvatar);
                 if (avatar != null)
+                {
                     if ((avatar.AgentControlFlags & (uint)AgentManager.ControlFlags.AGENT_CONTROL_MOUSELOOK) != 0)
+                    {
                         q = avatar.CameraRotation; // Mouselook
+                    }
                     else
+                    {
                         q = avatar.Rotation; // Currently infrequently updated so may be inaccurate
+                    }
+                }
                 else
+                {
                     q = m_host.ParentGroup.GroupRotation; // Likely never get here but just in case
+                }
             }
             else
+            {
                 q = m_host.ParentGroup.GroupRotation; // just the group rotation
+            }
+
             return new LSL_Rotation(q.X, q.Y, q.Z, q.W);
         }
 
@@ -10684,13 +11946,13 @@ namespace InWorldz.Phlox.Engine
 
         public string llGetCreator()
         {
-            
+
             return m_host.ObjectCreator.ToString();
         }
 
         public string llGetTimestamp()
         {
-            
+
             return DateTime.Now.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffffffZ");
         }
 
@@ -10753,9 +12015,13 @@ namespace InWorldz.Phlox.Engine
             {
                 Box bbox;
                 if (isRelative)
+                {
                     bbox = part.ParentGroup.RelativeBoundingBox(true);
+                }
                 else
+                {
                     bbox = part.ParentGroup.BoundingBox();
+                }
 
                 Vector3 halfSize = bbox.Size / 2.0f;
                 LSL_Vector lower = new LSL_Vector(halfSize.X * -1.0f, halfSize.Y * -1.0f, halfSize.Z * -1.0f);
@@ -10784,7 +12050,8 @@ namespace InWorldz.Phlox.Engine
         {
             return GetBoundingBox(obj, true);
         }
-        public LSL_List iwGetWorldBoundingBox(string obj)
+        public LSL_List iwGetWorldBoundingBox(string obj) { return halGetWorldBoundingBox(obj); }
+        public LSL_List halGetWorldBoundingBox(string obj)
         {
             return GetBoundingBox(obj, false);
         }
@@ -10803,7 +12070,7 @@ namespace InWorldz.Phlox.Engine
                     res.Add(new LSL_Vector(sp.AbsolutePosition));
                     break;
                 case ScriptBaseClass.PRIM_POS_LOCAL:
-                    res.Add(new LSL_Vector(sp.AbsolutePosition-m_host.ParentGroup.RootPart.AbsolutePosition));
+                    res.Add(new LSL_Vector(sp.AbsolutePosition - m_host.ParentGroup.RootPart.AbsolutePosition));
                     break;
                 case ScriptBaseClass.PRIM_NAME: // will return the avatar's legacy name.
                     res.Add((sp != null) ? sp.Name : String.Empty);
@@ -10815,7 +12082,7 @@ namespace InWorldz.Phlox.Engine
                     res.Add(ScriptBaseClass.PRIM_TYPE_BOX);
                     res.Add(ScriptBaseClass.PRIM_HOLE_DEFAULT);
                     res.Add(new LSL_Vector(0.0f, 1.0f, 0.0f));
-                    res.Add((float)0.0f);
+                    res.Add(0.0f);
                     res.Add(new LSL_Vector(Vector3.Zero));
                     res.Add(new LSL_Vector(1.0f, 1.0f, 0.0f));
                     res.Add(new LSL_Vector(Vector3.Zero));
@@ -10824,7 +12091,7 @@ namespace InWorldz.Phlox.Engine
                     res.Add(new LSL_Vector(0.0f, 1.0f, 0.0f));
                     break;
                 case ScriptBaseClass.PRIM_MATERIAL:
-                    res.Add((int)ScriptBaseClass.PRIM_MATERIAL_FLESH);
+                    res.Add(ScriptBaseClass.PRIM_MATERIAL_FLESH);
                     break;
                 case ScriptBaseClass.PRIM_TEMP_ON_REZ:
                     res.Add(ScriptBaseClass.FALSE);
@@ -10838,36 +12105,36 @@ namespace InWorldz.Phlox.Engine
                 case ScriptBaseClass.PRIM_TEXT:
                     res.Add(String.Empty);
                     res.Add(new LSL_Vector(Vector3.Zero));
-                    res.Add((float)1.0f);
+                    res.Add(1.0f);
                     break;
                 case ScriptBaseClass.PRIM_POINT_LIGHT:
                     res.Add(ScriptBaseClass.FALSE);
                     res.Add(new LSL_Vector(Vector3.Zero));
-                    res.Add((float)0.0f);
-                    res.Add((float)0.0f);
-                    res.Add((float)0.0f);
+                    res.Add(0.0f);
+                    res.Add(0.0f);
+                    res.Add(0.0f);
                     break;
                 case ScriptBaseClass.PRIM_FLEXIBLE:
                     res.Add(ScriptBaseClass.FALSE);
-                    res.Add((int)0);
-                    res.Add((float)0.0f);
-                    res.Add((float)0.0f);
-                    res.Add((float)0.0f);
-                    res.Add((float)0.0f);
+                    res.Add(0);
+                    res.Add(0.0f);
+                    res.Add(0.0f);
+                    res.Add(0.0f);
+                    res.Add(0.0f);
                     res.Add(new LSL_Vector(Vector3.Zero));
                     break;
 
                 // These all expect a single parameter in the params list:
-                case (int)ScriptBaseClass.PRIM_TEXTURE:
-                case (int)ScriptBaseClass.IW_PRIM_ALPHA:
-				case (int)ScriptBaseClass.PRIM_COLOR:
-				case (int)ScriptBaseClass.PRIM_BUMP_SHINY:
-				case (int)ScriptBaseClass.PRIM_FULLBRIGHT:
-				case (int)ScriptBaseClass.PRIM_TEXGEN:
-				case (int)ScriptBaseClass.PRIM_GLOW:
-				case (int)ScriptBaseClass.PRIM_SPECULAR:
-				case (int)ScriptBaseClass.PRIM_NORMAL:
-				case (int)ScriptBaseClass.PRIM_ALPHA_MODE:
+                case ScriptBaseClass.PRIM_TEXTURE:
+                case ScriptBaseClass.IW_PRIM_ALPHA:
+                case ScriptBaseClass.PRIM_COLOR:
+                case ScriptBaseClass.PRIM_BUMP_SHINY:
+                case ScriptBaseClass.PRIM_FULLBRIGHT:
+                case ScriptBaseClass.PRIM_TEXGEN:
+                case ScriptBaseClass.PRIM_GLOW:
+                case ScriptBaseClass.PRIM_SPECULAR:
+                case ScriptBaseClass.PRIM_NORMAL:
+                case ScriptBaseClass.PRIM_ALPHA_MODE:
                     paramCount = 1;
                     ScriptShoutError("texture info cannot be accessed for avatars.");
                     break;
@@ -10880,7 +12147,9 @@ namespace InWorldz.Phlox.Engine
         {
             ScenePresence sp = m_host.ParentGroup.GetSeatedAvatarByLink(linknum);
             if (sp == null)
+            {
                 return 0;
+            }
 
             return GetAvatarAsPrimParam(sp, ref res, rule);
         }
@@ -10898,15 +12167,18 @@ namespace InWorldz.Phlox.Engine
 
             while (idx < rules.Length)
             {
-                int code = (int)rules.GetLSLIntegerItem(idx++);
+                int code = rules.GetLSLIntegerItem(idx++);
                 int remain = rules.Length - idx;
 
                 // Handle changing target prim(s) and/or avatars.
-                if (code == (int)ScriptBaseClass.PRIM_LINK_TARGET)
+                if (code == ScriptBaseClass.PRIM_LINK_TARGET)
                 {
                     if (remain < 1)
+                    {
                         return new LSL_List(res);
-                    linknumber = (int)rules.GetLSLIntegerItem(idx++);
+                    }
+
+                    linknumber = rules.GetLSLIntegerItem(idx++);
                     remain = rules.Length - idx;
 
                     parts = GetLinkParts(linknumber, true);
@@ -10916,143 +12188,206 @@ namespace InWorldz.Phlox.Engine
                 // Neither of the above, fall through to normal prim properties.
                 switch (code)
                 {
-                    case (int)ScriptBaseClass.PRIM_MATERIAL:
+                    case ScriptBaseClass.PRIM_MATERIAL:
                         foreach (object o in parts)
                         {
                             if (o is ScenePresence)
+                            {
                                 GetAvatarAsPrimParam(o as ScenePresence, ref res, code);
+                            }
                             else
+                            {
                                 res.Add((int)((o as SceneObjectPart).Material));
+                            }
                         }
                         break;
 
-                    case (int)ScriptBaseClass.PRIM_PHYSICS:
+                    case ScriptBaseClass.PRIM_PHYSICS:
                         foreach (object o in parts)
                         {
                             if (o is ScenePresence)
+                            {
                                 GetAvatarAsPrimParam(o as ScenePresence, ref res, code);
+                            }
                             else
                             if (((o as SceneObjectPart).GetEffectiveObjectFlags() & PrimFlags.Physics) != 0)
-                                res.Add((int)(1));
+                            {
+                                res.Add(1);
+                            }
                             else
-                                res.Add((int)(0));
+                            {
+                                res.Add(0);
+                            }
                         }
                         break;
 
-                    case (int)ScriptBaseClass.PRIM_TEMP_ON_REZ:
+                    case ScriptBaseClass.PRIM_TEMP_ON_REZ:
                         foreach (object o in parts)
                         {
                             if (o is ScenePresence)
+                            {
                                 GetAvatarAsPrimParam(o as ScenePresence, ref res, code);
+                            }
                             else
                             if (((o as SceneObjectPart).GetEffectiveObjectFlags() & PrimFlags.TemporaryOnRez) != 0)
-                                res.Add((int)(1));
+                            {
+                                res.Add(1);
+                            }
                             else
-                                res.Add((int)(0));
+                            {
+                                res.Add(0);
+                            }
                         }
                         break;
 
-                    case (int)ScriptBaseClass.PRIM_PHANTOM:
+                    case ScriptBaseClass.PRIM_PHANTOM:
                         foreach (object o in parts)
                         {
                             if (o is ScenePresence)
+                            {
                                 GetAvatarAsPrimParam(o as ScenePresence, ref res, code);
+                            }
                             else
                             if (((o as SceneObjectPart).GetEffectiveObjectFlags() & PrimFlags.Phantom) != 0)
-                                res.Add((int)(1));
+                            {
+                                res.Add(1);
+                            }
                             else
-                                res.Add((int)(0));
+                            {
+                                res.Add(0);
+                            }
                         }
                         break;
 
-                    case (int)ScriptBaseClass.PRIM_POSITION:
+                    case ScriptBaseClass.PRIM_POSITION:
                         foreach (object o in parts)
                         {
                             if (o is ScenePresence)
+                            {
                                 GetAvatarAsPrimParam(o as ScenePresence, ref res, code);
+                            }
                             else
+                            {
                                 res.Add(new LSL_Vector((o as SceneObjectPart).GetSLCompatiblePosition()));
+                            }
                         }
                         break;
 
-                    case (int)ScriptBaseClass.PRIM_SIZE:
-                        foreach (object o in parts)
-                            if (o is ScenePresence)
-                                GetAvatarAsPrimParam(o as ScenePresence, ref res, code);
-                            else
-                                res.Add(new LSL_Vector((o as SceneObjectPart).Scale));
-                        break;
-
-                    case (int)ScriptBaseClass.PRIM_ROTATION:
-                        foreach (object o in parts)
-                            if (o is ScenePresence)
-                                GetAvatarAsPrimParam(o as ScenePresence, ref res, code);
-                            else
-                                res.Add(GetPartRot(o as SceneObjectPart));
-                        break;
-
-                    case (int)ScriptBaseClass.PRIM_ROT_LOCAL:
-                        foreach (object o in parts)
-                            if (o is ScenePresence)
-                                GetAvatarAsPrimParam(o as ScenePresence, ref res, code);
-                            else
-                                res.Add(GetPartLocalRot(o as SceneObjectPart));
-                        break;
-
-                    case (int)ScriptBaseClass.PRIM_PHYSICS_SHAPE_TYPE:
+                    case ScriptBaseClass.PRIM_SIZE:
                         foreach (object o in parts)
                         {
                             if (o is ScenePresence)
+                            {
                                 GetAvatarAsPrimParam(o as ScenePresence, ref res, code);
+                            }
+                            else
+                            {
+                                res.Add(new LSL_Vector((o as SceneObjectPart).Scale));
+                            }
+                        }
+
+                        break;
+
+                    case ScriptBaseClass.PRIM_ROTATION:
+                        foreach (object o in parts)
+                        {
+                            if (o is ScenePresence)
+                            {
+                                GetAvatarAsPrimParam(o as ScenePresence, ref res, code);
+                            }
+                            else
+                            {
+                                res.Add(GetPartRot(o as SceneObjectPart));
+                            }
+                        }
+
+                        break;
+
+                    case ScriptBaseClass.PRIM_ROT_LOCAL:
+                        foreach (object o in parts)
+                        {
+                            if (o is ScenePresence)
+                            {
+                                GetAvatarAsPrimParam(o as ScenePresence, ref res, code);
+                            }
+                            else
+                            {
+                                res.Add(GetPartLocalRot(o as SceneObjectPart));
+                            }
+                        }
+
+                        break;
+
+                    case ScriptBaseClass.PRIM_PHYSICS_SHAPE_TYPE:
+                        foreach (object o in parts)
+                        {
+                            if (o is ScenePresence)
+                            {
+                                GetAvatarAsPrimParam(o as ScenePresence, ref res, code);
+                            }
                             else
                             if ((o as SceneObjectPart).Shape.PreferredPhysicsShape == PhysicsShapeType.Prim)
-                                res.Add((int)ScriptBaseClass.PRIM_PHYSICS_SHAPE_PRIM);
+                            {
+                                res.Add(ScriptBaseClass.PRIM_PHYSICS_SHAPE_PRIM);
+                            }
                             else if ((o as SceneObjectPart).Shape.PreferredPhysicsShape == PhysicsShapeType.None)
-                                res.Add((int)ScriptBaseClass.PRIM_PHYSICS_SHAPE_NONE);
+                            {
+                                res.Add(ScriptBaseClass.PRIM_PHYSICS_SHAPE_NONE);
+                            }
                             else
-                                res.Add((int)ScriptBaseClass.PRIM_PHYSICS_SHAPE_CONVEX);
+                            {
+                                res.Add(ScriptBaseClass.PRIM_PHYSICS_SHAPE_CONVEX);
+                            }
                         }
                         break;
 
-                    case (int)ScriptBaseClass.PRIM_OMEGA:
+                    case ScriptBaseClass.PRIM_OMEGA:
                         // This is probably correct in the 99% case.  It's stored in axis*spinrate (gain is ignored)
                         // and spinrate is often TWO_PI. So divide by that and hope for the best (for now).
                         foreach (object o in parts)
                         {
                             if (o is ScenePresence)
+                            {
                                 GetAvatarAsPrimParam(o as ScenePresence, ref res, code);
+                            }
                             else
                             {
                                 SceneObjectPart part = o as SceneObjectPart;
                                 res.Add(new LSL_Vector((float)(part.AngularVelocity.X / ScriptBaseClass.TWO_PI), (float)(part.AngularVelocity.Y / ScriptBaseClass.TWO_PI), (float)(part.AngularVelocity.Z / ScriptBaseClass.TWO_PI)));
                                 res.Add((float)ScriptBaseClass.TWO_PI);
-                                res.Add((float)1.0f);
+                                res.Add(1.0f);
                             }
                         }
                         break;
 
-                    case (int)ScriptBaseClass.PRIM_POS_LOCAL:
+                    case ScriptBaseClass.PRIM_POS_LOCAL:
                         foreach (object o in parts)
                         {
                             if (o is ScenePresence)
+                            {
                                 GetAvatarAsPrimParam(o as ScenePresence, ref res, code);
+                            }
                             else
+                            {
                                 res.Add(new LSL_Vector(GetPartLocalPos(o as SceneObjectPart)));
+                            }
                         }
                         break;
 
-                    case (int)ScriptBaseClass.PRIM_TYPE:
+                    case ScriptBaseClass.PRIM_TYPE:
                         // implementing box
                         foreach (object o in parts)
                         {
                             if (o is ScenePresence)
+                            {
                                 GetAvatarAsPrimParam(o as ScenePresence, ref res, code);
+                            }
                             else
                             {
                                 SceneObjectPart part = o as SceneObjectPart;
                                 PrimitiveBaseShape Shape = part.Shape;
                                 int primType = getScriptPrimType(part.Shape);
-                                res.Add((int)(primType));
+                                res.Add(primType);
                                 switch (primType)
                                 {
                                     case ScriptBaseClass.PRIM_TYPE_BOX:
@@ -11069,7 +12404,7 @@ namespace InWorldz.Phlox.Engine
                                     case ScriptBaseClass.PRIM_TYPE_SPHERE:
                                         res.Add((int)(Shape.HollowShape));
                                         res.Add(new LSL_Vector(Shape.PathBegin / 50000.0f, 1 - Shape.PathEnd / 50000.0f, 0));
-                                        res.Add((float)(Shape.ProfileHollow / 50000.0f));
+                                        res.Add(Shape.ProfileHollow / 50000.0f);
                                         res.Add(new LSL_Vector(Shape.PathTwistBegin / 100.0f, Shape.PathTwist / 100.0f, 0));
                                         res.Add(new LSL_Vector(Shape.ProfileBegin / 50000.0f, 1 - Shape.ProfileEnd / 50000.0f, 0));
                                         break;
@@ -11120,15 +12455,20 @@ namespace InWorldz.Phlox.Engine
                         }
                         break;
 
-                    case (int)ScriptBaseClass.PRIM_TEXTURE:
+                    case ScriptBaseClass.PRIM_TEXTURE:
                         if (remain < 1)
+                        {
                             return new LSL_List(res);
-                        face = (int)rules.GetLSLIntegerItem(idx++);
+                        }
+
+                        face = rules.GetLSLIntegerItem(idx++);
 
                         foreach (object o in parts)
                         {
                             if (o is ScenePresence)
+                            {
                                 GetAvatarAsPrimParam(o as ScenePresence, ref res, code);
+                            }
                             else
                             {
                                 SceneObjectPart part = o as SceneObjectPart;
@@ -11145,7 +12485,7 @@ namespace InWorldz.Phlox.Engine
                                         res.Add(new LSL_Vector(texface.OffsetU,
                                                                texface.OffsetV,
                                                                0));
-                                        res.Add((float)(texface.Rotation));
+                                        res.Add(texface.Rotation);
                                     }
                                 }
                                 else
@@ -11160,22 +12500,27 @@ namespace InWorldz.Phlox.Engine
                                         res.Add(new LSL_Vector(texface.OffsetU,
                                                                texface.OffsetV,
                                                                0));
-                                        res.Add((float)(texface.Rotation));
+                                        res.Add(texface.Rotation);
                                     }
                                 }
                             }
                         }
                         break;
 
-                    case (int)ScriptBaseClass.IW_PRIM_ALPHA:
+                    case ScriptBaseClass.IW_PRIM_ALPHA:
                         if (remain < 1)
+                        {
                             return new LSL_List(res);
-                        face = (int)rules.GetLSLIntegerItem(idx++);
+                        }
+
+                        face = rules.GetLSLIntegerItem(idx++);
 
                         foreach (object o in parts)
                         {
                             if (o is ScenePresence)
+                            {
                                 GetAvatarAsPrimParam(o as ScenePresence, ref res, code);
+                            }
                             else
                             {
                                 double alphaValue = GetAlpha(o as SceneObjectPart, face);
@@ -11184,15 +12529,20 @@ namespace InWorldz.Phlox.Engine
                         }
                         break;
 
-                    case (int)ScriptBaseClass.PRIM_COLOR:
+                    case ScriptBaseClass.PRIM_COLOR:
                         if (remain < 1)
+                        {
                             return new LSL_List(res);
-                        face = (int)rules.GetLSLIntegerItem(idx++);
+                        }
+
+                        face = rules.GetLSLIntegerItem(idx++);
 
                         foreach (object o in parts)
                         {
                             if (o is ScenePresence)
+                            {
                                 GetAvatarAsPrimParam(o as ScenePresence, ref res, code);
+                            }
                             else
                             {
                                 SceneObjectPart part = o as SceneObjectPart;
@@ -11206,7 +12556,7 @@ namespace InWorldz.Phlox.Engine
                                         res.Add(new LSL_Vector(texcolor.R,
                                                                texcolor.G,
                                                                texcolor.B));
-                                        res.Add((float)(texcolor.A));
+                                        res.Add(texcolor.A);
                                     }
                                 }
                                 else
@@ -11215,21 +12565,26 @@ namespace InWorldz.Phlox.Engine
                                     res.Add(new LSL_Vector(texcolor.R,
                                                            texcolor.G,
                                                            texcolor.B));
-                                    res.Add((float)(texcolor.A));
+                                    res.Add(texcolor.A);
                                 }
                             }
                         }
                         break;
 
-                    case (int)ScriptBaseClass.PRIM_BUMP_SHINY:
+                    case ScriptBaseClass.PRIM_BUMP_SHINY:
                         if (remain < 1)
+                        {
                             return new LSL_List(res);
-                        face = (int)rules.GetLSLIntegerItem(idx++);
+                        }
+
+                        face = rules.GetLSLIntegerItem(idx++);
 
                         foreach (object o in parts)
                         {
                             if (o is ScenePresence)
+                            {
                                 GetAvatarAsPrimParam(o as ScenePresence, ref res, code);
+                            }
                             else
                             {
                                 SceneObjectPart part = o as SceneObjectPart;
@@ -11255,22 +12610,27 @@ namespace InWorldz.Phlox.Engine
                                         // Convert Shininess to PRIM_SHINY_*
                                         res.Add((int)((uint)texface.Shiny >> 6));
                                         // PRIM_BUMP_*
-                                        res.Add((int)((int)texface.Bump));
+                                        res.Add((int)texface.Bump);
                                     }
                                 }
                             }
                         }
                         break;
 
-                    case (int)ScriptBaseClass.PRIM_FULLBRIGHT:
+                    case ScriptBaseClass.PRIM_FULLBRIGHT:
                         if (remain < 1)
+                        {
                             return new LSL_List(res);
-                        face = (int)rules.GetLSLIntegerItem(idx++);
+                        }
+
+                        face = rules.GetLSLIntegerItem(idx++);
 
                         foreach (object o in parts)
                         {
                             if (o is ScenePresence)
+                            {
                                 GetAvatarAsPrimParam(o as ScenePresence, ref res, code);
+                            }
                             else
                             {
                                 SceneObjectPart part = o as SceneObjectPart;
@@ -11295,25 +12655,32 @@ namespace InWorldz.Phlox.Engine
                         }
                         break;
 
-                    case (int)ScriptBaseClass.PRIM_FLEXIBLE:
+                    case ScriptBaseClass.PRIM_FLEXIBLE:
                         foreach (object o in parts)
                         {
                             if (o is ScenePresence)
+                            {
                                 GetAvatarAsPrimParam(o as ScenePresence, ref res, code);
+                            }
                             else
                             {
                                 SceneObjectPart part = o as SceneObjectPart;
                                 PrimitiveBaseShape shape = part.Shape;
 
                                 if (shape.FlexiEntry)
-                                    res.Add((int)(1));              // active
+                                {
+                                    res.Add(1);              // active
+                                }
                                 else
-                                    res.Add((int)(0));
-                                res.Add((int)(shape.FlexiSoftness));// softness
-                                res.Add((float)(shape.FlexiGravity));   // gravity
-                                res.Add((float)(shape.FlexiDrag));      // friction
-                                res.Add((float)(shape.FlexiWind));      // wind
-                                res.Add((float)(shape.FlexiTension));   // tension
+                                {
+                                    res.Add(0);
+                                }
+
+                                res.Add(shape.FlexiSoftness);// softness
+                                res.Add(shape.FlexiGravity);   // gravity
+                                res.Add(shape.FlexiDrag);      // friction
+                                res.Add(shape.FlexiWind);      // wind
+                                res.Add(shape.FlexiTension);   // tension
                                 res.Add(new LSL_Vector(shape.FlexiForceX,       // force
                                                        shape.FlexiForceY,
                                                        shape.FlexiForceZ));
@@ -11321,15 +12688,20 @@ namespace InWorldz.Phlox.Engine
                         }
                         break;
 
-                    case (int)ScriptBaseClass.PRIM_TEXGEN:
+                    case ScriptBaseClass.PRIM_TEXGEN:
                         if (remain < 1)
+                        {
                             return new LSL_List(res);
-                        face = (int)rules.GetLSLIntegerItem(idx++);
+                        }
+
+                        face = rules.GetLSLIntegerItem(idx++);
 
                         foreach (object o in parts)
                         {
                             if (o is ScenePresence)
+                            {
                                 GetAvatarAsPrimParam(o as ScenePresence, ref res, code);
+                            }
                             else
                             {
                                 SceneObjectPart part = o as SceneObjectPart;
@@ -11355,25 +12727,32 @@ namespace InWorldz.Phlox.Engine
                         }
                         break;
 
-                    case (int)ScriptBaseClass.PRIM_POINT_LIGHT:
+                    case ScriptBaseClass.PRIM_POINT_LIGHT:
                         foreach (object o in parts)
                         {
                             if (o is ScenePresence)
+                            {
                                 GetAvatarAsPrimParam(o as ScenePresence, ref res, code);
+                            }
                             else
                             {
                                 SceneObjectPart part = o as SceneObjectPart;
                                 PrimitiveBaseShape shape = part.Shape;
                                 if (shape.LightEntry)
-                                    res.Add((int)(1));              // active
+                                {
+                                    res.Add(1);              // active
+                                }
                                 else
-                                    res.Add((int)(0));
+                                {
+                                    res.Add(0);
+                                }
+
                                 res.Add(new LSL_Vector(shape.LightColorR,       // color
                                                        shape.LightColorG,
                                                        shape.LightColorB));
-                                res.Add((float)(shape.LightIntensity)); // intensity
-                                res.Add((float)(shape.LightRadius));    // radius
-                                res.Add((float)(shape.LightFalloff));   // falloff
+                                res.Add(shape.LightIntensity); // intensity
+                                res.Add(shape.LightRadius);    // radius
+                                res.Add(shape.LightFalloff);   // falloff
                             }
                         }
                         break;
@@ -11382,45 +12761,60 @@ namespace InWorldz.Phlox.Engine
                         foreach (object o in parts)
                         {
                             if (o is ScenePresence)
+                            {
                                 GetAvatarAsPrimParam(o as ScenePresence, ref res, code);
+                            }
                             else
                             {
                                 SceneObjectPart part = o as SceneObjectPart;
                                 PrimitiveBaseShape shape = part.Shape;
                                 if (shape.ProjectionEntry)
-                                    res.Add((int)(1));              // active
+                                {
+                                    res.Add(1);              // active
+                                }
                                 else
-                                    res.Add((int)(0));
+                                {
+                                    res.Add(0);
+                                }
+
                                 res.Add(ConditionalTextureNameOrUUID(part, shape.ProjectionTextureUUID));
-                                res.Add((float)(shape.ProjectionFOV));
-                                res.Add((float)(shape.ProjectionFocus));
-                                res.Add((float)(shape.ProjectionAmbiance));
+                                res.Add(shape.ProjectionFOV);
+                                res.Add(shape.ProjectionFocus);
+                                res.Add(shape.ProjectionAmbiance);
                             }
                         }
                         break;
 
-                    case (int)ScriptBaseClass.IW_PRIM_PROJECTOR_ENABLED:
+                    case ScriptBaseClass.IW_PRIM_PROJECTOR_ENABLED:
                         foreach (object o in parts)
                         {
                             if (o is ScenePresence)
+                            {
                                 GetAvatarAsPrimParam(o as ScenePresence, ref res, code);
+                            }
                             else
                             {
                                 SceneObjectPart part = o as SceneObjectPart;
                                 PrimitiveBaseShape shape = part.Shape;
                                 if (shape.ProjectionEntry)
-                                    res.Add((int)(1));              // active
+                                {
+                                    res.Add(1);              // active
+                                }
                                 else
-                                    res.Add((int)(0));
+                                {
+                                    res.Add(0);
+                                }
                             }
                         }
                         break;
 
-                    case (int)ScriptBaseClass.IW_PRIM_PROJECTOR_TEXTURE:
+                    case ScriptBaseClass.IW_PRIM_PROJECTOR_TEXTURE:
                         foreach (object o in parts)
                         {
                             if (o is ScenePresence)
+                            {
                                 GetAvatarAsPrimParam(o as ScenePresence, ref res, code);
+                            }
                             else
                             {
                                 SceneObjectPart part = o as SceneObjectPart;
@@ -11430,57 +12824,68 @@ namespace InWorldz.Phlox.Engine
                         }
                         break;
 
-                    case (int)ScriptBaseClass.IW_PRIM_PROJECTOR_FOV:
+                    case ScriptBaseClass.IW_PRIM_PROJECTOR_FOV:
                         foreach (object o in parts)
                         {
                             if (o is ScenePresence)
+                            {
                                 GetAvatarAsPrimParam(o as ScenePresence, ref res, code);
+                            }
                             else
                             {
                                 SceneObjectPart part = o as SceneObjectPart;
                                 PrimitiveBaseShape shape = part.Shape;
-                                res.Add((float)(shape.ProjectionFOV));
+                                res.Add(shape.ProjectionFOV);
                             }
                         }
                         break;
 
-                    case (int)ScriptBaseClass.IW_PRIM_PROJECTOR_FOCUS:
+                    case ScriptBaseClass.IW_PRIM_PROJECTOR_FOCUS:
                         foreach (object o in parts)
                         {
                             if (o is ScenePresence)
+                            {
                                 GetAvatarAsPrimParam(o as ScenePresence, ref res, code);
+                            }
                             else
                             {
                                 SceneObjectPart part = o as SceneObjectPart;
                                 PrimitiveBaseShape shape = part.Shape;
-                                res.Add((float)(shape.ProjectionFocus));
+                                res.Add(shape.ProjectionFocus);
                             }
                         }
                         break;
 
-                    case (int)ScriptBaseClass.IW_PRIM_PROJECTOR_AMBIENCE:
+                    case ScriptBaseClass.IW_PRIM_PROJECTOR_AMBIENCE:
                         foreach (object o in parts)
                         {
                             if (o is ScenePresence)
+                            {
                                 GetAvatarAsPrimParam(o as ScenePresence, ref res, code);
+                            }
                             else
                             {
                                 SceneObjectPart part = o as SceneObjectPart;
                                 PrimitiveBaseShape shape = part.Shape;
-                                res.Add((float)(shape.ProjectionAmbiance));
+                                res.Add(shape.ProjectionAmbiance);
                             }
                         }
                         break;
 
-                    case (int)ScriptBaseClass.PRIM_GLOW:
+                    case ScriptBaseClass.PRIM_GLOW:
                         if (remain < 1)
+                        {
                             return new LSL_List(res);
-                        face = (int)rules.GetLSLIntegerItem(idx++);
+                        }
+
+                        face = rules.GetLSLIntegerItem(idx++);
 
                         foreach (object o in parts)
                         {
                             if (o is ScenePresence)
+                            {
                                 GetAvatarAsPrimParam(o as ScenePresence, ref res, code);
+                            }
                             else
                             {
                                 SceneObjectPart part = o as SceneObjectPart;
@@ -11505,15 +12910,17 @@ namespace InWorldz.Phlox.Engine
                         }
                         break;
 
-                    case (int)ScriptBaseClass.PRIM_TEXT:
+                    case ScriptBaseClass.PRIM_TEXT:
                         foreach (object o in parts)
                         {
                             if (o is ScenePresence)
+                            {
                                 GetAvatarAsPrimParam(o as ScenePresence, ref res, code);
+                            }
                             else
                             {
                                 SceneObjectPart part = o as SceneObjectPart;
-                                res.Add((string)(part.Text));
+                                res.Add(part.Text);
                                 res.Add(new LSL_Vector(part.TextColor.R,
                                                         part.TextColor.G,
                                                         part.TextColor.B));
@@ -11522,31 +12929,41 @@ namespace InWorldz.Phlox.Engine
                         }
                         break;
 
-                    case (int)ScriptBaseClass.PRIM_NAME:
+                    case ScriptBaseClass.PRIM_NAME:
                         foreach (object o in parts)
                         {
                             if (o is ScenePresence)
+                            {
                                 GetAvatarAsPrimParam(o as ScenePresence, ref res, code);
+                            }
                             else
-                                res.Add((string)((o as SceneObjectPart).Name));
+                            {
+                                res.Add((o as SceneObjectPart).Name);
+                            }
                         }
                         break;
 
-                    case (int)ScriptBaseClass.PRIM_DESC:
+                    case ScriptBaseClass.PRIM_DESC:
                         foreach (object o in parts)
                         {
                             if (o is ScenePresence)
+                            {
                                 GetAvatarAsPrimParam(o as ScenePresence, ref res, code);
+                            }
                             else
-                                res.Add((string)((o as SceneObjectPart).Description));
+                            {
+                                res.Add((o as SceneObjectPart).Description);
+                            }
                         }
                         break;
 
-                    case (int)ScriptBaseClass.PRIM_SLICE:
+                    case ScriptBaseClass.PRIM_SLICE:
                         foreach (object o in parts)
                         {
                             if (o is ScenePresence)
+                            {
                                 GetAvatarAsPrimParam(o as ScenePresence, ref res, code);
+                            }
                             else
                             {
                                 SceneObjectPart part = o as SceneObjectPart;
@@ -11578,16 +12995,20 @@ namespace InWorldz.Phlox.Engine
                         }
                         break;
 
-                    case (int)ScriptBaseClass.PRIM_SPECULAR:
+                    case ScriptBaseClass.PRIM_SPECULAR:
                         if (remain < 1)
+                        {
                             return new LSL_List(res);
+                        }
 
-                        face = (int)rules.GetLSLIntegerItem(idx++);
+                        face = rules.GetLSLIntegerItem(idx++);
 
                         foreach (object o in parts)
                         {
                             if (o is ScenePresence)
+                            {
                                 GetAvatarAsPrimParam(o as ScenePresence, ref res, code);
+                            }
                             else
                             {
                                 SceneObjectPart part = o as SceneObjectPart;
@@ -11611,16 +13032,20 @@ namespace InWorldz.Phlox.Engine
                         break;
 
 
-                    case (int)ScriptBaseClass.PRIM_NORMAL:
+                    case ScriptBaseClass.PRIM_NORMAL:
                         if (remain < 1)
+                        {
                             return new LSL_List(res);
+                        }
 
-                        face = (int)rules.GetLSLIntegerItem(idx++);
+                        face = rules.GetLSLIntegerItem(idx++);
 
                         foreach (object o in parts)
                         {
                             if (o is ScenePresence)
+                            {
                                 GetAvatarAsPrimParam(o as ScenePresence, ref res, code);
+                            }
                             else
                             {
                                 SceneObjectPart part = o as SceneObjectPart;
@@ -11643,16 +13068,20 @@ namespace InWorldz.Phlox.Engine
                         }
                         break;
 
-                    case (int)ScriptBaseClass.PRIM_ALPHA_MODE:
+                    case ScriptBaseClass.PRIM_ALPHA_MODE:
                         if (remain < 1)
+                        {
                             return new LSL_List(res);
+                        }
 
-                        face = (int)rules.GetLSLIntegerItem(idx++);
+                        face = rules.GetLSLIntegerItem(idx++);
 
                         foreach (object o in parts)
                         {
                             if (o is ScenePresence)
+                            {
                                 GetAvatarAsPrimParam(o as ScenePresence, ref res, code);
+                            }
                             else
                             {
                                 SceneObjectPart part = o as SceneObjectPart;
@@ -11675,7 +13104,7 @@ namespace InWorldz.Phlox.Engine
                         }
                         break;
 
-                    case (int)ScriptBaseClass.PRIM_SIT_TARGET:
+                    case ScriptBaseClass.PRIM_SIT_TARGET:
                         foreach (object o in parts)
                         {
                             if (o is SceneObjectPart)
@@ -11684,7 +13113,7 @@ namespace InWorldz.Phlox.Engine
                                 SitTargetInfo sitInfo = part.ParentGroup.SitTargetForPart(part.UUID);
                                 if (sitInfo != null)
                                 {
-                                    res.Add((int)(sitInfo.IsActive ? 1 : 0));
+                                    res.Add(sitInfo.IsActive ? 1 : 0);
                                     res.Add(new LSL_Vector(sitInfo.Offset));
                                     res.Add(new LSL_Rotation(sitInfo.Rotation));
                                     continue;
@@ -11692,7 +13121,7 @@ namespace InWorldz.Phlox.Engine
                             }
 
                             // No sit target info, or it's a ScenePresence.
-                            res.Add((int)0);
+                            res.Add(0);
                             res.Add(new LSL_Vector(Vector3.Zero));
                             res.Add(new LSL_Rotation(Quaternion.Identity));
                         }
@@ -11714,9 +13143,13 @@ namespace InWorldz.Phlox.Engine
 
             if ((texface.MaterialID == UUID.Zero) ||
                 (part.Shape.RenderMaterials.ContainsMaterial(texface.MaterialID) == false))
+            {
                 mat = RenderMaterial.DefaultMaterial;
+            }
             else
+            {
                 mat = part.Shape.RenderMaterials.GetMaterial(texface.MaterialID);
+            }
 
             res.Add(ConditionalTextureNameOrUUID(part, mat.SpecularID).ToString());
             res.Add(new LSL_Vector(mat.SpecularRepeatX, mat.SpecularRepeatY, 0));
@@ -11744,9 +13177,13 @@ namespace InWorldz.Phlox.Engine
 
             if ((texface.MaterialID == UUID.Zero) ||
                 (part.Shape.RenderMaterials.ContainsMaterial(texface.MaterialID) == false))
+            {
                 mat = RenderMaterial.DefaultMaterial;
+            }
             else
+            {
                 mat = part.Shape.RenderMaterials.GetMaterial(texface.MaterialID);
+            }
 
             res.Add(ConditionalTextureNameOrUUID(part, mat.NormalID).ToString());
             res.Add(new LSL_Vector(mat.NormalRepeatX, mat.NormalRepeatY, 0));
@@ -11768,9 +13205,13 @@ namespace InWorldz.Phlox.Engine
 
             if ((texface.MaterialID == UUID.Zero) ||
                 (part.Shape.RenderMaterials.ContainsMaterial(texface.MaterialID) == false))
+            {
                 mat = RenderMaterial.DefaultMaterial;
+            }
             else
+            {
                 mat = part.Shape.RenderMaterials.GetMaterial(texface.MaterialID);
+            }
 
             res.Add((int)mat.DiffuseAlphaMode);
             res.Add((int)mat.AlphaMaskCutoff);
@@ -11802,14 +13243,20 @@ namespace InWorldz.Phlox.Engine
             m_host.AddScriptLPS(1);
             ScriptSleep(1000);
             if (link == ScriptBaseClass.LINK_ROOT)
+            {
                 return GetPrimMediaParams(m_host.ParentGroup.RootPart, face, rules);
+            }
             else if (link == ScriptBaseClass.LINK_THIS)
+            {
                 return GetPrimMediaParams(m_host, face, rules);
+            }
             else
             {
                 SceneObjectPart part = m_host.ParentGroup.GetLinkNumPart(link);
                 if (null != part)
+                {
                     return GetPrimMediaParams(part, face, rules);
+                }
             }
 
             return new LSL_List();
@@ -11821,44 +13268,55 @@ namespace InWorldz.Phlox.Engine
             // TODO: Need to correctly handle case where a face has no media (which gives back an empty list).
             // Assuming silently fail means give back an empty list.  Ideally, need to check this.
             if (face < 0 || face > part.GetNumberOfSides() - 1)
+            {
                 return new LSL_List();
+            }
 
             IMoapModule module = m_ScriptEngine.World.RequestModuleInterface<IMoapModule>();
             if (null == module)
+            {
                 return new LSL_List();
+            }
 
             MediaEntry me = module.GetMediaEntry(part, face);
 
             // As per http://wiki.secondlife.com/wiki/LlGetPrimMediaParams
             if (null == me)
+            {
                 return new LSL_List();
+            }
 
             List<object> res = new List<object>();
 
             for (int i = 0; i < rules.Length; i++)
             {
-                int code = (int)rules.GetLSLIntegerItem(i);
+                int code = rules.GetLSLIntegerItem(i);
 
                 switch (code)
                 {
                     case ScriptBaseClass.PRIM_MEDIA_ALT_IMAGE_ENABLE:
                         // Not implemented
-                        res.Add((int)0);
+                        res.Add(0);
                         break;
 
                     case ScriptBaseClass.PRIM_MEDIA_CONTROLS:
                         if (me.Controls == MediaControls.Standard)
-                            res.Add((int)ScriptBaseClass.PRIM_MEDIA_CONTROLS_STANDARD);
+                        {
+                            res.Add(ScriptBaseClass.PRIM_MEDIA_CONTROLS_STANDARD);
+                        }
                         else
-                            res.Add((int)ScriptBaseClass.PRIM_MEDIA_CONTROLS_MINI);
+                        {
+                            res.Add(ScriptBaseClass.PRIM_MEDIA_CONTROLS_MINI);
+                        }
+
                         break;
 
                     case ScriptBaseClass.PRIM_MEDIA_CURRENT_URL:
-                        res.Add((string)(me.CurrentURL));
+                        res.Add(me.CurrentURL);
                         break;
 
                     case ScriptBaseClass.PRIM_MEDIA_HOME_URL:
-                        res.Add((string)(me.HomeURL));
+                        res.Add(me.HomeURL);
                         break;
 
                     case ScriptBaseClass.PRIM_MEDIA_AUTO_LOOP:
@@ -11882,11 +13340,11 @@ namespace InWorldz.Phlox.Engine
                         break;
 
                     case ScriptBaseClass.PRIM_MEDIA_WIDTH_PIXELS:
-                        res.Add((int)(me.Width));
+                        res.Add(me.Width);
                         break;
 
                     case ScriptBaseClass.PRIM_MEDIA_HEIGHT_PIXELS:
-                        res.Add((int)(me.Height));
+                        res.Add(me.Height);
                         break;
 
                     case ScriptBaseClass.PRIM_MEDIA_WHITELIST_ENABLE:
@@ -11902,9 +13360,11 @@ namespace InWorldz.Phlox.Engine
                         string[] urls = (string[])me.WhiteList.Clone();
 
                         for (int j = 0; j < urls.Length; j++)
+                        {
                             urls[j] = Uri.EscapeDataString(urls[j]);
+                        }
 
-                        res.Add((string)(string.Join(", ", urls)));
+                        res.Add(string.Join(", ", urls));
                         break;
 
                     case ScriptBaseClass.PRIM_MEDIA_PERMS_INTERACT:
@@ -11915,7 +13375,7 @@ namespace InWorldz.Phlox.Engine
                         res.Add((int)(me.ControlPermissions));
                         break;
 
-                    default: 
+                    default:
                         return new LSL_List();          // ScriptBaseClass.LSL_STATUS_MALFORMED_PARAMS;
                 }
             }
@@ -11935,14 +13395,20 @@ namespace InWorldz.Phlox.Engine
             m_host.AddScriptLPS(1);
             ScriptSleep(1000);
             if (link == ScriptBaseClass.LINK_ROOT)
+            {
                 return SetPrimMediaParams(m_host.ParentGroup.RootPart, face, rules);
+            }
             else if (link == ScriptBaseClass.LINK_THIS)
+            {
                 return SetPrimMediaParams(m_host, face, rules);
+            }
             else
             {
                 SceneObjectPart part = m_host.ParentGroup.GetLinkNumPart(link);
                 if (null != part)
+                {
                     return SetPrimMediaParams(part, face, rules);
+                }
             }
 
             return ScriptBaseClass.LSL_STATUS_NOT_FOUND;
@@ -11954,15 +13420,21 @@ namespace InWorldz.Phlox.Engine
             // Assuming silently fail means sending back LSL_STATUS_OK.  Ideally, need to check this.
             // Don't perform the media check directly
             if (face < 0 || face > part.GetNumberOfSides() - 1)
+            {
                 return ScriptBaseClass.LSL_STATUS_NOT_FOUND;
+            }
 
             IMoapModule module = m_ScriptEngine.World.RequestModuleInterface<IMoapModule>();
             if (null == module)
+            {
                 return ScriptBaseClass.LSL_STATUS_NOT_SUPPORTED;
+            }
 
             MediaEntry me = module.GetMediaEntry(part, face);
             if (null == me)
+            {
                 me = new MediaEntry();
+            }
 
             int i = 0;
 
@@ -11979,9 +13451,14 @@ namespace InWorldz.Phlox.Engine
                     case ScriptBaseClass.PRIM_MEDIA_CONTROLS:
                         int v = rules.GetLSLIntegerItem(i++);
                         if (ScriptBaseClass.PRIM_MEDIA_CONTROLS_STANDARD == v)
+                        {
                             me.Controls = MediaControls.Standard;
+                        }
                         else
+                        {
                             me.Controls = MediaControls.Mini;
+                        }
+
                         break;
 
                     case ScriptBaseClass.PRIM_MEDIA_CURRENT_URL:
@@ -12013,11 +13490,11 @@ namespace InWorldz.Phlox.Engine
                         break;
 
                     case ScriptBaseClass.PRIM_MEDIA_WIDTH_PIXELS:
-                        me.Width = (int)rules.GetLSLIntegerItem(i++);
+                        me.Width = rules.GetLSLIntegerItem(i++);
                         break;
 
                     case ScriptBaseClass.PRIM_MEDIA_HEIGHT_PIXELS:
-                        me.Height = (int)rules.GetLSLIntegerItem(i++);
+                        me.Height = rules.GetLSLIntegerItem(i++);
                         break;
 
                     case ScriptBaseClass.PRIM_MEDIA_WHITELIST_ENABLE:
@@ -12028,19 +13505,21 @@ namespace InWorldz.Phlox.Engine
                         string[] rawWhiteListUrls = rules.GetLSLStringItem(i++).ToString().Split(new char[] { ',' });
                         List<string> whiteListUrls = new List<string>();
                         Array.ForEach(
-                            rawWhiteListUrls, delegate(string rawUrl) { whiteListUrls.Add(rawUrl.Trim()); });
+                            rawWhiteListUrls, delegate (string rawUrl)
+                            { whiteListUrls.Add(rawUrl.Trim()); });
                         me.WhiteList = whiteListUrls.ToArray();
                         break;
 
                     case ScriptBaseClass.PRIM_MEDIA_PERMS_INTERACT:
-                        me.InteractPermissions = (MediaPermission)(byte)(int)rules.GetLSLIntegerItem(i++);
+                        me.InteractPermissions = (MediaPermission)(byte)rules.GetLSLIntegerItem(i++);
                         break;
 
                     case ScriptBaseClass.PRIM_MEDIA_PERMS_CONTROL:
-                        me.ControlPermissions = (MediaPermission)(byte)(int)rules.GetLSLIntegerItem(i++);
+                        me.ControlPermissions = (MediaPermission)(byte)rules.GetLSLIntegerItem(i++);
                         break;
 
-                    default: return ScriptBaseClass.LSL_STATUS_MALFORMED_PARAMS;
+                    default:
+                        return ScriptBaseClass.LSL_STATUS_MALFORMED_PARAMS;
                 }
             }
 
@@ -12061,14 +13540,20 @@ namespace InWorldz.Phlox.Engine
             m_host.AddScriptLPS(1);
             ScriptSleep(1000);
             if (link == ScriptBaseClass.LINK_ROOT)
+            {
                 return ClearPrimMedia(m_host.ParentGroup.RootPart, face);
+            }
             else if (link == ScriptBaseClass.LINK_THIS)
+            {
                 return ClearPrimMedia(m_host, face);
+            }
             else
             {
                 SceneObjectPart part = m_host.ParentGroup.GetLinkNumPart(link);
                 if (null != part)
+                {
                     return ClearPrimMedia(part, face);
+                }
             }
 
             return ScriptBaseClass.LSL_STATUS_NOT_FOUND;
@@ -12078,7 +13563,9 @@ namespace InWorldz.Phlox.Engine
         {
             IMoapModule module = m_ScriptEngine.World.RequestModuleInterface<IMoapModule>();
             if (null == module)
+            {
                 return ScriptBaseClass.LSL_STATUS_NOT_SUPPORTED;
+            }
 
             if (face == ScriptBaseClass.ALL_SIDES)
             {
@@ -12093,8 +13580,10 @@ namespace InWorldz.Phlox.Engine
             // Assuming silently fail means sending back LSL_STATUS_OK.  Ideally, need to check this.
             // FIXME: Don't perform the media check directly
             if (face < 0 || face > part.GetNumberOfSides() - 1)
+            {
                 return ScriptBaseClass.LSL_STATUS_NOT_FOUND;
-            
+            }
+
             module.ClearMediaEntry(part, face);
 
             return ScriptBaseClass.LSL_STATUS_OK;
@@ -12292,12 +13781,14 @@ namespace InWorldz.Phlox.Engine
             int number = 0;
             int digit;
 
-            
+
 
             //    Require a well-fromed base64 string
 
             if (str.Length > 8)
+            {
                 return 0;
+            }
 
             //    The loop is unrolled in the interests
             //    of performance and simple necessity.
@@ -12308,37 +13799,37 @@ namespace InWorldz.Phlox.Engine
 
             if ((digit = c2itable[str[0]]) <= 0)
             {
-                return digit < 0 ? (int)0 : number;
+                return digit < 0 ? 0 : number;
             }
             number += --digit << 26;
 
             if ((digit = c2itable[str[1]]) <= 0)
             {
-                return digit < 0 ? (int)0 : number;
+                return digit < 0 ? 0 : number;
             }
             number += --digit << 20;
 
             if ((digit = c2itable[str[2]]) <= 0)
             {
-                return digit < 0 ? (int)0 : number;
+                return digit < 0 ? 0 : number;
             }
             number += --digit << 14;
 
             if ((digit = c2itable[str[3]]) <= 0)
             {
-                return digit < 0 ? (int)0 : number;
+                return digit < 0 ? 0 : number;
             }
             number += --digit << 8;
 
             if ((digit = c2itable[str[4]]) <= 0)
             {
-                return digit < 0 ? (int)0 : number;
+                return digit < 0 ? 0 : number;
             }
             number += --digit << 2;
 
             if ((digit = c2itable[str[5]]) <= 0)
             {
-                return digit < 0 ? (int)0 : number;
+                return digit < 0 ? 0 : number;
             }
             number += --digit >> 4;
 
@@ -12362,7 +13853,9 @@ namespace InWorldz.Phlox.Engine
             }
 
             if (m_UrlModule != null)
+            {
                 return m_UrlModule.GetHttpHeader(requestIdAsUuid, header);
+            }
 
             return String.Empty;
         }
@@ -12470,12 +13963,14 @@ namespace InWorldz.Phlox.Engine
 
             List<object> tokens = new List<object>();
 
-            
+
 
             //    All entries are initially valid
 
             for (int i = 0; i < mlen; i++)
+            {
                 active[i] = true;
+            }
 
             offset[mlen] = srclen;
 
@@ -12504,7 +13999,9 @@ namespace InWorldz.Phlox.Engine
                                 // closest so far
                                 best = j;
                                 if (offset[best] == beginning)
+                                {
                                     break;
+                                }
                             }
                         }
                     }
@@ -12543,14 +14040,14 @@ namespace InWorldz.Phlox.Engine
                 {
                     // no markers were found on this pass
                     // so we're pretty much done
-                    tokens.Add((string)(src.Substring(beginning, srclen - beginning)));
+                    tokens.Add(src.Substring(beginning, srclen - beginning));
                     break;
                 }
 
                 //    Otherwise we just add the newly delimited token
                 //    and recalculate where the search should continue.
 
-                tokens.Add((string)(src.Substring(beginning, offset[best] - beginning)));
+                tokens.Add(src.Substring(beginning, offset[best] - beginning));
 
                 if (best < seplen)
                 {
@@ -12559,7 +14056,7 @@ namespace InWorldz.Phlox.Engine
                 else
                 {
                     beginning = offset[best] + (spcarray[best - seplen].ToString()).Length;
-                    tokens.Add((string)(spcarray[best - seplen].ToString()));
+                    tokens.Add(spcarray[best - seplen].ToString());
                 }
             }
 
@@ -12572,7 +14069,9 @@ namespace InWorldz.Phlox.Engine
             if (beginning == srclen)
             {
                 if (srclen != 0)
-                    tokens.Add((string)(String.Empty));
+                {
+                    tokens.Add(string.Empty);
+                }
             }
 
             return new LSL_List(tokens);
@@ -12675,13 +14174,16 @@ namespace InWorldz.Phlox.Engine
         {
             return GetInventoryPermMask(m_host, item, mask);
         }
-        public int iwGetLinkInventoryPermMask(int linknumber, string item, int mask)
+        public int iwGetLinkInventoryPermMask(int linknumber, string item, int mask) { return halGetLinkInventoryPermMask(linknumber, item, mask); }
+        public int halGetLinkInventoryPermMask(int linknumber, string item, int mask)
         {
             int rc = -1;
 
             var parts = GetLinkPrimsOnly(linknumber);
             foreach (SceneObjectPart part in parts)
+            {
                 rc &= GetInventoryPermMask(part, item, mask);
+            }
 
             return rc;
         }
@@ -12705,9 +14207,13 @@ namespace InWorldz.Phlox.Engine
             }
 
             if (part.LinkNum == 0)
+            {
                 llSay(0, "No item named '" + item + "'");
+            }
             else
-                llSay(0, "No item named '" + item + "' in link "+part.LinkNum.ToString());
+            {
+                llSay(0, "No item named '" + item + "' in link " + part.LinkNum.ToString());
+            }
 
             return String.Empty;
         }
@@ -12715,11 +14221,14 @@ namespace InWorldz.Phlox.Engine
         {
             return GetInventoryCreator(m_host, item);
         }
-        public string iwGetLinkInventoryCreator(int linknumber, string item)
+        public string iwGetLinkInventoryCreator(int linknumber, string item) { return halGetLinkInventoryCreator(linknumber, item); }
+        public string halGetLinkInventoryCreator(int linknumber, string item)
         {
             var part = GetLinkOnePrimOnly(linknumber);
             if (part == null)
+            {
                 return UUID.Zero.ToString();
+            }
 
             return GetInventoryCreator(part, item);
         }
@@ -12733,9 +14242,12 @@ namespace InWorldz.Phlox.Engine
 
         public string llRequestSecureURL()
         {
-            
+
             if (m_UrlModule != null)
+            {
                 return m_UrlModule.RequestSecureURL(m_ScriptEngine.ScriptModule, m_host, m_itemID).ToString();
+            }
+
             return UUID.Zero.ToString();
         }
 
@@ -12762,9 +14274,14 @@ namespace InWorldz.Phlox.Engine
                         break;
                     case ScriptBaseClass.DATA_SIM_STATUS:
                         if (info != null)
+                        {
                             reply = "up"; // Duh!
+                        }
                         else
+                        {
                             reply = "unknown";
+                        }
+
                         break;
                     case ScriptBaseClass.DATA_SIM_RATING:
                         if (info == null)
@@ -12774,19 +14291,33 @@ namespace InWorldz.Phlox.Engine
                         }
                         int access = info.RegionSettings.Maturity;
                         if (access == 0)
+                        {
                             reply = "PG";
+                        }
                         else if (access == 1)
+                        {
                             reply = "MATURE";
+                        }
                         else if (access == 2)
+                        {
                             reply = "ADULT";
+                        }
                         else
+                        {
                             reply = "UNKNOWN";
+                        }
+
                         break;
                     case ScriptBaseClass.DATA_SIM_RELEASE:
                         if (simulator == World.RegionInfo.RegionName)
+                        {
                             reply = m_host.ParentGroup.Scene.GetSimulatorVersion();
+                        }
                         else
+                        {
                             reply = VersionInfo.SoftwareName;
+                        }
+
                         break;
                     default:
                         // ScriptSleep(1000);
@@ -12811,16 +14342,18 @@ namespace InWorldz.Phlox.Engine
         }
         public string llRequestURL()
         {
-            
+
             if (m_UrlModule != null)
+            {
                 return m_UrlModule.RequestURL(m_ScriptEngine.ScriptModule, m_host, m_itemID).ToString();
+            }
 
             return UUID.Zero.ToString();
         }
 
         public void llForceMouselook(int mouselook)
         {
-            
+
             m_host.SetForceMouselook(mouselook != 0);
         }
 
@@ -12844,21 +14377,28 @@ namespace InWorldz.Phlox.Engine
                 {
                     SceneObjectPart obj = World.GetSceneObjectPart(key);
                     if (obj != null)
-                        return (float)obj.GetMass();
+                    {
+                        return obj.GetMass();
+                    }
                     // the object is null so the key is for an avatar
                     ScenePresence avatar = World.GetScenePresence(key);
                     if (avatar != null)
                     {
                         if (avatar.IsChildAgent)
+                        {
                             return 0.01f;   // as observed in SL
+                        }
                         else
                         {
                             // We don't have a mass without a PhysActor, so we need to come up something.
                             // For now fix the null reference crash and use same as child agent.
                             PhysicsActor pa = avatar.PhysicsActor;
                             if (pa == null)
+                            {
                                 return 0.01f;
-                            return (float)pa.Mass;
+                            }
+
+                            return pa.Mass;
                         }
                     }
                 }
@@ -12876,7 +14416,8 @@ namespace InWorldz.Phlox.Engine
             return Kilograms2Lindograms(kg);
         }
 
-        public float iwGetObjectMassMKS(string id)
+        public float iwGetObjectMassMKS(string id) { return halGetObjectMassMKS(id); }
+        public float halGetObjectMassMKS(string id)
         {
             return GetObjectMassKG(id);
         }
@@ -12908,7 +14449,7 @@ namespace InWorldz.Phlox.Engine
         {
             LSL_List pref = null;
 
-            
+
 
             // Note that although we have normalized, both
             // indices could still be negative.
@@ -12979,9 +14520,13 @@ namespace InWorldz.Phlox.Engine
             UUID avatar;
             IDialogModule dm = World.RequestModuleInterface<IDialogModule>();
             if (null != dm)
+            {
                 if (UUID.TryParse(avatar_id, out avatar))
+                {
                     dm.SendUrlToUser(
                         avatar, m_host.Name, m_host.UUID, m_host.ObjectOwner, false, message, url);
+                }
+            }
 
             ScriptSleep(100);
         }
@@ -12994,7 +14539,10 @@ namespace InWorldz.Phlox.Engine
             // according to the docs, this command only works if script owner and land owner are the same
             // lets add estate owners and gods, too, and use the generic permission check.
             ILandObject landObject = World.LandChannel.GetLandObject(m_host.AbsolutePosition.X, m_host.AbsolutePosition.Y);
-            if (!World.Permissions.CanEditParcel(m_host.ObjectOwner, landObject, GroupPowers.ChangeMedia)) return;
+            if (!World.Permissions.CanEditParcel(m_host.ObjectOwner, landObject, GroupPowers.ChangeMedia))
+            {
+                return;
+            }
 
             bool update = false; // send a ParcelMediaUpdate (and possibly change the land's media URL)? 
             byte loop = 0;
@@ -13031,7 +14579,11 @@ namespace InWorldz.Phlox.Engine
                                     presence = World.GetScenePresence(agentID);
                                 }
                             }
-                            else ScriptShoutError("The argument of PARCEL_MEDIA_COMMAND_AGENT must be a key");
+                            else
+                            {
+                                ScriptShoutError("The argument of PARCEL_MEDIA_COMMAND_AGENT must be a key");
+                            }
+
                             ++i;
                         }
                         break;
@@ -13062,7 +14614,11 @@ namespace InWorldz.Phlox.Engine
                                 url = (string)commandList.Data[i + 1];
                                 update = true;
                             }
-                            else ScriptShoutError("The argument of PARCEL_MEDIA_COMMAND_URL must be a string.");
+                            else
+                            {
+                                ScriptShoutError("The argument of PARCEL_MEDIA_COMMAND_URL must be a string.");
+                            }
+
                             ++i;
                         }
                         break;
@@ -13074,10 +14630,17 @@ namespace InWorldz.Phlox.Engine
                             {
                                 string texture = (string)commandList.Data[i + 1];
                                 if (!UUID.TryParse(texture, out textureID))
+                                {
                                     textureID = UUID.Zero;
+                                }
+
                                 update = true;
                             }
-                            else ScriptShoutError("The argument of PARCEL_MEDIA_COMMAND_TEXTURE must be a string or key.");
+                            else
+                            {
+                                ScriptShoutError("The argument of PARCEL_MEDIA_COMMAND_TEXTURE must be a string or key.");
+                            }
+
                             ++i;
                         }
                         break;
@@ -13089,7 +14652,11 @@ namespace InWorldz.Phlox.Engine
                             {
                                 time = (float)commandList.Data[i + 1];
                             }
-                            else ScriptShoutError("The argument of PARCEL_MEDIA_COMMAND_TIME must be a float.");
+                            else
+                            {
+                                ScriptShoutError("The argument of PARCEL_MEDIA_COMMAND_TIME must be a float.");
+                            }
+
                             ++i;
                         }
                         break;
@@ -13103,7 +14670,11 @@ namespace InWorldz.Phlox.Engine
                                 update = true;
                             }
 
-                            else ScriptShoutError("The argument of PARCEL_MEDIA_COMMAND_AUTO_ALIGN must be an integer.");
+                            else
+                            {
+                                ScriptShoutError("The argument of PARCEL_MEDIA_COMMAND_AUTO_ALIGN must be an integer.");
+                            }
+
                             ++i;
                         }
                         break;
@@ -13116,7 +14687,11 @@ namespace InWorldz.Phlox.Engine
                                 mediaType = (string)commandList.Data[i + 1];
                                 update = true;
                             }
-                            else ScriptShoutError("The argument of PARCEL_MEDIA_COMMAND_TYPE must be a string.");
+                            else
+                            {
+                                ScriptShoutError("The argument of PARCEL_MEDIA_COMMAND_TYPE must be a string.");
+                            }
+
                             ++i;
                         }
                         break;
@@ -13129,7 +14704,11 @@ namespace InWorldz.Phlox.Engine
                                 description = (string)commandList.Data[i + 1];
                                 update = true;
                             }
-                            else ScriptShoutError("The argument of PARCEL_MEDIA_COMMAND_DESC must be a string.");
+                            else
+                            {
+                                ScriptShoutError("The argument of PARCEL_MEDIA_COMMAND_DESC must be a string.");
+                            }
+
                             ++i;
                         }
                         break;
@@ -13145,9 +14724,16 @@ namespace InWorldz.Phlox.Engine
                                     height = (int)commandList.Data[i + 2];
                                     update = true;
                                 }
-                                else ScriptShoutError("The second argument of PARCEL_MEDIA_COMMAND_SIZE must be an integer.");
+                                else
+                                {
+                                    ScriptShoutError("The second argument of PARCEL_MEDIA_COMMAND_SIZE must be an integer.");
+                                }
                             }
-                            else ScriptShoutError("The first argument of PARCEL_MEDIA_COMMAND_SIZE must be an integer.");
+                            else
+                            {
+                                ScriptShoutError("The first argument of PARCEL_MEDIA_COMMAND_SIZE must be an integer.");
+                            }
+
                             i += 2;
                         }
                         break;
@@ -13182,8 +14768,12 @@ namespace InWorldz.Phlox.Engine
                     foreach (ScenePresence agent in agents)
                     {
                         if (agent.IsDeleted || agent.IsInTransit)
+                        {
                             continue;
+                        }
+
                         if (agent.currentParcelUUID == landData.GlobalID)
+                        {
                             agent.ControllingClient.SendParcelMediaUpdate(landData.MediaURL,
                                                                       landData.MediaID,
                                                                       landData.MediaAutoScale,
@@ -13191,13 +14781,16 @@ namespace InWorldz.Phlox.Engine
                                                                       description,
                                                                       width, height,
                                                                       loop);
+                        }
                     }
                 }
                 else if (!presence.IsChildAgent)
                 {
                     // we only send to one (root) agent
                     if ((!presence.IsDeleted) && (!presence.IsInTransit))
+                    {
                         if (presence.currentParcelUUID == landData.GlobalID)
+                        {
                             presence.ControllingClient.SendParcelMediaUpdate(url,
                                                                      textureID,
                                                                      autoAlign ? (byte)1 : (byte)0,
@@ -13205,6 +14798,8 @@ namespace InWorldz.Phlox.Engine
                                                                      description,
                                                                      width, height,
                                                                      loop);
+                        }
+                    }
                 }
             }
 
@@ -13218,23 +14813,32 @@ namespace InWorldz.Phlox.Engine
                     foreach (ScenePresence agent in agents)
                     {
                         if (agent.IsDeleted || agent.IsInTransit)
+                        {
                             continue;
+                        }
+
                         if (agent.currentParcelUUID == landData.GlobalID)
+                        {
                             agent.ControllingClient.SendParcelMediaCommand(0x4, // TODO what is this?
                                                                        (ParcelMediaCommandEnum)commandToSend,
                                                                        time);
+                        }
                     }
                 }
                 else if (!presence.IsChildAgent)
                 {
                     if ((!presence.IsDeleted) && (!presence.IsInTransit))
+                    {
                         if (presence.currentParcelUUID == landData.GlobalID)
+                        {
                             presence.ControllingClient.SendParcelMediaCommand(0x4, // TODO what is this?
                                                                       (ParcelMediaCommandEnum)commandToSend,
                                                                       time);
+                        }
+                    }
                 }
             }
-            
+
             ScriptSleep(2000);
         }
 
@@ -13247,7 +14851,9 @@ namespace InWorldz.Phlox.Engine
             // according to the docs, this command only works if script owner and land owner are the same
             // lets add estate owners and gods, too, and use the generic permission check.
             if (!World.Permissions.CanEditParcel(m_host.OwnerID, landObject, GroupPowers.ChangeMedia))
+            {
                 return new LSL_List(list);
+            }
 
             //TO DO: make the implementation for the missing commands
             //PARCEL_MEDIA_COMMAND_TEXTURE     key uuid        Use this to get or set the parcel's media texture.
@@ -13264,16 +14870,16 @@ namespace InWorldz.Phlox.Engine
                     switch ((ParcelMediaCommandEnum)aList.GetLSLIntegerItem(i))
                     {
                         case ParcelMediaCommandEnum.Url:
-                            list.Add((string)(World.GetLandData(m_host.AbsolutePosition.X, m_host.AbsolutePosition.Y).MediaURL));
+                            list.Add(World.GetLandData(m_host.AbsolutePosition.X, m_host.AbsolutePosition.Y).MediaURL);
                             break;
                         case ParcelMediaCommandEnum.Desc:
-                            list.Add((string)(World.GetLandData(m_host.AbsolutePosition.X, m_host.AbsolutePosition.Y).MediaDescription));
+                            list.Add(World.GetLandData(m_host.AbsolutePosition.X, m_host.AbsolutePosition.Y).MediaDescription);
                             break;
                         case ParcelMediaCommandEnum.Texture:
-                            list.Add((string)(World.GetLandData(m_host.AbsolutePosition.X, m_host.AbsolutePosition.Y).MediaID.ToString()));
+                            list.Add(World.GetLandData(m_host.AbsolutePosition.X, m_host.AbsolutePosition.Y).MediaID.ToString());
                             break;
                         case ParcelMediaCommandEnum.Type:
-                            list.Add((string)(World.GetLandData(m_host.AbsolutePosition.X, m_host.AbsolutePosition.Y).MediaType));
+                            list.Add(World.GetLandData(m_host.AbsolutePosition.X, m_host.AbsolutePosition.Y).MediaType);
                             break;
                         case ParcelMediaCommandEnum.Size:
                             list.Add(World.GetLandData(m_host.AbsolutePosition.X, m_host.AbsolutePosition.Y).MediaWidth);
@@ -13293,7 +14899,7 @@ namespace InWorldz.Phlox.Engine
 
         public int llModPow(int a, int b, int c)
         {
-            
+
             Int64 tmp = 0;
             Math.DivRem(Convert.ToInt64(Math.Pow(a, b)), c, out tmp);
             // ScriptSleep(1000);
@@ -13304,9 +14910,9 @@ namespace InWorldz.Phlox.Engine
         {
             lock (part.TaskInventory)
             {
-                foreach(KeyValuePair<UUID, TaskInventoryItem> inv in part.TaskInventory)
+                foreach (KeyValuePair<UUID, TaskInventoryItem> inv in part.TaskInventory)
                 {
-                    if(inv.Value.Name == name)
+                    if (inv.Value.Name == name)
                     {
                         //return inv.Value.SalePrice
                     }
@@ -13334,11 +14940,14 @@ namespace InWorldz.Phlox.Engine
         {
             return GetInventoryType(m_host, name);
         }
-        public int iwGetLinkInventoryType(int linknumber, string name)
+        public int iwGetLinkInventoryType(int linknumber, string name) { return halGetLinkInventoryType(linknumber, name); }
+        public int halGetLinkInventoryType(int linknumber, string name)
         {
             var part = GetLinkOnePrimOnly(linknumber);
             if (part == null)
+            {
                 return ScriptBaseClass.INVENTORY_NONE;
+            }
 
             return GetInventoryType(part, name);
         }
@@ -13367,18 +14976,25 @@ namespace InWorldz.Phlox.Engine
             UUID invItemID = InventorySelf();
 
             if (invItemID == UUID.Zero)
+            {
                 return new LSL_Vector();
+            }
 
             TaskInventoryItem item;
             lock (m_host.TaskInventory)
             {
                 if (!m_host.TaskInventory.ContainsKey(invItemID))
+                {
                     return new LSL_Vector();
+                }
+
                 item = m_host.TaskInventory[invItemID];
             }
 
             if (item.PermsGranter == UUID.Zero)
+            {
                 return new LSL_Vector();
+            }
 
             if (!CheckRuntimePerms(item, item.PermsGranter, ScriptBaseClass.PERMISSION_TRACK_CAMERA))
             {
@@ -13399,18 +15015,25 @@ namespace InWorldz.Phlox.Engine
         {
             UUID invItemID = InventorySelf();
             if (invItemID == UUID.Zero)
+            {
                 return new LSL_Rotation();
+            }
 
             TaskInventoryItem item;
             lock (m_host.TaskInventory)
             {
                 if (!m_host.TaskInventory.ContainsKey(invItemID))
+                {
                     return new LSL_Rotation();
+                }
+
                 item = m_host.TaskInventory[invItemID];
             }
 
             if (item.PermsGranter == UUID.Zero)
+            {
                 return new LSL_Rotation();
+            }
 
             if (!CheckRuntimePerms(item, item.PermsGranter, ScriptBaseClass.PERMISSION_TRACK_CAMERA))
             {
@@ -13433,7 +15056,7 @@ namespace InWorldz.Phlox.Engine
         /// </summary>
         public void llSetPrimURL(string url)
         {
-            
+
             // ScriptSleep(2000);
         }
 
@@ -13443,13 +15066,14 @@ namespace InWorldz.Phlox.Engine
         /// </summary>
         public void llRefreshPrimURL()
         {
-            
+
             ScriptShoutError("llRefreshPrimURL - not yet supported");
             // ScriptSleep(20000);
         }
 
         //Returns true if the URL's format is valid.
-        public int iwValidateURL(string url)
+        public int iwValidateURL(string url) { return halValidateURL(url); }
+        public int halValidateURL(string url)
         {
             Uri uriResult;
             bool ret = Uri.TryCreate(url, UriKind.Absolute, out uriResult) && (uriResult.Scheme == Uri.UriSchemeHttp || uriResult.Scheme == Uri.UriSchemeHttps);
@@ -13493,7 +15117,9 @@ namespace InWorldz.Phlox.Engine
             else
             {
                 if (m_host.IsAttachment)
+                {
                     targetAvatar = m_host.OwnerID;
+                }
             }
 
             if (targetAvatar != UUID.Zero)
@@ -13512,7 +15138,7 @@ namespace InWorldz.Phlox.Engine
 
         public void llAddToLandBanList(string avatar, float hours)
         {
-            
+
             UUID key;
             Vector3 landpos = m_host.AbsolutePosition;
             ILandObject landObject = World.LandChannel.GetLandObject(landpos.X, landpos.Y);
@@ -13527,13 +15153,13 @@ namespace InWorldz.Phlox.Engine
                     landObject.landData.ParcelAccessList.Add(entry);
                 }
             }
-            
+
             ScriptSleep(100);
         }
 
         public void llRemoveFromLandPassList(string avatar)
         {
-            
+
             UUID key;
             Vector3 landpos = m_host.AbsolutePosition;
             ILandObject landObject = World.LandChannel.GetLandObject(landpos.X, landpos.Y);
@@ -13551,13 +15177,13 @@ namespace InWorldz.Phlox.Engine
                     }
                 }
             }
-            
+
             ScriptSleep(100);
         }
 
         public void llRemoveFromLandBanList(string avatar)
         {
-            
+
             UUID key;
             Vector3 landpos = m_host.AbsolutePosition;
             ILandObject landObject = World.LandChannel.GetLandObject(landpos.X, landpos.Y);
@@ -13575,7 +15201,7 @@ namespace InWorldz.Phlox.Engine
                     }
                 }
             }
-            
+
             ScriptSleep(100);
         }
 
@@ -13583,10 +15209,16 @@ namespace InWorldz.Phlox.Engine
         {
             // our key in the object we are in
             UUID invItemID = InventorySelf();
-            if (invItemID == UUID.Zero) return;
+            if (invItemID == UUID.Zero)
+            {
+                return;
+            }
 
             // check the prim we are in
-            if (m_host.UUID == UUID.Zero) return;
+            if (m_host.UUID == UUID.Zero)
+            {
+                return;
+            }
 
             TaskInventoryItem item;
             UUID agentID;
@@ -13595,23 +15227,34 @@ namespace InWorldz.Phlox.Engine
                 item = m_host.TaskInventory[invItemID];
                 // we need the permission first, to know which avatar we want to set the camera for
                 agentID = item.PermsGranter;
-                if (agentID == UUID.Zero) return;
+                if (agentID == UUID.Zero)
+                {
+                    return;
+                }
             }
 
             if (!CheckRuntimePerms(item, agentID, ScriptBaseClass.PERMISSION_CONTROL_CAMERA))
+            {
                 return;
+            }
 
             ScenePresence presence = World.GetScenePresence(agentID);
 
             // we are not interested in child-agents
-            if (presence == null || presence.IsChildAgent) return;
+            if (presence == null || presence.IsChildAgent)
+            {
+                return;
+            }
 
             Dictionary<int, float> parameters = new Dictionary<int, float>();
             object[] data = rules.Data;
             for (int i = 0; i < data.Length; ++i)
             {
                 int type = Convert.ToInt32(data[i++].ToString());
-                if (i >= data.Length) break; // odd number of entries => ignore the last
+                if (i >= data.Length)
+                {
+                    break; // odd number of entries => ignore the last
+                }
 
                 // some special cases: Vector parameters are split into 3 float parameters (with type+1, type+2, type+3)
                 switch (type)
@@ -13620,31 +15263,48 @@ namespace InWorldz.Phlox.Engine
                     case ScriptBaseClass.CAMERA_FOCUS_OFFSET:
                     case ScriptBaseClass.CAMERA_POSITION:
                         LSL_Vector v = rules.GetVector3Item(i);//data[i];
-                        parameters.Add(type + 1, (float)v.X);
-                        parameters.Add(type + 2, (float)v.Y);
-                        parameters.Add(type + 3, (float)v.Z);
+                        parameters.Add(type + 1, v.X);
+                        parameters.Add(type + 2, v.Y);
+                        parameters.Add(type + 3, v.Z);
                         break;
                     default:
                         // TODO: clean that up as soon as the implicit casts are in
                         if (data[i] is float)
-                            parameters.Add(type, (float)((float)data[i]));
+                        {
+                            parameters.Add(type, (float)data[i]);
+                        }
                         else if (data[i] is int)
-                            parameters.Add(type, (float)((int)data[i]));
-                        else parameters.Add(type, Convert.ToSingle(data[i]));
+                        {
+                            parameters.Add(type, (int)data[i]);
+                        }
+                        else
+                        {
+                            parameters.Add(type, Convert.ToSingle(data[i]));
+                        }
+
                         break;
                 }
             }
-            if (parameters.Count > 0) presence.ControllingClient.SendSetFollowCamProperties(m_host.UUID, parameters);
+            if (parameters.Count > 0)
+            {
+                presence.ControllingClient.SendSetFollowCamProperties(m_host.UUID, parameters);
+            }
         }
 
         public void llClearCameraParams()
         {
             // our key in the object we are in
             UUID invItemID = InventorySelf();
-            if (invItemID == UUID.Zero) return;
+            if (invItemID == UUID.Zero)
+            {
+                return;
+            }
 
             // check the prim we are in
-            if (m_host.UUID == UUID.Zero) return;
+            if (m_host.UUID == UUID.Zero)
+            {
+                return;
+            }
 
             // we need the permission first, to know which avatar we want to clear the camera for
             TaskInventoryItem item;
@@ -13654,25 +15314,35 @@ namespace InWorldz.Phlox.Engine
                 item = m_host.TaskInventory[invItemID];
                 // we need the permission first, to know which avatar we want to set the camera for
                 agentID = item.PermsGranter;
-                if (agentID == UUID.Zero) return;
+                if (agentID == UUID.Zero)
+                {
+                    return;
+                }
             }
 
             if (!CheckRuntimePerms(item, agentID, ScriptBaseClass.PERMISSION_CONTROL_CAMERA))
-                return; 
-            
+            {
+                return;
+            }
+
             ScenePresence presence = World.GetScenePresence(agentID);
             if (presence == null)
+            {
                 return; // don't crash the script
+            }
 
             // we are not interested in child-agents
-            if (presence.IsChildAgent) return;
+            if (presence.IsChildAgent)
+            {
+                return;
+            }
 
             presence.ControllingClient.SendClearFollowCamProperties(m_host.UUID);
         }
 
         public float llListStatistics(int operation, LSL_List src)
         {
-            
+
             LSL_List nums = LSL_List.ToFloatList(src);
             switch (operation)
             {
@@ -13705,30 +15375,42 @@ namespace InWorldz.Phlox.Engine
 
         public int llGetParcelFlags(LSL_Vector pos)
         {
-            ILandObject land = World.LandChannel.GetLandObject((float)pos.X, (float)pos.Y);
+            ILandObject land = World.LandChannel.GetLandObject(pos.X, pos.Y);
 
-            if (land == null) return 0;
+            if (land == null)
+            {
+                return 0;
+            }
 
             LandData landData = land.landData;
 
-            if (landData == null) return 0;
+            if (landData == null)
+            {
+                return 0;
+            }
 
             return (int)landData.Flags;
         }
 
         public int llGetRegionFlags()
         {
-            
+
             IEstateModule estate = World.RequestModuleInterface<IEstateModule>();
             if (estate == null)
+            {
                 return 67108864;
+            }
+
             return (int)estate.GetRegionFlags();
         }
 
         public string llXorBase64StringsCorrect(string str1, string str2)
         {
             if (String.IsNullOrEmpty(str1) || String.IsNullOrEmpty(str2))
+            {
                 return str1;
+            }
+
             string ret = String.Empty;
             string src1 = llBase64ToString(str1);
             string src2 = llBase64ToString(str2);
@@ -13739,7 +15421,9 @@ namespace InWorldz.Phlox.Engine
 
                 c++;
                 if (c >= src2.Length)
+                {
                     c = 0;
+                }
             }
             return llStringToBase64(ret);
         }
@@ -13750,7 +15434,7 @@ namespace InWorldz.Phlox.Engine
             //   see http://wiki.secondlife.com/wiki/LlHTTPRequest
             // parameter flags support are implemented in ScriptsHttpRequests.cs
             //   in StartHttpRequest
-            
+
             IHttpRequestModule httpScriptMod =
                 m_ScriptEngine.World.RequestModuleInterface<IHttpRequestModule>();
 
@@ -13765,13 +15449,19 @@ namespace InWorldz.Phlox.Engine
             float DELAY = 0;
 
             if (eventQueueFreeSpace <= EVENT_LOW_SPACE_THRESHOLD)
+            {
                 DELAY += ((1.0f - (eventQueueFreeSpace / EVENT_LOW_SPACE_THRESHOLD)) * LOW_SPACE_DELAY);
+            }
 
             if (requestQueueFreeSpace <= REQUEST_LOW_SPACE_THRESHOLD)
+            {
                 DELAY += ((1.0f - (requestQueueFreeSpace / REQUEST_LOW_SPACE_THRESHOLD)) * LOW_SPACE_DELAY);
+            }
 
             if (DELAY > 0)
+            {
                 ScriptSleep((int)DELAY);
+            }
 
             // StartHttpRequest below really needs an array, so instead of building a new list, build the array.
             string[] param = new string[parameters.Length];
@@ -13822,9 +15512,13 @@ namespace InWorldz.Phlox.Engine
             string ownerName = String.Empty;
             ScenePresence scenePresence = World.GetScenePresence(m_host.ObjectOwner);
             if (scenePresence == null)
+            {
                 ownerName = resolveName(m_host.ObjectOwner);
+            }
             else
+            {
                 ownerName = scenePresence.Name;
+            }
 
             RegionInfo regionInfo = World.RegionInfo;
 
@@ -13848,12 +15542,17 @@ namespace InWorldz.Phlox.Engine
             httpHeaders["X-SecondLife-Owner-Key"] = m_host.ObjectOwner.ToString();
             string userAgent = config.Configs["Network"].GetString("user_agent", null);
             if (userAgent == null)
-                userAgent = "InWorldz LSL/"+ VersionInfo.Version+ " (Mozilla Compatible)";
+            {
+                userAgent = "InWorldz LSL/" + VersionInfo.Version + " (Mozilla Compatible)";
+            }
 
             httpHeaders["User-Agent"] = userAgent;
 
             UUID reqId = httpScriptMod.StartHttpRequest(m_host.ParentGroup.UUID, m_localID, m_itemID, url, param, httpHeaders, body);
-            if (reqId == UUID.Zero) ScriptSleep(ERROR_DELAY);
+            if (reqId == UUID.Zero)
+            {
+                ScriptSleep(ERROR_DELAY);
+            }
 
             return reqId.ToString();
         }
@@ -13863,11 +15562,15 @@ namespace InWorldz.Phlox.Engine
             m_host.AddScriptLPS(1);
 
             if (m_UrlModule == null)
+            {
                 return;
+            }
 
             UUID key;
             if (UUID.TryParse(id, out key) == false)
+            {
                 return;
+            }
 
             // Make sure the content type is text/plain to start with
             m_UrlModule.HttpContentType(key, "text/plain");
@@ -13875,13 +15578,17 @@ namespace InWorldz.Phlox.Engine
             // Is the object owner online and in the region
             ScenePresence agent = World.GetScenePresence(m_host.ParentGroup.OwnerID);
             if (agent == null || agent.IsChildAgent)
+            {
                 return;  // Fail if the owner is not in the same region
+            }
 
             // Is it the embeded browser?
             string userAgent = m_UrlModule.GetHttpHeader(key, "user-agent");
-            if (userAgent.IndexOf("SecondLife", StringComparison.CurrentCultureIgnoreCase) < 0 && 
+            if (userAgent.IndexOf("SecondLife", StringComparison.CurrentCultureIgnoreCase) < 0 &&
                 userAgent.IndexOf("InWorldz", StringComparison.CurrentCultureIgnoreCase) < 0)
+            {
                 return; // Not the embedded browser. Is this check good enough?  
+            }
 
             switch (type)
             {
@@ -13921,7 +15628,9 @@ namespace InWorldz.Phlox.Engine
             //   see http://wiki.secondlife.com/wiki/llHTTPResponse
 
             if (m_UrlModule != null)
+            {
                 m_UrlModule.HttpResponse(UUID.Parse(url), status, body);
+            }
         }
 
         public void llResetLandBanList()
@@ -13938,7 +15647,7 @@ namespace InWorldz.Phlox.Engine
                     }
                 }
             }
-            
+
             ScriptSleep(100);
         }
 
@@ -13956,7 +15665,7 @@ namespace InWorldz.Phlox.Engine
                     }
                 }
             }
-            
+
             ScriptSleep(100);
         }
 
@@ -14022,8 +15731,8 @@ namespace InWorldz.Phlox.Engine
 
         public LSL_List llGetParcelPrimOwners(LSL_Vector pos)
         {
-            
-            LandObject land = (LandObject)World.LandChannel.GetLandObject((float)pos.X, (float)pos.Y);
+
+            LandObject land = (LandObject)World.LandChannel.GetLandObject(pos.X, pos.Y);
             List<object> ret = new List<object>();
             if (land != null)
             {
@@ -14045,7 +15754,9 @@ namespace InWorldz.Phlox.Engine
             {
                 SceneObjectPart part = World.GetSceneObjectPart(object_uuid);
                 if (part != null)
+                {
                     return part.ParentGroup.PartCount;
+                }
             }
 
             return 0;
@@ -14055,25 +15766,29 @@ namespace InWorldz.Phlox.Engine
         {
             ILandObject parcel = World.LandChannel.GetLandObject(pos.X, pos.Y);
             if (parcel == null)
+            {
                 return 0;
+            }
 
             if (sim_wide == 0)
+            {
                 return parcel.getParcelMaxPrimCount(parcel, true);
+            }
 
             return parcel.getSimulatorMaxPrimCount(parcel);
         }
 
         public LSL_List llGetParcelDetails(LSL_Vector pos, LSL_List args)
         {
-            LandData land = World.GetLandData((float)pos.X, (float)pos.Y);
+            LandData land = World.GetLandData(pos.X, pos.Y);
             if (land == null)
             {
                 return new LSL_List(0);
             }
             LSL_List ret = new LSL_List();
-            for (int idx=0; idx<args.Length; idx++)
+            for (int idx = 0; idx < args.Length; idx++)
             {
-                int param = (int)args.GetLSLIntegerItem(idx);
+                int param = args.GetLSLIntegerItem(idx);
 
                 switch (param)
                 {
@@ -14108,9 +15823,12 @@ namespace InWorldz.Phlox.Engine
 
         public string llStringTrim(string src, int type)
         {
-            if (type == (int)ScriptBaseClass.STRING_TRIM_HEAD) { return src.TrimStart(); }
-            if (type == (int)ScriptBaseClass.STRING_TRIM_TAIL) { return src.TrimEnd(); }
-            if (type == (int)ScriptBaseClass.STRING_TRIM) { return src.Trim(); }
+            if (type == ScriptBaseClass.STRING_TRIM_HEAD)
+            { return src.TrimStart(); }
+            if (type == ScriptBaseClass.STRING_TRIM_TAIL)
+            { return src.TrimEnd(); }
+            if (type == ScriptBaseClass.STRING_TRIM)
+            { return src.Trim(); }
             return src;
         }
 
@@ -14119,7 +15837,7 @@ namespace InWorldz.Phlox.Engine
             int idx = 0;
             for (idx = 0; idx < args.Length; idx++)
             {
-                int param = (int)args.GetLSLIntegerItem(idx);
+                int param = args.GetLSLIntegerItem(idx);
                 switch (param)
                 {
                     case ScriptBaseClass.OBJECT_NAME:
@@ -14159,13 +15877,13 @@ namespace InWorldz.Phlox.Engine
                         ret.Add(GetAgentTotalsFloat(av, param));
                         break;
                     case ScriptBaseClass.OBJECT_PRIM_EQUIVALENCE:
-                        ret.Add((int)(0));
+                        ret.Add(0);
                         break;
                     case ScriptBaseClass.OBJECT_SERVER_COST:
-                        ret.Add((float)(0.0f));
+                        ret.Add(0.0f);
                         break;
                     case ScriptBaseClass.OBJECT_STREAMING_COST:
-                        ret.Add((float)(0.0f));
+                        ret.Add(0.0f);
                         break;
                     case ScriptBaseClass.OBJECT_PHYSICS_COST:
                         PhysicsActor physActor = m_host.PhysActor;
@@ -14175,11 +15893,11 @@ namespace InWorldz.Phlox.Engine
                         }
                         else
                         {
-                            ret.Add((float)(0.0f));
+                            ret.Add(0.0f);
                         }
                         break;
                     case ScriptBaseClass.OBJECT_CHARACTER_TIME:
-                        ret.Add((float)(0.0f));
+                        ret.Add(0.0f);
                         break;
                     case ScriptBaseClass.OBJECT_ROOT:
                         ScenePresence.PositionInfo info = av.GetPosInfo();
@@ -14187,9 +15905,13 @@ namespace InWorldz.Phlox.Engine
                         {
                             SceneObjectPart parentobj = info.Parent;
                             if (parentobj != null)
+                            {
                                 ret.Add(parentobj.GetRootPartUUID().ToString());  // documented to return a null key for avatars
+                            }
                             else
+                            {
                                 ret.Add(av.UUID.ToString());    // ParentID not found, so use unseated avatars return instead
+                            }
                         }
                         else
                         {
@@ -14219,8 +15941,15 @@ namespace InWorldz.Phlox.Engine
                         break;
                     case ScriptBaseClass.OBJECT_BODY_SHAPE_TYPE:
                         int value = iwGetAppearanceParam(av.UUID.ToString(), 31);
-                        if (value == 255) ret.Add(1f);
-                        else ret.Add(0f);
+                        if (value == 255)
+                        {
+                            ret.Add(1f);
+                        }
+                        else
+                        {
+                            ret.Add(0f);
+                        }
+
                         break;
                     case ScriptBaseClass.OBJECT_LAST_OWNER_ID:
                         ret.Add(UUID.Zero);
@@ -14256,7 +15985,7 @@ namespace InWorldz.Phlox.Engine
                 {
                     for (idx = 0; idx < args.Length; idx++)
                     {
-                        int param = (int)args.GetLSLIntegerItem(idx);
+                        int param = args.GetLSLIntegerItem(idx);
                         switch (param)
                         {
                             case ScriptBaseClass.OBJECT_NAME:
@@ -14276,9 +16005,14 @@ namespace InWorldz.Phlox.Engine
                                 break;
                             case ScriptBaseClass.OBJECT_OWNER:
                                 if ((part.GroupID != UUID.Zero) && (part.OwnerID == part.GroupID))  // group-deeded
+                                {
                                     ret.Add(UUID.Zero.ToString());  // documented to return NULL_KEY for group-deeded
+                                }
                                 else
+                                {
                                     ret.Add(part.OwnerID.ToString());
+                                }
+
                                 break;
                             case ScriptBaseClass.OBJECT_GROUP:
                                 ret.Add(part.GroupID.ToString());
@@ -14296,23 +16030,28 @@ namespace InWorldz.Phlox.Engine
                                 ret.Add(GetObjectScriptTotalFloat(part.ParentGroup, param));
                                 break;
                             case ScriptBaseClass.OBJECT_PRIM_EQUIVALENCE:
-                                ret.Add((int)(part.ParentGroup.LandImpact));
+                                ret.Add(part.ParentGroup.LandImpact);
                                 break;
                             case ScriptBaseClass.OBJECT_SERVER_COST:
-                                ret.Add((float)(part.ParentGroup.ServerWeight));
+                                ret.Add(part.ParentGroup.ServerWeight);
                                 break;
                             case ScriptBaseClass.OBJECT_STREAMING_COST:
-                                ret.Add((float)(part.ParentGroup.StreamingCost));
+                                ret.Add(part.ParentGroup.StreamingCost);
                                 break;
                             case ScriptBaseClass.OBJECT_PHYSICS_COST:
                                 PhysicsActor physActor = part.ParentGroup.RootPart.PhysActor;
                                 if (physActor == null)
-                                    ret.Add((float)(0.0f));
+                                {
+                                    ret.Add(0.0f);
+                                }
                                 else
+                                {
                                     ret.Add((float)(physActor.TotalComplexity));
+                                }
+
                                 break;
                             case ScriptBaseClass.OBJECT_CHARACTER_TIME:
-                                ret.Add((float)(0.0f));
+                                ret.Add(0.0f);
                                 break;
                             case ScriptBaseClass.OBJECT_ROOT:
                                 ret.Add(part.GetRootPartUUID().ToString());
@@ -14325,21 +16064,36 @@ namespace InWorldz.Phlox.Engine
                                 break;
                             case ScriptBaseClass.OBJECT_PHYSICS:
                                 if ((part.GetEffectiveObjectFlags() & PrimFlags.Physics) == PrimFlags.Physics)
+                                {
                                     ret.Add(1);
+                                }
                                 else
+                                {
                                     ret.Add(0);
+                                }
+
                                 break;
                             case ScriptBaseClass.OBJECT_PHANTOM:
-                                if ((part.GetEffectiveObjectFlags() & PrimFlags.Phantom) == PrimFlags.Phantom) 
+                                if ((part.GetEffectiveObjectFlags() & PrimFlags.Phantom) == PrimFlags.Phantom)
+                                {
                                     ret.Add(1);
+                                }
                                 else
+                                {
                                     ret.Add(0);
+                                }
+
                                 break;
                             case ScriptBaseClass.OBJECT_TEMP_ON_REZ:
                                 if ((part.GetEffectiveObjectFlags() & PrimFlags.TemporaryOnRez) == PrimFlags.TemporaryOnRez)
+                                {
                                     ret.Add(1);
+                                }
                                 else
+                                {
                                     ret.Add(0);
+                                }
+
                                 break;
                             case ScriptBaseClass.OBJECT_RENDER_WEIGHT:
                                 ret.Add(0);
@@ -14368,7 +16122,9 @@ namespace InWorldz.Phlox.Engine
         private bool IsInRange(float value, float target1, float target2)
         {
             if ((target1 == 0.0f) && (target2 == 0.0f))
+            {
                 return true;    // wildcard, accept any value
+            }
 
             float minValue = target1;
             float maxValue = target2;
@@ -14388,18 +16144,28 @@ namespace InWorldz.Phlox.Engine
                 Vector3 pos = av.AbsolutePosition;
                 ILandObject land = World.LandChannel.GetLandObject(pos.X, pos.Y);
                 if (land != null)
+                {
                     targetParcel = land.landData;
+                }
             }
 
             if ((minPos != Vector3.Zero) && (maxPos != Vector3.Zero))
             {
                 Vector3 pos = av.AbsolutePosition;
                 if (!IsInRange(pos.X, minPos.X, maxPos.X))
+                {
                     return true;    // success but not a match
+                }
+
                 if (!IsInRange(pos.Y, minPos.Y, maxPos.Y))
+                {
                     return true;    // success but not a match
+                }
+
                 if (!IsInRange(pos.Z, minPos.Z, maxPos.Z))
+                {
                     return true;    // success but not a match
+                }
                 // within the specified bounding box or wildcard specified
             }
 
@@ -14407,15 +16173,27 @@ namespace InWorldz.Phlox.Engine
             {
                 case ScriptBaseClass.AGENT_LIST_PARCEL:
                     if ((targetParcel == null) || (thisParcel == null))
+                    {
                         return false;   // error
+                    }
+
                     if (targetParcel.GlobalID != thisParcel.GlobalID)
+                    {
                         return true;    // success but not a match
+                    }
+
                     break;
                 case ScriptBaseClass.AGENT_LIST_PARCEL_OWNER:
                     if ((targetParcel == null) || (thisParcel == null))
+                    {
                         return false;   // error
+                    }
+
                     if (targetParcel.OwnerID != thisParcel.OwnerID)
+                    {
                         return true;    // success but not a match
+                    }
+
                     break;
                 case ScriptBaseClass.AGENT_LIST_REGION:
                     // don't filter any parcels
@@ -14427,12 +16205,15 @@ namespace InWorldz.Phlox.Engine
             return GetAgentDetails(results, av, args);
         }
 
-        public LSL_List iwGetAgentList(int scope, Vector3 minPos, Vector3 maxPos, LSL_List args)
+        public LSL_List iwGetAgentList(int scope, Vector3 minPos, Vector3 maxPos, LSL_List args) { return halGetAgentList(scope, minPos, maxPos, args); }
+        public LSL_List halGetAgentList(int scope, Vector3 minPos, Vector3 maxPos, LSL_List args)
         {
             List<object> results = new List<object>();
             List<ScenePresence> agentList = World.GetAvatars();
             if (agentList == null)
+            {
                 return new LSL_List();
+            }
 
             LandData thisParcel = null;
             if (scope != ScriptBaseClass.AGENT_LIST_REGION)
@@ -14440,18 +16221,28 @@ namespace InWorldz.Phlox.Engine
                 Vector3 pos = m_host.AbsolutePosition;
                 ILandObject land = World.LandChannel.GetLandObject(pos.X, pos.Y);
                 if (land != null)
+                {
                     thisParcel = land.landData;
+                }
+
                 if (thisParcel == null)
+                {
                     return new LSL_List();  // failed to find the required current parcel
+                }
             }
 
             // First, the avatar-based versions of these.
             foreach (ScenePresence av in agentList)
             {
                 if ((av.IsDeleted) || (av.IsInTransit))
+                {
                     continue;
+                }
+
                 if (!AddToAgentResults(results, av, scope, thisParcel, minPos, maxPos, args))
+                {
                     break;
+                }
             }
 
             return new LSL_List(results);
@@ -14462,7 +16253,7 @@ namespace InWorldz.Phlox.Engine
             // ignore 'args', LL does not use it in the SL implementation
             List<object> paramList = new List<object>();
             // Substitute a new list with only OBJECT_OWNER (which is the user UUIDs).
-            paramList.Add((int)ScriptBaseClass.OBJECT_OWNER);
+            paramList.Add(ScriptBaseClass.OBJECT_OWNER);
             return iwGetAgentList(scope, Vector3.Zero, Vector3.Zero, new LSL_List(paramList));
         }
 
@@ -14473,7 +16264,9 @@ namespace InWorldz.Phlox.Engine
                 foreach (TaskInventoryItem item in m_host.TaskInventory.Values)
                 {
                     if (item.Type == 10 && item.Name == name)
+                    {
                         return item.ItemID;
+                    }
                 }
             }
 
@@ -14497,9 +16290,13 @@ namespace InWorldz.Phlox.Engine
         internal void NotImplemented(string command)
         {
             if (throwErrorOnNotImplemented)
+            {
                 throw new NotImplementedException("Command not implemented: " + command);
+            }
             else
+            {
                 ScriptShoutError("Command not implemented: " + command);
+            }
         }
 
         internal void Deprecated(string command)
@@ -14515,7 +16312,8 @@ namespace InWorldz.Phlox.Engine
         public delegate void AssetRequestCallback(UUID assetID, AssetBase asset);
         private void WithNotecard(UUID assetID, AssetRequestCallback cb)
         {
-            World.CommsManager.AssetCache.GetAsset(assetID, delegate(UUID i, AssetBase a) { cb(i, a); }, AssetRequestInfo.InternalRequest());
+            World.CommsManager.AssetCache.GetAsset(assetID, delegate (UUID i, AssetBase a)
+            { cb(i, a); }, AssetRequestInfo.InternalRequest());
         }
 
         public string GetNumberOfNotecardLines(SceneObjectPart part, string name)
@@ -14560,7 +16358,7 @@ namespace InWorldz.Phlox.Engine
                 return tid.ToString();
             }
 
-            WithNotecard(assetID, delegate(UUID id, AssetBase a)
+            WithNotecard(assetID, delegate (UUID id, AssetBase a)
             {
                 if (a == null || a.Type != 7)
                 {
@@ -14583,7 +16381,8 @@ namespace InWorldz.Phlox.Engine
         {
             return GetNumberOfNotecardLines(m_host, name);
         }
-        public string iwGetLinkNumberOfNotecardLines(int linknumber, string name)
+        public string iwGetLinkNumberOfNotecardLines(int linknumber, string name) { return halGetLinkNumberOfNotecardLines(linknumber, name); }
+        public string halGetLinkNumberOfNotecardLines(int linknumber, string name)
         {
             var parts = GetLinkPrimsOnly(linknumber);
             if (parts.Count == 1)
@@ -14639,11 +16438,14 @@ namespace InWorldz.Phlox.Engine
                 AsyncCommands.
                 DataserverPlugin.DataserverReply(reqIdentifier, NotecardCache.GetLine(assetID, line, startOffset, maxLength));
                 if (((line % LINES_PER_DELAY) == 0) && (startOffset == 0))
+                {
                     ScriptSleep(FAST_DELAY);
+                }
+
                 return tid.ToString();
             }
 
-            WithNotecard(assetID, delegate(UUID id, AssetBase a)
+            WithNotecard(assetID, delegate (UUID id, AssetBase a)
             {
                 if (a == null || a.Type != 7)
                 {
@@ -14666,12 +16468,14 @@ namespace InWorldz.Phlox.Engine
             return GetNotecardSegment(m_host, name, line, 0, m_notecardLineReadCharsMax);
         }
 
-        public string iwGetNotecardSegment(string name, int line, int startOffset, int maxLength)
+        public string iwGetNotecardSegment(string name, int line, int startOffset, int maxLength) { return halGetNotecardSegment(name, line, startOffset, maxLength); }
+        public string halGetNotecardSegment(string name, int line, int startOffset, int maxLength)
         {
             return GetNotecardSegment(m_host, name, line, startOffset, maxLength);
         }
 
-        public string iwGetLinkNotecardLine(int linknumber, string name, int line)
+        public string iwGetLinkNotecardLine(int linknumber, string name, int line) { return halGetLinkNotecardLine(linknumber, name, line); }
+        public string halGetLinkNotecardLine(int linknumber, string name, int line)
         {
             var parts = GetLinkPrimsOnly(linknumber);
             foreach (SceneObjectPart part in parts)
@@ -14683,7 +16487,8 @@ namespace InWorldz.Phlox.Engine
             return UUID.Zero.ToString();
         }
 
-        public string iwGetLinkNotecardSegment(int linknumber, string name, int line, int startOffset, int maxLength)
+        public string iwGetLinkNotecardSegment(int linknumber, string name, int line, int startOffset, int maxLength) { return halGetLinkNotecardSegment(linknumber, name, line, startOffset, maxLength); }
+        public string halGetLinkNotecardSegment(int linknumber, string name, int line, int startOffset, int maxLength)
         {
             var parts = GetLinkPrimsOnly(linknumber);
             foreach (SceneObjectPart part in parts)
@@ -14702,7 +16507,8 @@ namespace InWorldz.Phlox.Engine
         /// </summary>
         /// <param name="firstname">Avatar first name</param>
         /// <param name="lastname">Avatar last name</param>
-        public void iwAvatarName2Key(string firstname, string lastname)
+        public void iwAvatarName2Key(string firstname, string lastname) { halAvatarName2Key(firstname, lastname); }
+        public void halAvatarName2Key(string firstname, string lastname)
         {
             const int LONG_DELAY = 1000;
             const int SHORT_DELAY = 100;
@@ -14714,9 +16520,14 @@ namespace InWorldz.Phlox.Engine
                 if (!String.IsNullOrWhiteSpace(firstname))
                 {
                     if (String.IsNullOrWhiteSpace(lastname))
+                    {
                         lastname = "Resident";
+                    }
                     else
+                    {
                         lastname = lastname.Trim();
+                    }
+
                     firstname = firstname.Trim();
 
                     ScenePresence avatar = World.GetScenePresence(firstname, lastname);
@@ -14744,7 +16555,8 @@ namespace InWorldz.Phlox.Engine
         /// </summary>
         /// <param name="notecardName">Name of the inventory note card</param>
         /// <param name="contents">A string to contain in the notecard</param>
-        public void iwMakeNotecard(string notecardName, LSL_List contents)
+        public void iwMakeNotecard(string notecardName, LSL_List contents) { halMakeNotecard(notecardName, contents); }
+        public void halMakeNotecard(string notecardName, LSL_List contents)
         {
             const int DELAY = 5000;
             const int MAX_LENGTH = 65536;   // 64K characters (including newlines)
@@ -14762,7 +16574,10 @@ namespace InWorldz.Phlox.Engine
                 for (int i = 0; i < contents.Length; i++)
                 {
                     if (i > 0)
+                    {
                         notecardData.Append("\n");
+                    }
+
                     notecardData.Append(contents.GetLSLStringItem(i));
                     if (notecardData.Length > MAX_LENGTH)
                     {
@@ -14831,7 +16646,9 @@ namespace InWorldz.Phlox.Engine
             {
                 ScenePresence presence = World.GetScenePresence(presenceId);
                 if (presence != null)
+                {
                     return presence.Name;
+                }
             }
 
             return String.Empty;
@@ -14861,7 +16678,9 @@ namespace InWorldz.Phlox.Engine
             string reply = String.Empty;
 
             if (userProfile != null)
+            {
                 reply = userProfile.Name;
+            }
 
             m_ScriptEngine.PostObjectEvent(m_localID,
                     new EventParams("dataserver", new Object[] { rq.ToString(), reply },
@@ -14869,25 +16688,38 @@ namespace InWorldz.Phlox.Engine
         }
 
         // Gender is VisualParams[31]. 0 for female, 255 for male. >128 is male. 127 or 128 may be "both"
-        public int iwGetAppearanceParam(string who, int which)
+        public int iwGetAppearanceParam(string who, int which) { return halGetAppearanceParam(who, which); }
+        public int halGetAppearanceParam(string who, int which)
         {
             UUID agentId = UUID.Zero;
             if (!UUID.TryParse(who, out agentId))
+            {
                 return -1;
+            }
 
             ScenePresence presence = World.GetScenePresence(agentId);
             if (presence == null)
+            {
                 return -1;
+            }
+
             if (presence.Appearance == null)
+            {
                 return -1;
+            }
 
             // Special case which == -1 meaning as a way to find out the upper limit
             if (which == -1)
+            {
                 return presence.Appearance.VisualParams.Length;
+            }
 
             // Other than that, range validate and return if valid
             if ((which < 0) || (which >= presence.Appearance.VisualParams.Length))
+            {
                 return -1;
+            }
+
             return presence.Appearance.VisualParams[which];
         }
 
@@ -14899,12 +16731,18 @@ namespace InWorldz.Phlox.Engine
             {
                 ScenePresence avatar = World.GetScenePresence(m_host.AttachedAvatar);
                 if (avatar == null)
+                {
                     return 0;
+                }
+
                 avatar.StandUp(false, true);
                 avatar.Teleport(position);
             }
             else
+            {
                 SetPos(m_host.ParentGroup.RootPart, position, false);
+            }
+
             return 1;
         }
 
@@ -14912,11 +16750,16 @@ namespace InWorldz.Phlox.Engine
         {
             // Agent must be over the script owner's land.  Also includes EO, EM, etc.
             if (World.IsLandOwner(m_host.OwnerID, parcel))
+            {
                 return true;
+            }
 
             // Also support case where script owner is a group member that has Eject perms on group land.
             if (!parcel.landData.IsGroupOwned)   // group-deed land parcel
+            {
                 return false;
+            }
+
             return World.Permissions.CanEditParcel(m_host.OwnerID, parcel, GroupPowers.LandEjectAndFreeze);
         }
 
@@ -14924,25 +16767,35 @@ namespace InWorldz.Phlox.Engine
         {
             // Agent must be in the same region or code farther down will fail.
             if (targetSP.IsChildAgent)
+            {
                 return false;
+            }
 
             // Otherwise, always allow HUDs, attachments and objects owned by the same user.
             if (targetSP.UUID == m_host.OwnerID)
+            {
                 return true;
+            }
 
             // scripts cannot force-TP gods, unless the god is the owner of the script (above)
             if (targetSP.GodLevel > 0)
+            {
                 return false;
+            }
 
             // Otherwise check the land ownership override situations
             if (World.IsEstateManager(m_host.OwnerID))
+            {
                 return true;
+            }
 
             // If it gets this far it's not EO, EM, or owner match, use land privileges.
             Vector3 objectPos = m_host.ParentGroup.AbsolutePosition;   // calculate this only once
             ILandObject objectLand = World.LandChannel.GetLandObject(objectPos.X, objectPos.Y);
             if (objectLand == null)
+            {
                 return false;   // can't determine land priviledges.
+            }
 
             Vector3 agentPos = targetSP.AbsolutePosition;
             ILandObject agentLand = World.LandChannel.GetLandObject(agentPos.X, agentPos.Y);
@@ -14955,17 +16808,22 @@ namespace InWorldz.Phlox.Engine
                 // If the avatar is in this region, and the script has land privileges, but
                 // the parcel under the avatar can NOT be determined, authorize the teleport.
                 if (agentLand == null)
+                {
                     return true;
+                }
 
                 // Agent is over a land parcel, see if we have land privileges
                 if (HasLandPrivileges(agentLand))
+                {
                     return true;
+                }
             }
 
             return false;
         }
 
-        public void iwTeleportAgent(string agent, string region, Vector3 pos, Vector3 lookAt)
+        public void iwTeleportAgent(string agent, string region, Vector3 pos, Vector3 lookAt) { halTeleportAgent(agent, region, pos, lookAt); }
+        public void halTeleportAgent(string agent, string region, Vector3 pos, Vector3 lookAt)
         {
             const int delay = 0;
 
@@ -14978,16 +16836,25 @@ namespace InWorldz.Phlox.Engine
                     // agent must be known to this region
                     ScenePresence targetSP = World.GetScenePresence(agentId);
                     if (targetSP == null)
+                    {
                         return;
+                    }
 
                     if (!IsTeleportAuthorized(targetSP))
+                    {
                         return;
+                    }
 
                     if (String.IsNullOrEmpty(region))
+                    {
                         region = targetSP.Scene.RegionInfo.RegionName;
+                    }
                     else
                     if (region != targetSP.Scene.RegionInfo.RegionName) // diff region?
+                    {
                         targetSP.ControllingClient.SendTeleportLocationStart();
+                    }
+
                     World.RequestTeleportLocation(targetSP.ControllingClient,
                         region, pos, lookAt, (uint)TeleportFlags.ViaLocation);
                 }
@@ -15022,10 +16889,10 @@ namespace InWorldz.Phlox.Engine
                 List<object> results = new List<object>();
                 IMaterial mat = physActor.GetMaterial();
 
-                results.Add((float)mat.GravityMultiplier);
-                results.Add((float)mat.Restitution);
-                results.Add((float)mat.StaticFriction);
-                results.Add((float)mat.Density);
+                results.Add(mat.GravityMultiplier);
+                results.Add(mat.Restitution);
+                results.Add(mat.StaticFriction);
+                results.Add(mat.Density);
                 return new LSL_List(results);
             }
             else
@@ -15075,7 +16942,9 @@ namespace InWorldz.Phlox.Engine
             EstateResult result = EstateResult.Success;
             IEstateModule estate = World.RequestModuleInterface<IEstateModule>();
             if (estate == null)
+            {
                 return 0;
+            }
 
             bool canmanage = scene.Permissions.CanIssueEstateCommand(m_host.OwnerID, false);
             if (scene.Permissions.BypassPermissions() || (action == ScriptBaseClass.ESTATE_ACCESS_QUERY_CAN_MANAGE) || canmanage)
@@ -15132,7 +17001,9 @@ namespace InWorldz.Phlox.Engine
                 }
 
                 if (result == EstateResult.Success)
+                {
                     rc = 1;
+                }
             }
             else
             {
@@ -15146,7 +17017,9 @@ namespace InWorldz.Phlox.Engine
         {
             string name = World.CommsManager.UserService.Key2Name(agentId, onlyIfCached);
             if (!String.IsNullOrEmpty(name))
+            {
                 return name;
+            }
 
             return agentId.ToString();
         }
@@ -15157,7 +17030,9 @@ namespace InWorldz.Phlox.Engine
             IGroupsModule groupsModule = scene.RequestModuleInterface<IGroupsModule>();
             GroupRecord group = groupsModule.GetGroupRecord(groupId);
             if (group == null)
+            {
                 return groupId.ToString();
+            }
 
             return group.GroupName;
         }
@@ -15177,27 +17052,28 @@ namespace InWorldz.Phlox.Engine
                     {
                         string regionName = m_host.ParentGroup.Scene.RegionInfo.RegionName;
                         string msg = null;
-                        switch (action) {
-                        case ScriptBaseClass.ESTATE_ACCESS_ALLOWED_AGENT_ADD:
+                        switch (action)
+                        {
+                            case ScriptBaseClass.ESTATE_ACCESS_ALLOWED_AGENT_ADD:
                                 msg = UserNameToReport(targetId, false) + " has been added to the allowed user list for " + regionName;
-                            break;
-                        case ScriptBaseClass.ESTATE_ACCESS_ALLOWED_AGENT_REMOVE:
-                            msg = UserNameToReport(targetId, false) + " has been removed from the allowed user list for " + regionName;
-                            break;
-                        case ScriptBaseClass.ESTATE_ACCESS_ALLOWED_GROUP_ADD:
-                            msg = GroupNameToReport(targetId) + " has been added to the allowed group list for " + regionName;
-                            break;
-                        case ScriptBaseClass.ESTATE_ACCESS_ALLOWED_GROUP_REMOVE:
-                            msg = GroupNameToReport(targetId) + " has been removed from the allowed group list for " + regionName;
-                            break;
-                        case ScriptBaseClass.ESTATE_ACCESS_BANNED_AGENT_ADD:
-                            msg = UserNameToReport(targetId, false) + " has been banned from " + regionName;
-                            break;
-                        case ScriptBaseClass.ESTATE_ACCESS_BANNED_AGENT_REMOVE:
-                            msg = UserNameToReport(targetId, false) + " has been removed from the banned list for " + regionName;
-                            break;
-                        default:
-                            break;
+                                break;
+                            case ScriptBaseClass.ESTATE_ACCESS_ALLOWED_AGENT_REMOVE:
+                                msg = UserNameToReport(targetId, false) + " has been removed from the allowed user list for " + regionName;
+                                break;
+                            case ScriptBaseClass.ESTATE_ACCESS_ALLOWED_GROUP_ADD:
+                                msg = GroupNameToReport(targetId) + " has been added to the allowed group list for " + regionName;
+                                break;
+                            case ScriptBaseClass.ESTATE_ACCESS_ALLOWED_GROUP_REMOVE:
+                                msg = GroupNameToReport(targetId) + " has been removed from the allowed group list for " + regionName;
+                                break;
+                            case ScriptBaseClass.ESTATE_ACCESS_BANNED_AGENT_ADD:
+                                msg = UserNameToReport(targetId, false) + " has been banned from " + regionName;
+                                break;
+                            case ScriptBaseClass.ESTATE_ACCESS_BANNED_AGENT_REMOVE:
+                                msg = UserNameToReport(targetId, false) + " has been removed from the banned list for " + regionName;
+                                break;
+                            default:
+                                break;
                         }
                         if (msg != null)
                         {
@@ -15229,11 +17105,26 @@ namespace InWorldz.Phlox.Engine
         {
             stripped = true;
 
-                 if (str.StartsWith("\xFF\xFE\x00\x00")) return str.Substring(4);
-            else if (str.StartsWith("\x00\x00\xFF\xFF")) return str.Substring(4);
-            else if (str.StartsWith("\xEF\xBB\xBF")) return str.Substring(3);
-            else if (str.StartsWith("\xFF\xFE")) return str.Substring(2);
-            else if (str.StartsWith("\xFE\xFF")) return str.Substring(2);
+            if (str.StartsWith("\xFF\xFE\x00\x00"))
+            {
+                return str.Substring(4);
+            }
+            else if (str.StartsWith("\x00\x00\xFF\xFF"))
+            {
+                return str.Substring(4);
+            }
+            else if (str.StartsWith("\xEF\xBB\xBF"))
+            {
+                return str.Substring(3);
+            }
+            else if (str.StartsWith("\xFF\xFE"))
+            {
+                return str.Substring(2);
+            }
+            else if (str.StartsWith("\xFE\xFF"))
+            {
+                return str.Substring(2);
+            }
 
             stripped = false;
             return str;
@@ -15274,9 +17165,17 @@ namespace InWorldz.Phlox.Engine
             {
                 OSD o = OSDParser.DeserializeJson(json);
                 OSD specVal = JsonGetSpecific(o, specifiers, 0);
-                if (specVal == null) return ScriptBaseClass.JSON_INVALID;
+                if (specVal == null)
+                {
+                    return ScriptBaseClass.JSON_INVALID;
+                }
+
                 string ret = OSDToJsonStringValue(specVal);
-                if (String.IsNullOrEmpty(ret)) return ScriptBaseClass.JSON_NULL;
+                if (String.IsNullOrEmpty(ret))
+                {
+                    return ScriptBaseClass.JSON_NULL;
+                }
+
                 return ret;
             }
             catch (Exception)
@@ -15292,10 +17191,16 @@ namespace InWorldz.Phlox.Engine
             {
                 // Special case an empty string as meaning empty list
                 if (String.IsNullOrEmpty(text))
+                {
                     return new LSL_List();
+                }
+
                 LitJson.JsonData json = DetectJson(text);
                 if (json == null)
+                {
                     json = new LitJson.JsonData(text);  // interpret non-json as a string
+                }
+
                 OSD o = OSDParser.DeserializeJson(json);
                 return JsonNode2List(o);
             }
@@ -15333,7 +17238,9 @@ namespace InWorldz.Phlox.Engine
                 List<object> resp = new List<object>();
                 OSDArray ar = node as OSDArray;
                 foreach (OSD o in ar)
+                {
                     resp.Add(JsonNode2ListElement(o, false));
+                }
 
                 return new LSL_List(resp);
             }
@@ -15363,16 +17270,24 @@ namespace InWorldz.Phlox.Engine
             else if (node.Type == OSDType.Boolean)
             {
                 if (nested)
+                {
                     return (node.AsBoolean() ? "true" : "false");
+                }
                 else
+                {
                     return (node.AsBoolean() ? ScriptBaseClass.JSON_TRUE : ScriptBaseClass.JSON_FALSE);
+                }
             }
             else if (node.Type == OSDType.Real)
             {
                 if (nested)
+                {
                     return ((float)node.AsReal()).ToString("0.0#####");
+                }
                 else
+                {
                     return (float)node.AsReal();
+                }
             }
             else if (node.Type == OSDType.UUID)
             {
@@ -15381,16 +17296,24 @@ namespace InWorldz.Phlox.Engine
             else if (node.Type == OSDType.String)
             {
                 if (nested)
-                    return "\""+node.AsString()+"\"";
+                {
+                    return "\"" + node.AsString() + "\"";
+                }
                 else
+                {
                     return node.AsString();
+                }
             }
             else if (node.Type == OSDType.Unknown)
             {
                 if (nested)
+                {
                     return "null";
+                }
                 else
+                {
                     return ScriptBaseClass.JSON_NULL;
+                }
             }
             else if (node.Type == OSDType.Array)
             {
@@ -15398,7 +17321,11 @@ namespace InWorldz.Phlox.Engine
                 OSDArray ar = node as OSDArray;
                 foreach (OSD o in ar)
                 {
-                    if (!String.IsNullOrEmpty(resp)) resp += ",";
+                    if (!String.IsNullOrEmpty(resp))
+                    {
+                        resp += ",";
+                    }
+
                     resp += JsonNode2ListElement(o, true);
                 }
 
@@ -15410,8 +17337,12 @@ namespace InWorldz.Phlox.Engine
                 OSDMap ar = node as OSDMap;
                 foreach (KeyValuePair<string, OSD> o in ar)
                 {
-                    if (!String.IsNullOrEmpty(resp)) resp += ",";
-                    resp += "\""+o.Key.ToString() + "\":" + JsonNode2ListElement(o.Value, true).ToString();
+                    if (!String.IsNullOrEmpty(resp))
+                    {
+                        resp += ",";
+                    }
+
+                    resp += "\"" + o.Key.ToString() + "\":" + JsonNode2ListElement(o.Value, true).ToString();
                 }
                 return "{" + resp + "}";
             }
@@ -15438,9 +17369,15 @@ namespace InWorldz.Phlox.Engine
                     for (int i = 0; i < values.Data.Length; i += 2)
                     {
                         if (!(values.Data[i] is string))
+                        {
                             return ScriptBaseClass.JSON_INVALID;
+                        }
+
                         if (i + 1 >= values.Data.Length)
+                        {
                             return ScriptBaseClass.JSON_INVALID;
+                        }
+
                         map.Add((string)values.Data[i], ListToJson(values.Data[i + 1]));
                     }
                     return OSDParser.SerializeJsonString(map);
@@ -15456,7 +17393,7 @@ namespace InWorldz.Phlox.Engine
         double FloatAsDouble(float val)
         {
             // force accurate to 6 digits only, but double form
-            return ((double)(int)(((float)val * 100000.0) + 0.5)) / 100000.0;
+            return (int)((val * 100000.0) + 0.5) / 100000.0;
         }
 
         private bool IsJsonFramed(string str, char start, char end)
@@ -15472,36 +17409,49 @@ namespace InWorldz.Phlox.Engine
             try
             {
                 if (trimmed == String.Empty)
+                {
                     return null;
+                }
 
                 if (IsJsonFramed(trimmed, '[', ']'))
+                {
                     return LitJson.JsonMapper.ToObject(trimmed);
+                }
 
                 if (IsJsonFramed(trimmed, '{', '}'))
+                {
                     return LitJson.JsonMapper.ToObject(trimmed);
+                }
 
                 if (trimmed == ScriptBaseClass.JSON_FALSE)
+                {
                     return new LitJson.JsonData(false);
+                }
 
                 if (trimmed == ScriptBaseClass.JSON_TRUE)
+                {
                     return new LitJson.JsonData(true);
+                }
 
                 if (IsJsonFramed(trimmed, '"', '"'))
+                {
                     return new LitJson.JsonData(trimmed.Substring(1, trimmed.Length - 2));
+                }
 
                 // If none of the above, it must be numeric.
                 if (trimmed.All(c => "0123456789".Contains(c)))
                 {
                     long lval = Convert.ToInt64(trimmed);
                     int ival = (int)lval;
-                    return (lval == (long)ival) ? new LitJson.JsonData(ival) : new LitJson.JsonData(lval);
+                    return (lval == ival) ? new LitJson.JsonData(ival) : new LitJson.JsonData(lval);
                 }
 
                 if (trimmed.All(c => "-0123456789.eE+".Contains(c)))
                 {
                     bool isDouble = true;
                     double val;
-                    try {
+                    try
+                    {
                         val = Convert.ToDouble(trimmed);
                     }
                     catch (Exception)
@@ -15516,11 +17466,19 @@ namespace InWorldz.Phlox.Engine
                 }
 
                 if (trimmed == "true")
+                {
                     return new LitJson.JsonData(true);
+                }
+
                 if (trimmed == "false")
+                {
                     return new LitJson.JsonData(false);
+                }
+
                 if (trimmed == "null")
+                {
                     return new LitJson.JsonData(null);
+                }
             }
             catch (LitJson.JsonException)
             {
@@ -15534,26 +17492,42 @@ namespace InWorldz.Phlox.Engine
         private OSD ListToJson(object o)
         {
             if (o is float)
+            {
                 return OSD.FromReal(FloatAsDouble((float)o));
+            }
 
             if (o is int)
+            {
                 return OSD.FromInteger((int)o);
+            }
 
             if (o is LSL_Rotation)
+            {
                 return OSD.FromString(((LSL_Rotation)o).ToString());
+            }
 
             if (o is LSL_Vector)
+            {
                 return OSD.FromString(((LSL_Vector)o).ToString());
+            }
 
             if (o is string)
             {
                 string str = (string)o;
                 if (str == ScriptBaseClass.JSON_NULL)
+                {
                     return new OSD();
+                }
+
                 if (str == ScriptBaseClass.JSON_FALSE)
+                {
                     return OSD.FromBoolean(false);
+                }
+
                 if (str == ScriptBaseClass.JSON_TRUE)
+                {
                     return OSD.FromBoolean(true);
+                }
 
                 LitJson.JsonData json;
                 if (IsJsonFramed(str, '[', ']') || IsJsonFramed(str, '{', '}'))
@@ -15563,7 +17537,10 @@ namespace InWorldz.Phlox.Engine
                 else
                 {
                     if (IsJsonFramed(str, '"', '"'))
+                    {
                         str = str.Substring(1, str.Length - 2);
+                    }
+
                     json = new LitJson.JsonData(str);
                 }
                 return OSDParser.DeserializeJson(json);
@@ -15575,7 +17552,9 @@ namespace InWorldz.Phlox.Engine
         private OSD JsonGetSpecific(OSD o, LSL_List specifiers, int i)
         {
             if (specifiers.Length == 0)
+            {
                 return o;
+            }
 
             object spec = specifiers.Data[i];
             OSD nextVal = null;
@@ -15583,20 +17562,30 @@ namespace InWorldz.Phlox.Engine
             {
                 OSDArray array = (OSDArray)o;
                 if (spec is int)
+                {
                     if (((int)spec >= 0) && ((int)spec < array.Count))
+                    {
                         nextVal = ((OSDArray)o)[(int)spec];
+                    }
+                }
             }
             if (o is OSDMap)
             {
                 OSDMap map = (OSDMap)o;
                 if (spec is string)
+                {
                     if (map.ContainsKey((string)spec))
+                    {
                         nextVal = map[(string)spec];
+                    }
+                }
             }
             if (nextVal != null)
             {
                 if (specifiers.Data.Length - 1 > i)
+                {
                     return JsonGetSpecific(nextVal, specifiers, i + 1);
+                }
             }
             return nextVal;
         }
@@ -15611,9 +17600,14 @@ namespace InWorldz.Phlox.Engine
 
                 OSD o;
                 if (jtype == LitJson.JsonType.None)
+                {
                     o = new OSDArray();
+                }
                 else
-                    o= OSDParser.DeserializeJson(str);
+                {
+                    o = OSDParser.DeserializeJson(str);
+                }
+
                 JsonSetSpecific(null, o, specifiers, 0, value);
                 return OSDToJsonStringValue(o);
             }
@@ -15641,13 +17635,19 @@ namespace InWorldz.Phlox.Engine
                     {
                         int v = (int)spec;
                         if (v > array.Count)
+                        {
                             throw new Exception(ScriptBaseClass.JSON_INVALID);
+                        }
                         else if (v == array.Count)
                         {
                             if (val == ScriptBaseClass.JSON_DELETE)
+                            {
                                 throw new Exception(ScriptBaseClass.JSON_INVALID);
+                            }
                             else
+                            {
                                 array.Add(JsonBuildRestOfSpec(specifiers, i + 1, val));
+                            }
                         }
                         else
                         {
@@ -15655,12 +17655,18 @@ namespace InWorldz.Phlox.Engine
                             {
                                 // no more specifiers, this is the final one
                                 if (val == ScriptBaseClass.JSON_DELETE)
+                                {
                                     array.RemoveAt(v);
+                                }
                                 else
+                                {
                                     array[v] = JsonBuildRestOfSpec(specifiers, i + 1, val);
+                                }
                             }
                             else
+                            {
                                 nextVal = array[v];
+                            }
                         }
                     }
                 }
@@ -15677,19 +17683,29 @@ namespace InWorldz.Phlox.Engine
                         {
                             // no more specifiers, this is the final one
                             if (val == ScriptBaseClass.JSON_DELETE)
+                            {
                                 map.Remove((string)spec);
+                            }
                             else
+                            {
                                 map[(string)spec] = JsonBuildRestOfSpec(specifiers, i + 1, val);
+                            }
                         }
                         else
+                        {
                             nextVal = map[(string)spec];
+                        }
                     }
                     else
                     {
                         if (val == ScriptBaseClass.JSON_DELETE)
+                        {
                             throw new Exception(ScriptBaseClass.JSON_INVALID);
+                        }
                         else
+                        {
                             map.Add((string)spec, JsonBuildRestOfSpec(specifiers, i + 1, val));
+                        }
                     }
                 }
 
@@ -15701,7 +17717,9 @@ namespace InWorldz.Phlox.Engine
                         OSDArray parentArray = (OSDArray)parent;
                         object parentSpec = specifiers.Data[i - 1];
                         if (parentSpec is int)
+                        {
                             parentArray[(int)parentSpec] = JsonBuildRestOfSpec(specifiers, i, val);
+                        }
                     }
                 }
             }
@@ -15752,12 +17770,16 @@ namespace InWorldz.Phlox.Engine
             str = StripBOM(str);
             LitJson.JsonData json = DetectJson(str);
             if (json == null)
+            {
                 return ScriptBaseClass.JSON_INVALID;
+            }
 
             OSD o = OSDParser.DeserializeJson(json);
             OSD specVal = JsonGetSpecific(o, specifiers, 0);
             if (specVal == null)
+            {
                 return ScriptBaseClass.JSON_INVALID;
+            }
 
             switch (specVal.Type)
             {
@@ -15780,18 +17802,27 @@ namespace InWorldz.Phlox.Engine
             return ScriptBaseClass.JSON_INVALID;
         }
 
-        public LSL_List iwReverseList(LSL_List src, int stride)
+        public LSL_List iwReverseList(LSL_List src, int stride) { return halReverseList(src, stride); }
+        public LSL_List halReverseList(LSL_List src, int stride)
         {
-            if (src.Length <= 1) return src;
-            if (stride < 1) return new LSL_List(src.Data.Reverse());
-            if(src.Length % stride != 0)
+            if (src.Length <= 1)
+            {
+                return src;
+            }
+
+            if (stride < 1)
+            {
+                return new LSL_List(src.Data.Reverse());
+            }
+
+            if (src.Length % stride != 0)
             {
                 LSLError(string.Format("Error: stride argument is {0}, but source list length is not divisible by {0}", stride));
                 return new LSL_List();
             }
-            
+
             List<object> ret = new List<object>();
-            for(int a = src.Length - 1; a >= 0; a -= stride)
+            for (int a = src.Length - 1; a >= 0; a -= stride)
             {
                 ret.AddRange(src.GetSublist(a - (stride - 1), a).Data.ToList());
             }
@@ -15799,23 +17830,41 @@ namespace InWorldz.Phlox.Engine
             return new LSL_List(ret);
         }
 
-        public string iwReverseString(string src)
+        public string iwReverseString(string src) { return halReverseString(src); }
+        public string halReverseString(string src)
         {
-            if (src.Length <= 1) return src;
+            if (src.Length <= 1)
+            {
+                return src;
+            }
+
             return new string(src.Reverse().ToArray());
         }
 
-        public LSL_List iwListRemoveDuplicates(LSL_List src)
+        public LSL_List iwListRemoveDuplicates(LSL_List src) { return halListRemoveDuplicates(src); }
+        public LSL_List halListRemoveDuplicates(LSL_List src)
         {
-            if(src.Length <= 1) return src;
+            if (src.Length <= 1)
+            {
+                return src;
+            }
             //yarrr...
-            return new LSL_List(  src.Data.Distinct().ToList()  );
+            return new LSL_List(src.Data.Distinct().ToList());
         }
 
-        public LSL_List iwListRemoveElements(LSL_List src, LSL_List elements, int count, int mode)
+        public LSL_List iwListRemoveElements(LSL_List src, LSL_List elements, int count, int mode) { return halListRemoveElements(src, elements, count, mode); }
+        public LSL_List halListRemoveElements(LSL_List src, LSL_List elements, int count, int mode)
         {
-            if (src.Length == 0 || elements.Length == 0) return src;
-            if (count == 0) count = -1;
+            if (src.Length == 0 || elements.Length == 0)
+            {
+                return src;
+            }
+
+            if (count == 0)
+            {
+                count = -1;
+            }
+
             int counted = 0;
 
             List<object> ret = new List<object>();
@@ -15831,8 +17880,13 @@ namespace InWorldz.Phlox.Engine
                         {
                             int x;
                             for (x = 1; x < elements.Length; x++)
+                            {
                                 if (!src.Data[i + x].Equals(elements.Data[x]))
+                                {
                                     break;
+                                }
+                            }
+
                             if (x == elements.Length)
                             {
                                 counted++;
@@ -15849,9 +17903,9 @@ namespace InWorldz.Phlox.Engine
                 int len = src.Length;
                 for (int i = 0; i < len; i++)
                 {
-                    if(elements.Data.Contains<object>(src.Data[i]) == false)
+                    if (elements.Data.Contains<object>(src.Data[i]) == false)
                     {
-                        if(count == -1 || counted < count)
+                        if (count == -1 || counted < count)
                         {
                             ret.Add(src.Data[i]);
                             counted++;
@@ -15863,13 +17917,18 @@ namespace InWorldz.Phlox.Engine
             return new LSL_List(ret);
         }
 
-        public int iwListIncludesElements(LSL_List src, LSL_List elements, int any)
+        public int iwListIncludesElements(LSL_List src, LSL_List elements, int any) { return halListIncludesElements(src, elements, any); }
+        public int halListIncludesElements(LSL_List src, LSL_List elements, int any)
         {
-            if (elements.Length == 0 || src.Length == 0) return 0;
-            for(int a=0; a < elements.Length; a++)
+            if (elements.Length == 0 || src.Length == 0)
+            {
+                return 0;
+            }
+
+            for (int a = 0; a < elements.Length; a++)
             {
                 bool found = false;
-                for(int b=0; b < src.Length; b++)
+                for (int b = 0; b < src.Length; b++)
                 {
                     //src.Data[i].Equals(test.Data[0])
                     if (src.Data[b].Equals(elements.Data[a]))
@@ -15880,47 +17939,85 @@ namespace InWorldz.Phlox.Engine
                 }
                 if (any == 1)
                 {
-                    if(found == true)
+                    if (found == true)
                     {
                         return 1;
                     }
-                } else
+                }
+                else
                 {
-                    if(found == false)
+                    if (found == false)
                     {
                         return 0;
                     }
                 }
             }
-            if (any == 1) return 0;
-            else return 1;
+            if (any == 1)
+            {
+                return 0;
+            }
+            else
+            {
+                return 1;
+            }
         }
 
-        public int iwChar2Int(string src, int index)
+        public int iwChar2Int(string src, int index) { return halChar2Int(src, index); }
+        public int halChar2Int(string src, int index)
         {
-            if (index < 0) index = src.Length + index;
-            if (Math.Abs(index) >= src.Length) return 0;
+            if (index < 0)
+            {
+                index = src.Length + index;
+            }
+
+            if (Math.Abs(index) >= src.Length)
+            {
+                return 0;
+            }
+
             char c = src[index];
-            return (int)c;
+            return c;
         }
 
-        public string iwInt2Char(int num)
+        public string iwInt2Char(int num) { return halInt2Char(num); }
+        public string halInt2Char(int num)
         {
-            if (num < 0 || num > 0xffff) return String.Empty;
+            if (num < 0 || num > 0xffff)
+            {
+                return String.Empty;
+            }
+
             return Convert.ToChar(num).ToString();
         }
 
-        public string iwReplaceString(string str, string pattern, string replacement)
+        public string iwReplaceString(string str, string pattern, string replacement) { return halReplaceString(str, pattern, replacement); }
+        public string halReplaceString(string str, string pattern, string replacement)
         {
-            if (String.IsNullOrEmpty(str) || String.IsNullOrEmpty(pattern)) return str;
-            if (String.IsNullOrEmpty(replacement)) return str.Replace(pattern, null);
-            if (replacement.Length > 1024 || pattern.Length > 1024) return str;
+            if (String.IsNullOrEmpty(str) || String.IsNullOrEmpty(pattern))
+            {
+                return str;
+            }
+
+            if (String.IsNullOrEmpty(replacement))
+            {
+                return str.Replace(pattern, null);
+            }
+
+            if (replacement.Length > 1024 || pattern.Length > 1024)
+            {
+                return str;
+            }
+
             return str.Replace(pattern, replacement);
         }
 
-        public string iwFormatString(string str, LSL_List values)
+        public string iwFormatString(string str, LSL_List values) { return halFormatString(str, values); }
+        public string halFormatString(string str, LSL_List values)
         {
-            if (String.IsNullOrEmpty(str)) return str;
+            if (String.IsNullOrEmpty(str))
+            {
+                return str;
+            }
 
             int len = values.Length;
 
@@ -15967,14 +18064,21 @@ namespace InWorldz.Phlox.Engine
             return str;
         }
 
-        public int iwMatchString(string str, string pattern, int matchType)
+        public int iwMatchString(string str, string pattern, int matchType) { return halMatchString(str, pattern, matchType); }
+        public int halMatchString(string str, string pattern, int matchType)
         {
             int len1 = str.Length;
             int len2 = pattern.Length;
             if (len1 == 0 || len2 == 0)
             {
-                if (matchType <= 1 && (len1 == 0 && len2 == 0)) return 1;
-                else return 0;
+                if (matchType <= 1 && (len1 == 0 && len2 == 0))
+                {
+                    return 1;
+                }
+                else
+                {
+                    return 0;
+                }
             }
             switch (matchType)
             {
@@ -15999,43 +18103,86 @@ namespace InWorldz.Phlox.Engine
 
         private int listCompare(LSL_List list1, LSL_List list2)
         {
-            if (list1.Length != list2.Length) return 0;
+            if (list1.Length != list2.Length)
+            {
+                return 0;
+            }
+
             int len = list1.Length;
 
             for (int i = 0; i < len; i++)
             {
                 int t1 = llGetListEntryType(list1, i);
                 int t2 = llGetListEntryType(list2, i);
-                if (t1 != t2 || (t1==0 && t2==0)) return 0;
-                if (t1 == 1 && (list1.GetLSLIntegerItem(i) != list2.GetLSLIntegerItem(i))) return 0;
-                if (t1 == 2 && (list1.GetLSLFloatItem(i) != list2.GetLSLFloatItem(i))) return 0;
-                else if ((t1 == 3 || t1 == 4) && (list1.GetLSLStringItem(i) != list2.GetLSLStringItem(i))) return 0;
-                else if (t1 == 5 && (list1.GetVector3Item(i) != list2.GetVector3Item(i))) return 0;
-                else if (t1 == 6 && (list1.GetQuaternionItem(i) != list2.GetQuaternionItem(i))) return 0;
+                if (t1 != t2 || (t1 == 0 && t2 == 0))
+                {
+                    return 0;
+                }
+
+                if (t1 == 1 && (list1.GetLSLIntegerItem(i) != list2.GetLSLIntegerItem(i)))
+                {
+                    return 0;
+                }
+
+                if (t1 == 2 && (list1.GetLSLFloatItem(i) != list2.GetLSLFloatItem(i)))
+                {
+                    return 0;
+                }
+                else if ((t1 == 3 || t1 == 4) && (list1.GetLSLStringItem(i) != list2.GetLSLStringItem(i)))
+                {
+                    return 0;
+                }
+                else if (t1 == 5 && (list1.GetVector3Item(i) != list2.GetVector3Item(i)))
+                {
+                    return 0;
+                }
+                else if (t1 == 6 && (list1.GetQuaternionItem(i) != list2.GetQuaternionItem(i)))
+                {
+                    return 0;
+                }
             }
             return 1;
         }
 
-        public int iwMatchList(LSL_List list1, LSL_List list2, int matchType)
+        public int iwMatchList(LSL_List list1, LSL_List list2, int matchType) { return halMatchList(list1, list2, matchType); }
+        public int halMatchList(LSL_List list1, LSL_List list2, int matchType)
         {
-            int len1=list1.Length;
+            int len1 = list1.Length;
             int len2 = list2.Length;
             if (len1 == 0 || len1 == 0)
             {
-                if (matchType <= 1) return (len1 == 0 && len2 == 0) ? 1 : 0;
-                else return 0;
+                if (matchType <= 1)
+                {
+                    return (len1 == 0 && len2 == 0) ? 1 : 0;
+                }
+                else
+                {
+                    return 0;
+                }
             }
             switch (matchType)
             {
                 case -1: //IW_MATCH_EQUAL
-                    if (len1 == 0 || len2 == 0 || len1 != len2) return 0;
+                    if (len1 == 0 || len2 == 0 || len1 != len2)
+                    {
+                        return 0;
+                    }
+
                     return listCompare(list1, list2);
                 case 0: //IW_MATCH_HEAD
-                    if (len1 == 0 || len2 == 0 || len1 < len2) return 0;
-                    return listCompare(list1.GetSublist(0, len2-1),list2);
+                    if (len1 == 0 || len2 == 0 || len1 < len2)
+                    {
+                        return 0;
+                    }
+
+                    return listCompare(list1.GetSublist(0, len2 - 1), list2);
                 case 1: //IW_MATCH_TAIL
-                    if (len1 == 0 || len2 == 0 || len1 < len2) return 0;
-                    return listCompare(list1.GetSublist(len2, len1-1), list2);
+                    if (len1 == 0 || len2 == 0 || len1 < len2)
+                    {
+                        return 0;
+                    }
+
+                    return listCompare(list1.GetSublist(len2, len1 - 1), list2);
                 case 2: //IW_MATCH_REGEX
                     LSLError("IW_MATCH_REGEX not implemented for iwMatchList.");
                     break;
@@ -16088,14 +18235,22 @@ namespace InWorldz.Phlox.Engine
                 if (codec == "uuid")
                 {
                     bytes = Decode(str, "base16");
-                    if (bytes == null) return null;
+                    if (bytes == null)
+                    {
+                        return null;
+                    }
+
                     s = pad_dashes(Encoding.Unicode.GetString(bytes));
                 }
                 else
                 {
 
                     bytes = Decode(str, codec);
-                    if (bytes == null) return null;
+                    if (bytes == null)
+                    {
+                        return null;
+                    }
+
                     s = Encoding.Unicode.GetString(bytes);
                 }
                 bytes = null;
@@ -16113,8 +18268,15 @@ namespace InWorldz.Phlox.Engine
                         return EncodeBase16(bytes);
                     case "uuid":
                         string str = EncodeBase16(bytes);
-                        if (str.Length == 32) return pad_dashes(str);
-                        else return str;
+                        if (str.Length == 32)
+                        {
+                            return pad_dashes(str);
+                        }
+                        else
+                        {
+                            return str;
+                        }
+
                     case "base64":
                         try
                         {
@@ -16253,9 +18415,17 @@ namespace InWorldz.Phlox.Engine
             private static int ValidateBase16(string str)
             {
                 int i = 0;
-                if (str.StartsWith("0x")) i = 2;
+                if (str.StartsWith("0x"))
+                {
+                    i = 2;
+                }
+
                 int len = str.Length;
-                if (len % 2 == 1) return 0;
+                if (len % 2 == 1)
+                {
+                    return 0;
+                }
+
                 for (; i < len; i++)
                 {
                     char c = str[i];
@@ -16271,11 +18441,15 @@ namespace InWorldz.Phlox.Engine
             private static int ValidateBase64(string str, char token1, char token2)
             {
                 int len = str.Length;
-                for(int i=0; i< len; i++) {
+                for (int i = 0; i < len; i++)
+                {
                     char c = str[i];
                     if (!Char.IsLetterOrDigit(c) && c != token1 && c != token2)
                     {
-                        if(len % 4 != 0 && (i==len-1 || i==len-2) && c != '=') return 0;
+                        if (len % 4 != 0 && (i == len - 1 || i == len - 2) && c != '=')
+                        {
+                            return 0;
+                        }
                     }
                 }
                 return 1;
@@ -16288,15 +18462,15 @@ namespace InWorldz.Phlox.Engine
             {
                 StringBuilder ret = new StringBuilder();
                 int len = inBytes.Length;
-                int[] bytes = new int[len*2];
-                for (int i = 0; i < (len*2); i+=2)
+                int[] bytes = new int[len * 2];
+                for (int i = 0; i < (len * 2); i += 2)
                 {
                     bytes[i] = (inBytes[i / 2] & 0xf0) >> 4;
                     bytes[i + 1] = inBytes[i / 2] & 0xf;
                 }
                 len = bytes.Length;
                 int extra = 0;
-                for (int i = 0; i < len; i+=3)
+                for (int i = 0; i < len; i += 3)
                 {
                     int A = bytes[i];
                     int B = 0;
@@ -16304,13 +18478,22 @@ namespace InWorldz.Phlox.Engine
                     if (i + 1 < len)
                     {
                         B = bytes[i + 1];
-                        if (i + 2 < len) C = bytes[i + 2];
-                        else extra = 1;
+                        if (i + 2 < len)
+                        {
+                            C = bytes[i + 2];
+                        }
+                        else
+                        {
+                            extra = 1;
+                        }
                     }
-                    else extra = 2;
-                    
+                    else
+                    {
+                        extra = 2;
+                    }
+
                     int D = 0xB;
-                    
+
                     if (A == 0)
                     {
                         A = 0xE;
@@ -16336,8 +18519,15 @@ namespace InWorldz.Phlox.Engine
                     ret.Append(C.ToString("X"));
                 }
 
-                if (extra >= 1) ret.Append("%3D");
-                if (extra == 2) ret.Append("%3D");
+                if (extra >= 1)
+                {
+                    ret.Append("%3D");
+                }
+
+                if (extra == 2)
+                {
+                    ret.Append("%3D");
+                }
 
                 string output = Uri.UnescapeDataString(ret.ToString());
                 ret = null;
@@ -16352,8 +18542,14 @@ namespace InWorldz.Phlox.Engine
             private static byte[] DecodeBase4k(string str)
             {
                 int extra = 0;
-                if (str.EndsWith("==")) extra = 2;
-                else if (str.EndsWith("=")) extra = 1;
+                if (str.EndsWith("=="))
+                {
+                    extra = 2;
+                }
+                else if (str.EndsWith("="))
+                {
+                    extra = 1;
+                }
 
                 str = Uri.EscapeDataString(str.Replace("=", String.Empty));
                 //byte[] bytes = Encoding.Unicode.GetBytes(str.Replace("%", String.Empty).ToLower());
@@ -16362,29 +18558,42 @@ namespace InWorldz.Phlox.Engine
 
 
                 int len = inBytes.Length;
-                int[] bytes = new int[len*2];
+                int[] bytes = new int[len * 2];
                 for (int i = 0; i < len; i++)
                 {
                     bytes[i * 2] = (inBytes[i] >> 4) & 0xF;
-                    bytes[(i*2)+1] = inBytes[i] & 0xF;
+                    bytes[(i * 2) + 1] = inBytes[i] & 0xF;
                 }
 
                 len *= 2;
-                for (int i = 0; i+5 < len; i += 6)
+                for (int i = 0; i + 5 < len; i += 6)
                 {
                     int A = bytes[i + 1];
                     int B = bytes[i + 3];
                     int C = bytes[i + 5];
                     int D = bytes[i + 2];
-                    if (D == 0x8) A = 0;
-                    else if (D == 0x9) A = 0xD;
-                    else if (D == 0xA) A = 0xF;
+                    if (D == 0x8)
+                    {
+                        A = 0;
+                    }
+                    else if (D == 0x9)
+                    {
+                        A = 0xD;
+                    }
+                    else if (D == 0xA)
+                    {
+                        A = 0xF;
+                    }
 
                     ret.Append(A.ToString("X"));
                     ret.Append(B.ToString("X"));
                     ret.Append(C.ToString("X"));
                 }
-                if (extra > 0) ret.Length -= extra;
+                if (extra > 0)
+                {
+                    ret.Length -= extra;
+                }
+
                 string output = ret.ToString();
                 ret = null;
                 return DecodeBase16(output);
@@ -16427,15 +18636,15 @@ namespace InWorldz.Phlox.Engine
                 }
             }
 
-            
+
             //Encrypt Data with AES encryption
             public static byte[] AesEncrypt(byte[] valueBytes, byte[] keyBytes, string _vector)
             {
-            //    return AesEncrypt<AesManaged>(valueBytes, keyBytes, _vector);
-            //}
-            //public static byte[] AesEncrypt<T>(byte[] valueBytes, byte[] keyBytes, string _vector)
-            //        where T : SymmetricAlgorithm, new()
-            //{
+                //    return AesEncrypt<AesManaged>(valueBytes, keyBytes, _vector);
+                //}
+                //public static byte[] AesEncrypt<T>(byte[] valueBytes, byte[] keyBytes, string _vector)
+                //        where T : SymmetricAlgorithm, new()
+                //{
                 byte[] vectorBytes = DecodeBase16(_vector);
 
                 byte[] encrypted;
@@ -16465,10 +18674,10 @@ namespace InWorldz.Phlox.Engine
             //Decrypt data with AES decryption
             public static string AesDecrypt(byte[] valueBytes, byte[] keyBytes, string _vector)
             {
-            //    return AesDecrypt<AesManaged>(value, keyBytes, _vector);
-            //}
-            //public static string AesDecrypt<T>(byte[] valueBytes, byte[] keyBytes, string _vector) where T : SymmetricAlgorithm, new()
-            //{
+                //    return AesDecrypt<AesManaged>(value, keyBytes, _vector);
+                //}
+                //public static string AesDecrypt<T>(byte[] valueBytes, byte[] keyBytes, string _vector) where T : SymmetricAlgorithm, new()
+                //{
                 byte[] vectorBytes = DecodeBase16(_vector);
 
                 byte[] decrypted;
@@ -16510,8 +18719,14 @@ namespace InWorldz.Phlox.Engine
                 StringBuilder sb = new StringBuilder();
                 foreach (char c in str)
                 {
-                    if (c > 127) sb.Append("\\u" + ((int)c).ToString("x4"));
-                    else sb.Append(c);
+                    if (c > 127)
+                    {
+                        sb.Append("\\u" + ((int)c).ToString("x4"));
+                    }
+                    else
+                    {
+                        sb.Append(c);
+                    }
                 }
 
                 return sb.ToString();
@@ -16532,8 +18747,13 @@ namespace InWorldz.Phlox.Engine
             //Helper function for Ascii Compression
             // Adapted from public domain code by Becky Pippen
             // http://wiki.secondlife.com/wiki/User:Becky_Pippen/Text_Storage
-            private static string encode15BitsToChar(int num) {
-                if (num < 0 || num >= 0x8000) return "�";
+            private static string encode15BitsToChar(int num)
+            {
+                if (num < 0 || num >= 0x8000)
+                {
+                    return "�";
+                }
+
                 num += 0x1000;
                 return Uri.UnescapeDataString(
                     string.Format("%{0}%{1}%{2}",
@@ -16546,13 +18766,22 @@ namespace InWorldz.Phlox.Engine
             //Helper function for Ascii Compression
             // Adapted from public domain code by Becky Pippen
             // http://wiki.secondlife.com/wiki/User:Becky_Pippen/Text_Storage
-            private static int charToInt(string src, int index) {
-                if (index < 0) index = src.Length + index;
-                if (Math.Abs(index) >= src.Length) return 0;
+            private static int charToInt(string src, int index)
+            {
+                if (index < 0)
+                {
+                    index = src.Length + index;
+                }
+
+                if (Math.Abs(index) >= src.Length)
+                {
+                    return 0;
+                }
+
                 char c = src[index];
-                return (int)c;
+                return c;
             }
-            
+
             //Helper function for Ascii Compression
             // Adapted from public domain code by Becky Pippen
             // http://wiki.secondlife.com/wiki/User:Becky_Pippen/Text_Storage
@@ -16569,7 +18798,11 @@ namespace InWorldz.Phlox.Engine
             // http://wiki.secondlife.com/wiki/User:Becky_Pippen/Text_Storage
             public static string AsciiCompress(string str)
             {
-                if (String.IsNullOrEmpty(str)) return str;
+                if (String.IsNullOrEmpty(str))
+                {
+                    return str;
+                }
+
                 str = StringToAscii(str);
                 int len = str.Length;
                 bool emptyEnd = false;
@@ -16584,11 +18817,14 @@ namespace InWorldz.Phlox.Engine
                 for (int i = 0; i < len; i += 2)
                 {
                     encoded.Append(encode15BitsToChar(
-                        charToInt(str, i) << 7 | charToInt(str, i+1)
+                        charToInt(str, i) << 7 | charToInt(str, i + 1)
                     ));
                 }
 
-                if (emptyEnd) encoded.Append("=");
+                if (emptyEnd)
+                {
+                    encoded.Append("=");
+                }
 
                 return encoded.ToString();
             }
@@ -16598,7 +18834,11 @@ namespace InWorldz.Phlox.Engine
             // http://wiki.secondlife.com/wiki/User:Becky_Pippen/Text_Storage
             public static string AsciiDecompress(string str)
             {
-                if (String.IsNullOrEmpty(str)) return str;
+                if (String.IsNullOrEmpty(str))
+                {
+                    return str;
+                }
+
                 int len = str.Length;
                 StringBuilder result = new StringBuilder(len * 2);
                 for (int i = 0; i < len; i++)
@@ -16610,7 +18850,7 @@ namespace InWorldz.Phlox.Engine
                     }
                     else
                     {
-                        int cInt15 = decodeCharTo15Bits(str.Substring(i,1));
+                        int cInt15 = decodeCharTo15Bits(str.Substring(i, 1));
                         result.Append((char)(cInt15 >> 7));
                         result.Append((char)(cInt15 & 0x7f));
                     }
@@ -16627,32 +18867,51 @@ namespace InWorldz.Phlox.Engine
             //Return a cryptographic hash
             public static string Hash(string str, string nonce, string inCodec, string outCodec)
             {
-                if (!String.IsNullOrEmpty(nonce)) str = str + ":" + nonce;
+                if (!String.IsNullOrEmpty(nonce))
+                {
+                    str = str + ":" + nonce;
+                }
+
                 byte[] bytes = null;
                 byte[] inBytes = Encoding.UTF8.GetBytes(str);
                 switch (inCodec)
                 {
                     case "md5":
-                        lock(md5util)
+                        lock (md5util)
+                        {
                             bytes = md5util.ComputeHash(inBytes);
+                        }
+
                         break;
                     case "sha1":
                     case "sha128":
                         lock (sha1util)
+                        {
                             bytes = sha1util.ComputeHash(inBytes);
+                        }
+
                         break;
                     case "sha2":
                     case "sha256":
                         lock (sha2util)
+                        {
                             bytes = sha2util.ComputeHash(inBytes);
+                        }
+
                         break;
                     case "sha384":
                         lock (sha384util)
+                        {
                             bytes = sha384util.ComputeHash(inBytes);
+                        }
+
                         break;
                     case "sha512":
                         lock (sha512util)
+                        {
                             bytes = sha512util.ComputeHash(inBytes);
+                        }
+
                         break;
                     default:
                         return String.Empty;
@@ -16663,15 +18922,25 @@ namespace InWorldz.Phlox.Engine
 
 
 
-        public string iwStringCodec(string str, string codec, int operation, LSL_List extraParams)
+        public string iwStringCodec(string str, string codec, int operation, LSL_List extraParams) { return halStringCodec(str, codec, operation, extraParams); }
+        public string halStringCodec(string str, string codec, int operation, LSL_List extraParams)
         {
             const int OP_DECODE = 0;
             const int OP_ENCODE = 1;
             const int OP_VALIDATE = 2;
 
-                 if (str.Length >= 16000)this.ScriptSleep((str.Length / 100) * 20);
-            else if (str.Length >=  8000)this.ScriptSleep((str.Length / 100) * 10);
-            else if (str.Length >=  1000)this.ScriptSleep((str.Length / 100) *  5);
+            if (str.Length >= 16000)
+            {
+                this.ScriptSleep((str.Length / 100) * 20);
+            }
+            else if (str.Length >= 8000)
+            {
+                this.ScriptSleep((str.Length / 100) * 10);
+            }
+            else if (str.Length >= 1000)
+            {
+                this.ScriptSleep((str.Length / 100) * 5);
+            }
 
             int pLen = extraParams.Length;
             byte[] cBytes = null;
@@ -16680,8 +18949,9 @@ namespace InWorldz.Phlox.Engine
             for (int i = 0; i < pLen; i += 2)
             {
                 string k = extraParams.GetLSLStringItem(i);
-                string v = extraParams.GetLSLStringItem(i+1);
-                k = k.ToLower(); v = v.ToLower();
+                string v = extraParams.GetLSLStringItem(i + 1);
+                k = k.ToLower();
+                v = v.ToLower();
                 if (k == "input codec")
                 {
                     if (CodecUtil.HasCodec(v) == false)
@@ -16697,27 +18967,45 @@ namespace InWorldz.Phlox.Engine
             switch (codec)
             {
                 case "ascii":
-                    if (String.IsNullOrEmpty(str)) return str;
-                    if(operation == OP_ENCODE) {
+                    if (String.IsNullOrEmpty(str))
+                    {
+                        return str;
+                    }
+
+                    if (operation == OP_ENCODE)
+                    {
                         return CodecUtil.StringToAscii(str);
-                    } else if(operation == OP_DECODE) {
-                        try {
+                    }
+                    else if (operation == OP_DECODE)
+                    {
+                        try
+                        {
                             return CodecUtil.AsciiToString(str);
-                        } catch (Exception e) {
+                        }
+                        catch (Exception e)
+                        {
                             LSLError("Error in ascii decoding: " + e.Message);
                         }
-                    } else if(operation == OP_VALIDATE) {
-                        try {
+                    }
+                    else if (operation == OP_VALIDATE)
+                    {
+                        try
+                        {
                             CodecUtil.AsciiToString(str);
                             return "VALID";
                         }
-                        catch (Exception) {
+                        catch (Exception)
+                        {
                             return "INVALID";
                         }
                     }
                     break;
                 case "gzip":
-                    if (String.IsNullOrEmpty(str)) return str;
+                    if (String.IsNullOrEmpty(str))
+                    {
+                        return str;
+                    }
+
                     string outputCodec = "base4096";
                     if (extraParams.Length >= 2 && extraParams.Length % 2 == 0)
                     {
@@ -16736,13 +19024,31 @@ namespace InWorldz.Phlox.Engine
                         LSLError("Bad codec for gzip compression: " + outputCodec);
                         return String.Empty;
                     }
-                    if (operation == OP_ENCODE) return CodecUtil.gzipCompress(str, outputCodec);
-                    else if (operation == OP_DECODE) return CodecUtil.gzipDecompress(str, outputCodec);
+                    if (operation == OP_ENCODE)
+                    {
+                        return CodecUtil.gzipCompress(str, outputCodec);
+                    }
+                    else if (operation == OP_DECODE)
+                    {
+                        return CodecUtil.gzipDecompress(str, outputCodec);
+                    }
+
                     break;
                 case "ascii-zip":
-                    if (String.IsNullOrEmpty(str)) return str;
-                    if (operation == OP_ENCODE) return CodecUtil.AsciiCompress(str);
-                    else if (operation == OP_DECODE) return CodecUtil.AsciiDecompress(str);
+                    if (String.IsNullOrEmpty(str))
+                    {
+                        return str;
+                    }
+
+                    if (operation == OP_ENCODE)
+                    {
+                        return CodecUtil.AsciiCompress(str);
+                    }
+                    else if (operation == OP_DECODE)
+                    {
+                        return CodecUtil.AsciiDecompress(str);
+                    }
+
                     break;
                 case "md5":
                 case "sha1":
@@ -16803,7 +19109,8 @@ namespace InWorldz.Phlox.Engine
                             switch (k)
                             {
                                 case "salt":
-                                    if(String.IsNullOrEmpty(val)) {
+                                    if (String.IsNullOrEmpty(val))
+                                    {
                                         LSLError("Salt for AES encryption key cannot be blank.");
                                         return String.Empty;
                                     }
@@ -16819,7 +19126,8 @@ namespace InWorldz.Phlox.Engine
                                     break;
                                 case "rounds":
                                     int iterTest = Convert.ToInt32(val);
-                                    if (iterTest < 1 || iterTest > 1024) {
+                                    if (iterTest < 1 || iterTest > 1024)
+                                    {
                                         LSLError("Rounds for AES encryption key cannot be more than 1024 or less than 1");
                                         return String.Empty;
                                     }
@@ -16838,26 +19146,34 @@ namespace InWorldz.Phlox.Engine
                         return aesKeyNew;
                     }
                 case "aes":
-                    if (String.IsNullOrEmpty(str)) return str;
+                    if (String.IsNullOrEmpty(str))
+                    {
+                        return str;
+                    }
+
                     string aesCodec = "base4096";
                     string aesKeyCodec = "base16";
                     string aesKey = String.Empty;
                     string aesVector = String.Empty;
-                    
+
                     if (extraParams.Length >= 0)
                     {
                         int len = extraParams.Length;
-                        for (int i = 0; i < len; i+=2)
+                        for (int i = 0; i < len; i += 2)
                         {
                             string k = extraParams.GetLSLStringItem(i).ToLower();
-                            string val = extraParams.GetLSLStringItem(i+1);
+                            string val = extraParams.GetLSLStringItem(i + 1);
                             switch (k)
                             {
                                 case "key":
                                     aesKey = val;
                                     break;
                                 case "vector":
-                                    if (!String.IsNullOrEmpty(val)) aesVector = val.Replace("-",null);
+                                    if (!String.IsNullOrEmpty(val))
+                                    {
+                                        aesVector = val.Replace("-", null);
+                                    }
+
                                     break;
                                 case "key codec":
                                     aesKeyCodec = val;
@@ -16885,7 +19201,8 @@ namespace InWorldz.Phlox.Engine
                         LSLError("Error: invalid codec for AES encryption: " + aesCodec);
                         return String.Empty;
                     }
-                    if(CodecUtil.HasCodec(aesKeyCodec) == false) {
+                    if (CodecUtil.HasCodec(aesKeyCodec) == false)
+                    {
                         LSLError("Error: invalid input codec for AES encryption key: " + aesKeyCodec);
                         return String.Empty;
                     }
@@ -16921,7 +19238,7 @@ namespace InWorldz.Phlox.Engine
                         {
                             return CodecUtil.AesDecrypt(cBytes, aesKeyBytes, aesVector);
                         }
-                        
+
                     }
 
                     break;
@@ -16929,20 +19246,42 @@ namespace InWorldz.Phlox.Engine
                     LSLError("Error: No codec specified for iwStringCodec!");
                     break;
                 default:
-                    if (String.IsNullOrEmpty(str)) return str;
+                    if (String.IsNullOrEmpty(str))
+                    {
+                        return str;
+                    }
+
                     string ret = null;
                     if (operation == OP_ENCODE)
                     {
-                        if (!useBytes) ret = CodecUtil.Encode(str, codec);
-                        else ret = CodecUtil.Encode(cBytes, codec);
+                        if (!useBytes)
+                        {
+                            ret = CodecUtil.Encode(str, codec);
+                        }
+                        else
+                        {
+                            ret = CodecUtil.Encode(cBytes, codec);
+                        }
                     }
-                    else if (operation == OP_DECODE) ret = CodecUtil.DecodeToString(str, codec);
+                    else if (operation == OP_DECODE)
+                    {
+                        ret = CodecUtil.DecodeToString(str, codec);
+                    }
                     else if (operation == OP_VALIDATE)
                     {
                         int v = CodecUtil.Validate(str, codec);
-                        if (v == 1) return "PASS";
-                        else if (v == 0) return "FAIL";
-                        else return "INVALID CODEC";
+                        if (v == 1)
+                        {
+                            return "PASS";
+                        }
+                        else if (v == 0)
+                        {
+                            return "FAIL";
+                        }
+                        else
+                        {
+                            return "INVALID CODEC";
+                        }
                     }
                     if (ret == null)
                     {
@@ -16969,17 +19308,25 @@ namespace InWorldz.Phlox.Engine
             for (int i = 0; i < options.Length; i += 2)
             {
                 if (options.GetLSLIntegerItem(i) == ScriptBaseClass.RC_MAX_HITS)
+                {
                     count = options.GetLSLIntegerItem(i + 1);
+                }
                 //else if (options.GetLSLIntegerItem(i) == ScriptBaseClass.RC_DETECT_PHANTOM)
                 //    detectPhantom = (options.GetLSLIntegerItem(i + 1) > 0);
                 else if (options.GetLSLIntegerItem(i) == ScriptBaseClass.RC_DATA_FLAGS)
+                {
                     dataFlags = options.GetLSLIntegerItem(i + 1);
+                }
                 else if (options.GetLSLIntegerItem(i) == ScriptBaseClass.RC_REJECT_TYPES)
+                {
                     rejectTypes = options.GetLSLIntegerItem(i + 1);
+                }
             }
 
             if (count > 16)
+            {
                 count = 16;
+            }
             else if (count <= 0)
             {
                 LSLError("You must request at least one result from llCastRay.");
@@ -16998,22 +19345,34 @@ namespace InWorldz.Phlox.Engine
             foreach (ContactResult result in contactResults)
             {
                 if (result.CollisionActor != null && m_host.LocalId == result.CollisionActor.LocalID)
+                {
                     continue;
+                }
 
                 //Check to see if this actor type is rejected by the filter
                 if (rejectTerrain && result.CollisionActor == null)//If the actor is null, then it is the terrain
+                {
                     continue;
+                }
+
                 if (rejectAgents && result.CollisionActor != null && result.CollisionActor.PhysicsActorType == ActorType.Agent)
+                {
                     continue;
+                }
+
                 if ((rejectNonPhysical || rejectPhysical) && result.CollisionActor != null)
                 {
-                    if(result.CollisionActor.PhysicsActorType == ActorType.Prim)
+                    if (result.CollisionActor.PhysicsActorType == ActorType.Prim)
                     {
                         if (rejectPhysical && result.CollisionActor.IsPhysical)
+                        {
                             continue;
+                        }
 
                         if (rejectNonPhysical && !result.CollisionActor.IsPhysical)
+                        {
                             continue;
+                        }
                     }
                 }
 
@@ -17026,12 +19385,18 @@ namespace InWorldz.Phlox.Engine
                     if (part != null)
                     {
                         if (part.ParentGroup == m_host.ParentGroup)
+                        {
                             continue;
+                        }
 
                         if ((dataFlags & ScriptBaseClass.RC_GET_ROOT_KEY) == ScriptBaseClass.RC_GET_ROOT_KEY)
+                        {
                             itemID = part.ParentGroup.UUID;
+                        }
                         else
+                        {
                             itemID = part.UUID;
+                        }
 
                         linkNum = part.LinkNum;
                     }
@@ -17040,26 +19405,34 @@ namespace InWorldz.Phlox.Engine
                         ScenePresence sp = World.GetScenePresence(result.CollisionActor.LocalID);
                         /// It it a boy? a girl?
                         if (sp != null)
+                        {
                             itemID = sp.UUID;
+                        }
                     }
                 }
 
                 results.Add(itemID.ToString());
 
                 if ((dataFlags & ScriptBaseClass.RC_GET_LINK_NUM) == ScriptBaseClass.RC_GET_LINK_NUM)
-                    results.Add((int)linkNum);
+                {
+                    results.Add(linkNum);
+                }
 
                 results.Add(result.Position);
 
                 if ((dataFlags & ScriptBaseClass.RC_GET_NORMAL) == ScriptBaseClass.RC_GET_NORMAL)
+                {
                     results.Add(result.Normal);
+                }
 
                 values++;
                 if (values >= count)
+                {
                     break;
+                }
             }
 
-            results.Add((int)values);
+            results.Add(values);
 
             return new LSL_List(results);
         }
@@ -17082,7 +19455,7 @@ namespace InWorldz.Phlox.Engine
                 return;
             }
 
-            if(keyframes.Length == 0 &&
+            if (keyframes.Length == 0 &&
                 options.Length == 0)
             {
                 //Basically, we just need to stop the motion and clear the animation
@@ -17164,17 +19537,26 @@ namespace InWorldz.Phlox.Engine
         }
 
         // iwGroupInvite(key group, key user, string role)
-        public int iwGroupInvite(string group, string user, string roleName)
+        public int iwGroupInvite(string group, string user, string roleName) { return halGroupInvite(group, user, roleName); }
+        public int halGroupInvite(string group, string user, string roleName)
         {
             UUID roleID = UUID.Zero;
             UUID groupID = UUID.Zero;
             if ((!UUID.TryParse(group, out groupID)) || (groupID == UUID.Zero))
+            {
                 return (int)Constants.GenericReturnCodes.PARAMETER;
+            }
+
             UUID userID = UUID.Zero;
             if ((!UUID.TryParse(user, out userID)) || (userID == UUID.Zero))
+            {
                 return (int)Constants.GenericReturnCodes.PARAMETER;
+            }
+
             if (String.IsNullOrEmpty(roleName))
+            {
                 roleName = "Everyone";
+            }
 
             if (!ScriptOwnerIsCreator())
             {
@@ -17184,23 +19566,35 @@ namespace InWorldz.Phlox.Engine
 
             IGroupsModule groupsModule = m_ScriptEngine.World.RequestModuleInterface<IGroupsModule>();
             List<GroupRolesData> roles = groupsModule.GroupRoleDataRequest(null, groupID);
-            if (roles == null) return (int)Constants.GenericReturnCodes.PARAMETER;      // groupID bad, or internal/system error (should not happen)
+            if (roles == null)
+            {
+                return (int)Constants.GenericReturnCodes.PARAMETER;      // groupID bad, or internal/system error (should not happen)
+            }
 
             int roleIndex = roles.FindIndex(role => role.Name.Equals(roleName, StringComparison.InvariantCultureIgnoreCase));
-            if (roleIndex == -1) return (int)Constants.GenericReturnCodes.PARAMETER;   // unknown role
+            if (roleIndex == -1)
+            {
+                return (int)Constants.GenericReturnCodes.PARAMETER;   // unknown role
+            }
 
             return groupsModule.InviteGroupRequest(null, m_host.ObjectOwner, m_host.Name, groupID, userID, roles[roleIndex].RoleID);
         }
 
         // iwGroupEject(key group, key user)
-        public int iwGroupEject(string group, string user)
+        public int iwGroupEject(string group, string user) { return halGroupEject(group, user); }
+        public int halGroupEject(string group, string user)
         {
             UUID groupID = UUID.Zero;
             if ((!UUID.TryParse(group, out groupID)) || (groupID == UUID.Zero))
+            {
                 return (int)Constants.GenericReturnCodes.PARAMETER;
+            }
+
             UUID userID = UUID.Zero;
             if ((!UUID.TryParse(user, out userID)) || (userID == UUID.Zero))
+            {
                 return (int)Constants.GenericReturnCodes.PARAMETER;
+            }
 
             if (!ScriptOwnerIsCreator())
             {
@@ -17248,11 +19642,15 @@ namespace InWorldz.Phlox.Engine
             {
                 UUID botUUID = UUID.Zero;
                 if (!UUID.TryParse(botID, out botUUID) || (botUUID == UUID.Zero))
+                {
                     return;
+                }
 
                 IBotManager manager = World.RequestModuleInterface<IBotManager>();
                 if (manager != null)
+                {
                     manager.RemoveBot(botUUID, m_host.OwnerID);
+                }
             }
             finally
             {
@@ -17264,11 +19662,16 @@ namespace InWorldz.Phlox.Engine
         {
             UUID botUUID = UUID.Zero;
             if (!UUID.TryParse(botID, out botUUID) || (botUUID == UUID.Zero))
+            {
                 return String.Empty;
+            }
 
             IBotManager manager = World.RequestModuleInterface<IBotManager>();
             if (manager != null)
+            {
                 return manager.GetBotOwner(botUUID).ToString();
+            }
+
             return String.Empty;
         }
 
@@ -17276,11 +19679,16 @@ namespace InWorldz.Phlox.Engine
         {
             UUID userUUID = UUID.Zero;
             if (!UUID.TryParse(userID, out userUUID) || (userUUID == UUID.Zero))
+            {
                 return 0;
+            }
 
             IBotManager manager = World.RequestModuleInterface<IBotManager>();
             if (manager != null)
+            {
                 return manager.IsBot(userUUID) ? 1 : 0;
+            }
+
             return 0;
         }
 
@@ -17288,11 +19696,16 @@ namespace InWorldz.Phlox.Engine
         {
             UUID botUUID = UUID.Zero;
             if (!UUID.TryParse(botID, out botUUID) || (botUUID == UUID.Zero))
+            {
                 return String.Empty;
+            }
 
             IBotManager manager = World.RequestModuleInterface<IBotManager>();
             if (manager != null)
+            {
                 return manager.GetBotName(botUUID);
+            }
+
             return String.Empty;
         }
 
@@ -17313,7 +19726,10 @@ namespace InWorldz.Phlox.Engine
             List<UUID> bots = new List<UUID>();
             IBotManager manager = World.RequestModuleInterface<IBotManager>();
             if (manager != null)
+            {
                 bots = manager.GetAllBots();
+            }
+
             return new LSL_List(bots.ConvertAll<object>((o) => o.ToString()));
         }
 
@@ -17322,7 +19738,10 @@ namespace InWorldz.Phlox.Engine
             List<UUID> bots = new List<UUID>();
             IBotManager manager = World.RequestModuleInterface<IBotManager>();
             if (manager != null)
+            {
                 bots = manager.GetAllOwnedBots(m_host.OwnerID);
+            }
+
             return new LSL_List(bots.ConvertAll<object>((o) => o.ToString()));
         }
 
@@ -17331,31 +19750,37 @@ namespace InWorldz.Phlox.Engine
         {
             UUID botUUID = UUID.Zero;
             if (!UUID.TryParse(botID, out botUUID) || (botUUID == UUID.Zero))
+            {
                 return;
+            }
 
             UUID imageID = UUID.Zero;
             UUID.TryParse(imageUUID, out imageID);
 
             IBotManager manager = World.RequestModuleInterface<IBotManager>();
             if (manager != null)
+            {
                 manager.SetBotProfile(botUUID, aboutText, email, imageID, profileURL, m_host.OwnerID);
+            }
         }
 
         public void botSetProfileParams(string botID, LSL_List profileInformation)
         {
             UUID botUUID = UUID.Zero;
             if (!UUID.TryParse(botID, out botUUID) || (botUUID == UUID.Zero))
+            {
                 return;
+            }
 
             string aboutText = null, email = null, profileURL = null;
             UUID? imageUUID = null;
 
-            for(int i = 0; i < profileInformation.Length; i += 2)
+            for (int i = 0; i < profileInformation.Length; i += 2)
             {
                 int param = profileInformation.GetLSLIntegerItem(i);
                 string value = profileInformation.GetLSLStringItem(i + 1);
 
-                switch(param)
+                switch (param)
                 {
                     case ScriptBaseClass.BOT_ABOUT_TEXT:
                         aboutText = value;
@@ -17366,7 +19791,10 @@ namespace InWorldz.Phlox.Engine
                     case ScriptBaseClass.BOT_IMAGE_UUID:
                         UUID id;
                         if (UUID.TryParse(value, out id))
+                        {
                             imageUUID = id;
+                        }
+
                         break;
                     case ScriptBaseClass.BOT_PROFILE_URL:
                         profileURL = value;
@@ -17376,21 +19804,29 @@ namespace InWorldz.Phlox.Engine
 
             IBotManager manager = World.RequestModuleInterface<IBotManager>();
             if (manager != null)
+            {
                 manager.SetBotProfile(botUUID, aboutText, email, imageUUID, profileURL, m_host.OwnerID);
+            }
         }
 
         public LSL_List botGetProfileParams(string botID, LSL_List profileInformation)
         {
             if (botIsBot(botID) == 0)   // do not allow this to work on regular user accounts
+            {
                 return new LSL_List();
-            
+            }
+
             UUID botUUID = UUID.Zero;
             if (!UUID.TryParse(botID, out botUUID) || (botUUID == UUID.Zero))
+            {
                 return new LSL_List();
+            }
 
             UserProfileData profile = World.CommsManager.UserService.GetUserProfile(botUUID);
             if (profile == null)
+            {
                 return new LSL_List();
+            }
 
             List<object> list = new List<object>();
             for (int i = 0; i < profileInformation.Length; i++)
@@ -17400,16 +19836,16 @@ namespace InWorldz.Phlox.Engine
                 switch (param)
                 {
                     case ScriptBaseClass.BOT_ABOUT_TEXT:
-                        list.Add((string)profile.AboutText);
+                        list.Add(profile.AboutText);
                         break;
                     case ScriptBaseClass.BOT_EMAIL:
-                        list.Add((string)profile.Email);
+                        list.Add(profile.Email);
                         break;
                     case ScriptBaseClass.BOT_IMAGE_UUID:
-                        list.Add((string)profile.Image.ToString());
+                        list.Add(profile.Image.ToString());
                         break;
                     case ScriptBaseClass.BOT_PROFILE_URL:
-                        list.Add((string)profile.ProfileURL);
+                        list.Add(profile.ProfileURL);
                         break;
                 }
             }
@@ -17433,7 +19869,9 @@ namespace InWorldz.Phlox.Engine
                     string reason;
                     manager.SaveOutfitToDatabase(m_host.OwnerID, outfitName, out reason);
                     if (reason != null)
+                    {
                         ScriptShoutError(reason);
+                    }
                 }
             }
             finally
@@ -17450,7 +19888,9 @@ namespace InWorldz.Phlox.Engine
             {
                 IBotManager manager = World.RequestModuleInterface<IBotManager>();
                 if (manager != null)
+                {
                     manager.RemoveOutfitFromDatabase(m_host.OwnerID, outfitName);
+                }
             }
             finally
             {
@@ -17466,7 +19906,9 @@ namespace InWorldz.Phlox.Engine
             {
                 UUID botUUID = UUID.Zero;
                 if (!UUID.TryParse(botID, out botUUID) || (botUUID == UUID.Zero))
+                {
                     return;
+                }
 
                 IBotManager manager = World.RequestModuleInterface<IBotManager>();
                 if (manager != null)
@@ -17474,7 +19916,9 @@ namespace InWorldz.Phlox.Engine
                     string reason;
                     manager.ChangeBotOutfit(botUUID, outfitName, m_host.OwnerID, out reason);
                     if (reason != null)
+                    {
                         ScriptShoutError(reason);
+                    }
                 }
             }
             finally
@@ -17490,22 +19934,28 @@ namespace InWorldz.Phlox.Engine
 
             try
             {
-                
-                if(matchType > 2)
+
+                if (matchType > 2)
                 {
-                    if (matchType == 3) LSLError("IW_MATCH_COUNT is not a valid matching type for botSearchBotOutfits");
-                    else if (matchType == 4) LSLError("IW_MATCH_COUNT_REGEX is not a valid matching type for botSearchBotOutfits");
+                    if (matchType == 3)
+                    {
+                        LSLError("IW_MATCH_COUNT is not a valid matching type for botSearchBotOutfits");
+                    }
+                    else if (matchType == 4)
+                    {
+                        LSLError("IW_MATCH_COUNT_REGEX is not a valid matching type for botSearchBotOutfits");
+                    }
                 }
-                else 
+                else
                 {
                     IBotManager manager = World.RequestModuleInterface<IBotManager>();
                     if (manager != null)
                     {
                         List<string> itms = manager.GetBotOutfitsByOwner(m_host.OwnerID);
-                        int count=0;
-                        foreach(string outfit in itms)
+                        int count = 0;
+                        foreach (string outfit in itms)
                         {
-                            if(String.IsNullOrEmpty(pattern) || iwMatchString(outfit, pattern, matchType) == 1)
+                            if (String.IsNullOrEmpty(pattern) || iwMatchString(outfit, pattern, matchType) == 1)
                             {
                                 if (count >= start && (end == -1 || count <= end))
                                 {
@@ -17513,7 +19963,9 @@ namespace InWorldz.Phlox.Engine
                                 }
                                 count++;
                                 if (end != -1 && count > end)
+                                {
                                     break;
+                                }
                             }
                         }
                     }
@@ -17554,44 +20006,60 @@ namespace InWorldz.Phlox.Engine
         {
             UUID botUUID = UUID.Zero;
             if (!UUID.TryParse(botID, out botUUID) || (botUUID == UUID.Zero))
+            {
                 return;
+            }
 
             IBotManager manager = World.RequestModuleInterface<IBotManager>();
             if (manager != null)
+            {
                 manager.BotRegisterForPathUpdateEvents(botUUID, m_itemID, m_host.OwnerID);
+            }
         }
 
         public void botDeregisterFromNavigationEvents(string botID)
         {
             UUID botUUID = UUID.Zero;
             if (!UUID.TryParse(botID, out botUUID) || (botUUID == UUID.Zero))
+            {
                 return;
+            }
 
             IBotManager manager = World.RequestModuleInterface<IBotManager>();
             if (manager != null)
+            {
                 manager.BotDeregisterFromPathUpdateEvents(botUUID, m_itemID, m_host.OwnerID);
+            }
         }
 
         public void botRegisterForCollisionEvents(string botID)
         {
             UUID botUUID = UUID.Zero;
             if (!UUID.TryParse(botID, out botUUID) || (botUUID == UUID.Zero))
+            {
                 return;
+            }
 
             IBotManager manager = World.RequestModuleInterface<IBotManager>();
             if (manager != null)
+            {
                 manager.BotRegisterForCollisionEvents(botUUID, m_host.ParentGroup, m_host.OwnerID);
+            }
         }
 
         public void botDeregisterFromCollisionEvents(string botID)
         {
             UUID botUUID = UUID.Zero;
             if (!UUID.TryParse(botID, out botUUID) || (botUUID == UUID.Zero))
+            {
                 return;
+            }
 
             IBotManager manager = World.RequestModuleInterface<IBotManager>();
             if (manager != null)
+            {
                 manager.BotDeregisterFromCollisionEvents(botUUID, m_host.ParentGroup, m_host.OwnerID);
+            }
         }
 
         #endregion
@@ -17602,44 +20070,60 @@ namespace InWorldz.Phlox.Engine
         {
             UUID botUUID = UUID.Zero;
             if (!UUID.TryParse(botID, out botUUID) || (botUUID == UUID.Zero))
+            {
                 return;
+            }
 
             IBotManager manager = World.RequestModuleInterface<IBotManager>();
             if (manager != null)
+            {
                 manager.PauseBotMovement(botUUID, m_host.OwnerID);
+            }
         }
 
         public void botResumeMovement(string botID)
         {
             UUID botUUID = UUID.Zero;
             if (!UUID.TryParse(botID, out botUUID) || (botUUID == UUID.Zero))
+            {
                 return;
+            }
 
             IBotManager manager = World.RequestModuleInterface<IBotManager>();
             if (manager != null)
+            {
                 manager.ResumeBotMovement(botUUID, m_host.OwnerID);
+            }
         }
 
         public void botSetMovementSpeed(string botID, float speed)
         {
             UUID botUUID = UUID.Zero;
             if (!UUID.TryParse(botID, out botUUID) || (botUUID == UUID.Zero))
+            {
                 return;
+            }
 
             IBotManager manager = World.RequestModuleInterface<IBotManager>();
             if (manager != null)
+            {
                 manager.SetBotSpeed(botUUID, speed, m_host.OwnerID);
+            }
         }
 
         public Vector3 botGetPos(string botID)
         {
             UUID botUUID = UUID.Zero;
             if (!UUID.TryParse(botID, out botUUID) || (botUUID == UUID.Zero))
+            {
                 return Vector3.Zero;
+            }
 
             IBotManager manager = World.RequestModuleInterface<IBotManager>();
             if (manager != null)
+            {
                 return manager.GetBotPosition(botUUID, m_host.OwnerID);
+            }
 
             return Vector3.Zero;
         }
@@ -17648,22 +20132,30 @@ namespace InWorldz.Phlox.Engine
         {
             UUID botUUID = UUID.Zero;
             if (!UUID.TryParse(botID, out botUUID) || (botUUID == UUID.Zero))
+            {
                 return;
+            }
 
             IBotManager manager = World.RequestModuleInterface<IBotManager>();
             if (manager != null)
+            {
                 manager.SetBotPosition(botUUID, position, m_host.OwnerID);
+            }
         }
 
         public void botSetRotation(string botID, Quaternion rotation)
         {
             UUID botUUID = UUID.Zero;
             if (!UUID.TryParse(botID, out botUUID) || (botUUID == UUID.Zero))
+            {
                 return;
+            }
 
             IBotManager manager = World.RequestModuleInterface<IBotManager>();
             if (manager != null)
+            {
                 manager.SetBotRotation(botUUID, rotation, m_host.OwnerID);
+            }
         }
 
         private int CheckBotNavOptions(Dictionary<int, object> dictOptions, string context, int option)
@@ -17674,7 +20166,7 @@ namespace InWorldz.Phlox.Engine
                 // This indicates a bug in the script, the parameters are ambiguous and/or redundant.
                 ScriptShoutError(String.Format("{0}: options list already includes option {1}", context, option));
                 // Replacing the matching option that is already there seems better than aborting the operation.
-                dictOptions.Remove(option); 
+                dictOptions.Remove(option);
             }
             return option;
         }
@@ -17683,7 +20175,9 @@ namespace InWorldz.Phlox.Engine
         {
             UUID botUUID = UUID.Zero;
             if (!UUID.TryParse(botID, out botUUID) || (botUUID == UUID.Zero))
+            {
                 return ScriptBaseClass.BOT_ERROR;
+            }
 
             IBotManager manager = World.RequestModuleInterface<IBotManager>();
             if (manager != null)
@@ -17692,21 +20186,30 @@ namespace InWorldz.Phlox.Engine
                 if (!UUID.TryParse(avatar, out userID))
                 {
                     if (World.CommsManager.UserService.Name2Key(avatar) == UUID.Zero)
+                    {
                         return ScriptBaseClass.BOT_USER_NOT_FOUND;
+                    }
                 }
 
                 if (options.Length % 2 != 0)
+                {
                     return ScriptBaseClass.BOT_ERROR;//bad data
+                }
 
                 Dictionary<int, object> dictOptions = new Dictionary<int, object>();
                 for (int i = 0; i < options.Length; i += 2)
                 {
                     if (options.GetItemType(i) != Types.VarType.Integer)
+                    {
                         return ScriptBaseClass.BOT_ERROR;//Bad value
+                    }
+
                     if (options.GetItemType(i + 1) != Types.VarType.Integer &&
                         options.GetItemType(i + 1) != Types.VarType.Float &&
                         options.GetItemType(i + 1) != Types.VarType.Vector)
+                    {
                         return ScriptBaseClass.BOT_ERROR;//bad
+                    }
 
                     // This uses a Dictionary so avoid exception adding the same key ...
                     int option = CheckBotNavOptions(dictOptions, "botFollowAvatar", options.GetLSLIntegerItem(i));
@@ -17733,36 +20236,49 @@ namespace InWorldz.Phlox.Engine
         {
             UUID botUUID = UUID.Zero;
             if (!UUID.TryParse(botID, out botUUID) || (botUUID == UUID.Zero))
+            {
                 return;
+            }
 
             IBotManager manager = World.RequestModuleInterface<IBotManager>();
             if (manager != null)
+            {
                 manager.StopMovement(botUUID, m_host.OwnerID);
+            }
         }
 
         public void botSetNavigationPoints(string botID, LSL_List positions, LSL_List movementType, LSL_List options)
         {
             UUID botUUID = UUID.Zero;
             if (!UUID.TryParse(botID, out botUUID) || (botUUID == UUID.Zero))
+            {
                 return;
+            }
 
             List<Vector3> PositionsMap = new List<Vector3>();
             for (int i = 0; i < positions.Length; i++)
             {
                 LSL_Vector pos;
                 if (positions.GetItemType(i) == Types.VarType.Vector)
+                {
                     pos = positions.GetVector3Item(i);
-                else if(positions.GetItemType(i) == Types.VarType.Float ||
+                }
+                else if (positions.GetItemType(i) == Types.VarType.Float ||
                     positions.GetItemType(i) == Types.VarType.Integer)
+                {
                     pos = new LSL_Vector(positions.GetLSLFloatItem(i), 0, 0);
+                }
                 else
                 {
                     return;//Bad value
                 }
                 Util.ForceValidRegionXYZ(ref pos);
-                float zmin = (float)World.Heightmap.CalculateHeightAt(pos.X, pos.Y);
+                float zmin = World.Heightmap.CalculateHeightAt(pos.X, pos.Y);
                 if (pos.Z < zmin)
-                    pos.Z = zmin;                
+                {
+                    pos.Z = zmin;
+                }
+
                 PositionsMap.Add(pos);
             }
 
@@ -17770,22 +20286,32 @@ namespace InWorldz.Phlox.Engine
             for (int i = 0; i < movementType.Length; i++)
             {
                 if (movementType.GetItemType(i) != Types.VarType.Integer)
+                {
                     return;//Bad value
+                }
+
                 int travel = movementType.GetLSLIntegerItem(i);
                 TravelMap.Add((TravelMode)travel);
             }
 
             if (options.Length % 2 != 0)
+            {
                 return;//bad data
+            }
 
             Dictionary<int, object> dictOptions = new Dictionary<int, object>();
             for (int i = 0; i < options.Length; i += 2)
             {
                 if (options.GetItemType(i) != Types.VarType.Integer)
+                {
                     return;//Bad value
+                }
+
                 if (options.GetItemType(i + 1) != Types.VarType.Integer &&
                     options.GetItemType(i + 1) != Types.VarType.Float)
+                {
                     return;//bad
+                }
 
                 // This uses a Dictionary so avoid exception adding the same key ...
                 int option = CheckBotNavOptions(dictOptions, "botSetNavigationPoints", options.GetLSLIntegerItem(i));
@@ -17794,26 +20320,37 @@ namespace InWorldz.Phlox.Engine
 
             IBotManager manager = World.RequestModuleInterface<IBotManager>();
             if (manager != null)
+            {
                 manager.SetBotNavigationPoints(botUUID, PositionsMap, TravelMap, dictOptions, m_host.OwnerID);
+            }
         }
 
         public void botWanderWithin(string botID, Vector3 origin, float xDistance, float yDistance, LSL_List options)
         {
             UUID botUUID = UUID.Zero;
             if (!UUID.TryParse(botID, out botUUID) || (botUUID == UUID.Zero))
+            {
                 return;
+            }
 
             if (options.Length % 2 != 0)
+            {
                 return;//bad data
+            }
 
             Dictionary<int, object> dictOptions = new Dictionary<int, object>();
             for (int i = 0; i < options.Length; i += 2)
             {
                 if (options.GetItemType(i) != Types.VarType.Integer)
+                {
                     return;//bad
+                }
+
                 if (options.GetItemType(i + 1) != Types.VarType.Integer &&
                     options.GetItemType(i + 1) != Types.VarType.Float)
+                {
                     return;//bad
+                }
 
                 // This uses a Dictionary so avoid exception adding the same key ...
                 int option = CheckBotNavOptions(dictOptions, "botWanderWithin", options.GetLSLIntegerItem(i));
@@ -17822,7 +20359,9 @@ namespace InWorldz.Phlox.Engine
 
             IBotManager manager = World.RequestModuleInterface<IBotManager>();
             if (manager != null)
+            {
                 manager.WanderWithin(botUUID, origin, new Vector3(xDistance, yDistance, 0), dictOptions, m_host.OwnerID);
+            }
         }
 
         #endregion
@@ -17833,7 +20372,9 @@ namespace InWorldz.Phlox.Engine
         {
             UUID botUUID = UUID.Zero;
             if (!UUID.TryParse(botID, out botUUID) || (botUUID == UUID.Zero))
+            {
                 return;
+            }
 
             IBotManager manager = World.RequestModuleInterface<IBotManager>();
             if (manager != null)
@@ -17847,14 +20388,18 @@ namespace InWorldz.Phlox.Engine
         {
             UUID botUUID = UUID.Zero;
             if (!UUID.TryParse(botID, out botUUID) || (botUUID == UUID.Zero))
+            {
                 return;
+            }
 
             IBotManager manager = World.RequestModuleInterface<IBotManager>();
             if (manager != null)
             {
                 UUID animID;
                 if (!UUID.TryParse(animation, out animID))
+                {
                     animID = InventoryKey(animation, (int)AssetType.Animation);
+                }
 
                 manager.StopBotAnimation(botUUID, animID, animation, m_host.OwnerID);
             }
@@ -17868,11 +20413,16 @@ namespace InWorldz.Phlox.Engine
         {
             UUID botUUID = UUID.Zero;
             if (!UUID.TryParse(botID, out botUUID) || (botUUID == UUID.Zero))
+            {
                 return;
+            }
 
             IBotManager manager = World.RequestModuleInterface<IBotManager>();
             if (manager != null)
+            {
                 manager.BotChat(botUUID, channel, message, ChatTypeEnum.Whisper, m_host.OwnerID);
+            }
+
             ScriptSleep(15);
         }
 
@@ -17880,11 +20430,16 @@ namespace InWorldz.Phlox.Engine
         {
             UUID botUUID = UUID.Zero;
             if (!UUID.TryParse(botID, out botUUID) || (botUUID == UUID.Zero))
+            {
                 return;
+            }
 
             IBotManager manager = World.RequestModuleInterface<IBotManager>();
             if (manager != null)
+            {
                 manager.BotChat(botUUID, channel, message, ChatTypeEnum.Say, m_host.OwnerID);
+            }
+
             ScriptSleep(15);
         }
 
@@ -17892,11 +20447,16 @@ namespace InWorldz.Phlox.Engine
         {
             UUID botUUID = UUID.Zero;
             if (!UUID.TryParse(botID, out botUUID) || (botUUID == UUID.Zero))
+            {
                 return;
+            }
 
             IBotManager manager = World.RequestModuleInterface<IBotManager>();
             if (manager != null)
+            {
                 manager.BotChat(botUUID, channel, message, ChatTypeEnum.Shout, m_host.OwnerID);
+            }
+
             ScriptSleep(15);
         }
 
@@ -17904,11 +20464,16 @@ namespace InWorldz.Phlox.Engine
         {
             UUID botUUID = UUID.Zero;
             if (!UUID.TryParse(botID, out botUUID) || (botUUID == UUID.Zero))
+            {
                 return;
+            }
 
             IBotManager manager = World.RequestModuleInterface<IBotManager>();
             if (manager != null)
+            {
                 manager.BotChat(botUUID, 0, String.Empty, ChatTypeEnum.StartTyping, m_host.OwnerID);
+            }
+
             ScriptSleep(15);
         }
 
@@ -17916,11 +20481,16 @@ namespace InWorldz.Phlox.Engine
         {
             UUID botUUID = UUID.Zero;
             if (!UUID.TryParse(botID, out botUUID) || (botUUID == UUID.Zero))
+            {
                 return;
+            }
 
             IBotManager manager = World.RequestModuleInterface<IBotManager>();
             if (manager != null)
+            {
                 manager.BotChat(botUUID, 0, String.Empty, ChatTypeEnum.StopTyping, m_host.OwnerID);
+            }
+
             ScriptSleep(15);
         }
 
@@ -17932,15 +20502,21 @@ namespace InWorldz.Phlox.Engine
             {
                 UUID botUUID = UUID.Zero;
                 if (!UUID.TryParse(botID, out botUUID) || (botUUID == UUID.Zero))
+                {
                     return;
+                }
 
                 UUID userUUID = UUID.Zero;
                 if (!UUID.TryParse(userID, out userUUID) || (userUUID == UUID.Zero))
+                {
                     return;
+                }
 
                 IBotManager manager = World.RequestModuleInterface<IBotManager>();
                 if (manager != null)
+                {
                     manager.SendInstantMessageForBot(botUUID, userUUID, message, m_host.OwnerID);
+                }
             }
             finally
             {
@@ -17956,15 +20532,22 @@ namespace InWorldz.Phlox.Engine
         {
             UUID botUUID = UUID.Zero;
             if (!UUID.TryParse(botID, out botUUID) || (botUUID == UUID.Zero))
+            {
                 return;
+            }
 
             UUID objectUUID = UUID.Zero;
             if (!UUID.TryParse(objectID, out objectUUID) || (objectUUID == UUID.Zero))
+            {
                 return;
+            }
 
             IBotManager manager = World.RequestModuleInterface<IBotManager>();
             if (manager != null)
+            {
                 manager.SitBotOnObject(botUUID, objectUUID, m_host.OwnerID);
+            }
+
             ScriptSleep(15);
         }
 
@@ -17972,11 +20555,16 @@ namespace InWorldz.Phlox.Engine
         {
             UUID botUUID = UUID.Zero;
             if (!UUID.TryParse(botID, out botUUID) || (botUUID == UUID.Zero))
+            {
                 return;
+            }
 
             IBotManager manager = World.RequestModuleInterface<IBotManager>();
             if (manager != null)
+            {
                 manager.StandBotUp(botUUID, m_host.OwnerID);
+            }
+
             ScriptSleep(15);
         }
 
@@ -17984,15 +20572,22 @@ namespace InWorldz.Phlox.Engine
         {
             UUID botUUID = UUID.Zero;
             if (!UUID.TryParse(botID, out botUUID) || (botUUID == UUID.Zero))
+            {
                 return;
+            }
 
             UUID objectUUID = UUID.Zero;
             if (!UUID.TryParse(objectID, out objectUUID) || (objectUUID == UUID.Zero))
+            {
                 return;
+            }
 
             IBotManager manager = World.RequestModuleInterface<IBotManager>();
             if (manager != null)
+            {
                 manager.BotTouchObject(botUUID, objectUUID, m_host.OwnerID);
+            }
+
             ScriptSleep(15);
         }
 
@@ -18004,7 +20599,9 @@ namespace InWorldz.Phlox.Engine
             {
                 UUID botUUID = UUID.Zero;
                 if (!UUID.TryParse(botID, out botUUID) || (botUUID == UUID.Zero))
+                {
                     return;
+                }
 
                 bool found = false;
                 UUID destId = UUID.Zero;
@@ -18039,10 +20636,12 @@ namespace InWorldz.Phlox.Engine
                     ScriptShoutError(String.Format("Could not find object '{0}'", inventory));
                     return;
                 }
-    
+
                 IBotManager manager = World.RequestModuleInterface<IBotManager>();
                 if (manager != null)
+                {
                     manager.GiveInventoryObject(botUUID, m_host, objName, objId, assetType, destId, m_host.OwnerID);
+                }
 
                 delay = 2000;
             }
@@ -18056,18 +20655,24 @@ namespace InWorldz.Phlox.Engine
         {
             UUID botUUID = UUID.Zero;
             if (!UUID.TryParse(botID, out botUUID) || (botUUID == UUID.Zero))
+            {
                 return;
+            }
 
             UUID keyID = UUID.Zero;
             UUID.TryParse(id, out keyID);
-            
+
             IBotManager manager = World.RequestModuleInterface<IBotManager>();
             if (manager == null || !manager.CheckPermission(botUUID, m_host.OwnerID))
+            {
                 return;
+            }
 
             ScenePresence botSP = World.GetScenePresence(botUUID);
             if (botSP == null)
+            {
                 return;
+            }
 
             AsyncCommands.SensorRepeatPlugin.SenseOnce(m_localID, m_itemID, name, keyID, type, range, arc, botSP);
         }
@@ -18076,18 +20681,24 @@ namespace InWorldz.Phlox.Engine
         {
             UUID botUUID = UUID.Zero;
             if (!UUID.TryParse(botID, out botUUID) || (botUUID == UUID.Zero))
+            {
                 return;
+            }
 
             UUID keyID = UUID.Zero;
             UUID.TryParse(id, out keyID);
 
             IBotManager manager = World.RequestModuleInterface<IBotManager>();
             if (manager == null || !manager.CheckPermission(botUUID, m_host.OwnerID))
+            {
                 return;
+            }
 
             ScenePresence botSP = World.GetScenePresence(botUUID);
             if (botSP == null)
+            {
                 return;
+            }
 
             AsyncCommands.SensorRepeatPlugin.SetSenseRepeatEvent(m_localID, m_itemID, name, keyID, type, range, arc, rate, botSP);
         }
@@ -18097,11 +20708,15 @@ namespace InWorldz.Phlox.Engine
             AsyncCommands.SensorRepeatPlugin.UnSetSenseRepeaterEvents(m_localID, m_itemID);
         }
 
-        public string iwDetectedBot()
+        public string iwDetectedBot() { return halDetectedBot(); }
+        public string halDetectedBot()
         {
             VM.DetectVariables detectedParams = _thisScript.ScriptState.GetDetectVariables(0);
             if (detectedParams == null)
+            {
                 return String.Empty;
+            }
+
             return detectedParams.BotID;
         }
 
@@ -18109,18 +20724,24 @@ namespace InWorldz.Phlox.Engine
         {
             UUID botUUID = UUID.Zero;
             if (!UUID.TryParse(botID, out botUUID) || (botUUID == UUID.Zero))
+            {
                 return -1;
+            }
 
             UUID keyID;
             UUID.TryParse(ID, out keyID);
 
             IBotManager manager = World.RequestModuleInterface<IBotManager>();
             if (manager == null || !manager.CheckPermission(botUUID, m_host.OwnerID))
+            {
                 return -1;
+            }
 
             ScenePresence botSP = World.GetScenePresence(botUUID);
             if (botSP == null)
+            {
                 return -1;
+            }
 
             IWorldComm wComm = m_ScriptEngine.World.RequestModuleInterface<IWorldComm>();
             return wComm.Listen(m_localID, m_itemID, botSP.UUID, channelID, name, keyID, msg);
@@ -18130,15 +20751,21 @@ namespace InWorldz.Phlox.Engine
         {
             UUID botUUID = UUID.Zero;
             if (!UUID.TryParse(botID, out botUUID) || (botUUID == UUID.Zero))
+            {
                 return;
+            }
 
             IBotManager manager = World.RequestModuleInterface<IBotManager>();
             if (manager == null || !manager.CheckPermission(botUUID, m_host.OwnerID))
+            {
                 return;
+            }
 
             ScenePresence botSP = World.GetScenePresence(botUUID);
             if (botSP == null)
+            {
                 return;
+            }
 
             int DELAY = 0;
 
@@ -18158,7 +20785,9 @@ namespace InWorldz.Phlox.Engine
                             partItemID = item.ItemID;
                             int linkNumber = m_host.LinkNum;
                             if (m_host.ParentGroup.LinkCount == 1)
+                            {
                                 linkNumber = 0;
+                            }
 
                             object[] resobj = new object[] { linkNumber, num, msg, id };
 
@@ -18189,33 +20818,46 @@ namespace InWorldz.Phlox.Engine
         {
             UUID botUUID = UUID.Zero;
             if (!UUID.TryParse(botID, out botUUID) || (botUUID == UUID.Zero))
+            {
                 return;
+            }
 
             IBotManager manager = World.RequestModuleInterface<IBotManager>();
             if (manager != null)
+            {
                 manager.AddTagToBot(botUUID, tag, m_host.OwnerID);
+            }
         }
 
         public void botRemoveTag(string botID, string tag)
         {
             UUID botUUID = UUID.Zero;
             if (!UUID.TryParse(botID, out botUUID) || (botUUID == UUID.Zero))
+            {
                 return;
+            }
 
             IBotManager manager = World.RequestModuleInterface<IBotManager>();
             if (manager != null)
+            {
                 manager.RemoveTagFromBot(botUUID, tag, m_host.OwnerID);
+            }
         }
 
         public int botHasTag(string botID, string tag)
         {
             UUID botUUID = UUID.Zero;
             if (!UUID.TryParse(botID, out botUUID) || (botUUID == UUID.Zero))
+            {
                 return 0;
+            }
 
             IBotManager manager = World.RequestModuleInterface<IBotManager>();
             if (manager != null)
+            {
                 return manager.BotHasTag(botUUID, tag) ? 1 : 0;
+            }
+
             return 0;
         }
 
@@ -18223,12 +20865,16 @@ namespace InWorldz.Phlox.Engine
         {
             UUID botUUID = UUID.Zero;
             if (!UUID.TryParse(botID, out botUUID) || (botUUID == UUID.Zero))
+            {
                 return new LSL_List();
-
+            }
 
             IBotManager manager = World.RequestModuleInterface<IBotManager>();
             if (manager != null)
+            {
                 return new LSL_List(manager.GetBotTags(botUUID).ToList<object>());
+            }
+
             return new LSL_List();
         }
 
@@ -18237,10 +20883,15 @@ namespace InWorldz.Phlox.Engine
             IBotManager manager = World.RequestModuleInterface<IBotManager>();
             List<UUID> bots = new List<UUID>();
             if (manager != null)
+            {
                 bots = manager.GetBotsWithTag(tag);
+            }
+
             List<Object> botList = new List<object>();
             foreach (UUID bot in bots)
+            {
                 botList.Add(bot.ToString());
+            }
 
             return new LSL_List(botList);
         }
@@ -18253,7 +20904,9 @@ namespace InWorldz.Phlox.Engine
             {
                 IBotManager manager = World.RequestModuleInterface<IBotManager>();
                 if (manager != null)
+                {
                     manager.RemoveBotsWithTag(tag, m_host.OwnerID);
+                }
             }
             finally
             {
@@ -18262,53 +20915,31 @@ namespace InWorldz.Phlox.Engine
         }
         #endregion
 
-        public LSL_List iwSearchLinksByName(string pattern, int matchType, int linksOnly)
+        public LSL_List iwSearchLinksByName(string pattern, int matchType, int linksOnly) { return halSearchLinksByName(pattern, matchType, linksOnly); }
+        public LSL_List halSearchLinksByName(string pattern, int matchType, int linksOnly)
         {
-            if(matchType > 2)
+            if (matchType > 2)
             {
-                if (matchType == 3) LSLError("IW_MATCH_COUNT is not a valid matching type for iwSearchLinksByName()");
-                else if (matchType == 4) LSLError("IW_MATCH_COUNT_REGEX is not a valid matching type for iwSearchLinksByName()");
-                return new LSL_List();
-            }
-            List<object> ret = new List<object>();
-            List<SceneObjectPart> parts = new List<SceneObjectPart>();
-
-            foreach(SceneObjectPart part in m_host.ParentGroup.GetParts())
-            {
-                if (String.IsNullOrEmpty(pattern) || iwMatchString(part.Name, pattern, matchType) == 1)
-                    parts.Add(part);
-            }
-
-            if(parts.Count > 0)
-            {
-                parts.Sort((x, y) => x.LinkNum.CompareTo(y.LinkNum));
-                foreach(SceneObjectPart part in parts)
+                if (matchType == 3)
                 {
-                    ret.Add(part.LinkNum);
-                    if (linksOnly == 0)
-                        ret.Add(part.Name);
+                    LSLError("IW_MATCH_COUNT is not a valid matching type for iwSearchLinksByName()");
                 }
-            }
+                else if (matchType == 4)
+                {
+                    LSLError("IW_MATCH_COUNT_REGEX is not a valid matching type for iwSearchLinksByName()");
+                }
 
-            return new LSL_List(ret);
-        }
-
-        public LSL_List iwSearchLinksByDesc(string pattern, int matchType, int linksOnly)
-        {
-            if(matchType > 2)
-            {
-                if (matchType == 3) LSLError("IW_MATCH_COUNT is not a valid matching type for iwSearchLinksByDesc()");
-                else if (matchType == 4) LSLError("IW_MATCH_COUNT_REGEX is not a valid matching type for iwSearchLinksByDesc()");
                 return new LSL_List();
             }
-            
             List<object> ret = new List<object>();
             List<SceneObjectPart> parts = new List<SceneObjectPart>();
 
             foreach (SceneObjectPart part in m_host.ParentGroup.GetParts())
             {
-                if (String.IsNullOrEmpty(pattern) || iwMatchString(part.Description, pattern, matchType) == 1)
+                if (String.IsNullOrEmpty(pattern) || iwMatchString(part.Name, pattern, matchType) == 1)
+                {
                     parts.Add(part);
+                }
             }
 
             if (parts.Count > 0)
@@ -18318,7 +20949,53 @@ namespace InWorldz.Phlox.Engine
                 {
                     ret.Add(part.LinkNum);
                     if (linksOnly == 0)
+                    {
+                        ret.Add(part.Name);
+                    }
+                }
+            }
+
+            return new LSL_List(ret);
+        }
+
+        public LSL_List iwSearchLinksByDesc(string pattern, int matchType, int linksOnly) { return halSearchLinksByDesc(pattern, matchType, linksOnly); }
+        public LSL_List halSearchLinksByDesc(string pattern, int matchType, int linksOnly)
+        {
+            if (matchType > 2)
+            {
+                if (matchType == 3)
+                {
+                    LSLError("IW_MATCH_COUNT is not a valid matching type for iwSearchLinksByDesc()");
+                }
+                else if (matchType == 4)
+                {
+                    LSLError("IW_MATCH_COUNT_REGEX is not a valid matching type for iwSearchLinksByDesc()");
+                }
+
+                return new LSL_List();
+            }
+
+            List<object> ret = new List<object>();
+            List<SceneObjectPart> parts = new List<SceneObjectPart>();
+
+            foreach (SceneObjectPart part in m_host.ParentGroup.GetParts())
+            {
+                if (String.IsNullOrEmpty(pattern) || iwMatchString(part.Description, pattern, matchType) == 1)
+                {
+                    parts.Add(part);
+                }
+            }
+
+            if (parts.Count > 0)
+            {
+                parts.Sort((x, y) => x.LinkNum.CompareTo(y.LinkNum));
+                foreach (SceneObjectPart part in parts)
+                {
+                    ret.Add(part.LinkNum);
+                    if (linksOnly == 0)
+                    {
                         ret.Add(part.Description);
+                    }
                 }
             }
 
@@ -18336,7 +21013,10 @@ namespace InWorldz.Phlox.Engine
                 if ((sp != null) && (!sp.IsChildAgent))
                 {
                     foreach (UUID id in sp.CollectVisibleAttachmentIds())
+                    {
                         ret = ret.Append(id.ToString());
+                    }
+
                     return ret;
                 }
             }
@@ -18349,10 +21029,14 @@ namespace InWorldz.Phlox.Engine
         {
             UUID targetAgentID;
             if (!UUID.TryParse(owner, out targetAgentID))
+            {
                 return ScriptBaseClass.ERR_MALFORMED_PARAMS;
+            }
 
             if (targetAgentID == UUID.Zero)
+            {
                 return 0;
+            }
 
             UUID invItemID = InventorySelf();
             if (invItemID == UUID.Zero)
@@ -18364,15 +21048,18 @@ namespace InWorldz.Phlox.Engine
             // After this, set rc for error code.
             int rc = 0;
 
-            try {
+            try
+            {
 
                 TaskInventoryItem item;
-                lock (m_host.TaskInventory) {
+                lock (m_host.TaskInventory)
+                {
                     item = m_host.TaskInventory[invItemID];
                 }
 
                 // First, just check if anyone has ERR_RUNTIME_PERMISSIONS ...
-                if (!CheckRuntimePerms(item, item.PermsGranter, ScriptBaseClass.PERMISSION_RETURN_OBJECTS)) {
+                if (!CheckRuntimePerms(item, item.PermsGranter, ScriptBaseClass.PERMISSION_RETURN_OBJECTS))
+                {
                     rc = ScriptBaseClass.ERR_RUNTIME_PERMISSIONS;
                     return rc;
                 }
@@ -18388,7 +21075,8 @@ namespace InWorldz.Phlox.Engine
 
                 LandData patternParcel = null;
                 bool sameOwner;
-                switch (scope) {
+                switch (scope)
+                {
                     case ScriptBaseClass.OBJECT_RETURN_PARCEL:
                         patternParcel = currentParcel.landData;
                         sameOwner = false;
@@ -18407,14 +21095,18 @@ namespace InWorldz.Phlox.Engine
 
                 rc = World.LandChannel.ScriptedReturnObjectsInParcelByOwner(item, targetAgentID, patternParcel, sameOwner);
                 if (rc > 0)
+                {
                     m_log.InfoFormat("[LAND]: Scripted object return of {0} objects owned by {1} by {2} for {3}", rc, targetAgentID, item.PermsGranter, item.OwnerID);
+                }
             }
-            catch (Exception e) {
+            catch (Exception)
+            {
                 return ScriptBaseClass.ERR_GENERIC;
             }
             finally
             {
-                switch (rc) {
+                switch (rc)
+                {
                     case ScriptBaseClass.ERR_GENERIC:
                         LSLError("No parcel found for permissions to return objects");
                         break;
@@ -18464,25 +21156,41 @@ namespace InWorldz.Phlox.Engine
                 {
                     UUID targetId = UUID.Zero;
                     if (!UUID.TryParse(o.ToString(), out targetId))
+                    {
                         return ScriptBaseClass.ERR_MALFORMED_PARAMS;
+                    }
 
                     if (targetId != UUID.Zero)
                     {
                         SceneObjectPart part = World.GetSceneObjectPart(targetId);
-                        if (part == null) continue; // invalid ID
+                        if (part == null)
+                        {
+                            continue; // invalid ID
+                        }
 
                         Vector3 pos = part.AbsolutePosition;
                         ILandObject parcel = World.LandChannel.GetNearestLandObjectInRegion(pos.X, pos.Y);
-                        if (parcel == null) continue;
+                        if (parcel == null)
+                        {
+                            continue;
+                        }
 
                         if (part.OwnerID == parcel.landData.OwnerID)
+                        {
                             continue;   // cannot return the parcel owner's stuff with this
+                        }
+
                         if (World.IsEstateManager(part.OwnerID))
+                        {
                             continue;   // cannot return EO or EM objects with this either
+                        }
 
                         // Now added it to the bucket for that parcel.
                         if (!objectsByParcel.ContainsKey(parcel.landData.LocalID))
+                        {
                             objectsByParcel[parcel.landData.LocalID] = new List<UUID>();
+                        }
+
                         objectsByParcel[parcel.landData.LocalID].Add(part.UUID);
                     }
                 }
@@ -18494,21 +21202,26 @@ namespace InWorldz.Phlox.Engine
                     count += World.LandChannel.ScriptedReturnObjectsInParcelByIDs(m_host, item, bucket.Value, bucket.Key);
                 }
                 if (count > 0)
+                {
                     m_log.InfoFormat("[LAND]: Scripted object list returned {0} objects by {1} for {2}", count, item.PermsGranter, item.OwnerID);
+                }
+
                 return count;
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 return ScriptBaseClass.ERR_GENERIC;
             }
         }
 
-        public void iwStandTarget(Vector3 offset, Quaternion rot)
+        public void iwStandTarget(Vector3 offset, Quaternion rot) { halStandTarget(offset, rot); }
+        public void halStandTarget(Vector3 offset, Quaternion rot)
         {
             iwLinkStandTarget(m_host.LinkNum, offset, rot);
         }
 
-        public void iwLinkStandTarget(int linknumber, Vector3 offset, Quaternion rot)
+        public void iwLinkStandTarget(int linknumber, Vector3 offset, Quaternion rot) { halLinkStandTarget(linknumber, offset, rot); }
+        public void halLinkStandTarget(int linknumber, Vector3 offset, Quaternion rot)
         {
             Quaternion qrot = Rot2Quaternion(rot);
 
@@ -18559,7 +21272,9 @@ namespace InWorldz.Phlox.Engine
             lock (m_Notecards)
             {
                 if (m_Notecards.ContainsKey(assetID))
+                {
                     return;
+                }
 
                 Notecard nc = new Notecard();
                 nc.lastRef = DateTime.Now;
@@ -18601,17 +21316,24 @@ namespace InWorldz.Phlox.Engine
                         words = Util.SplitArraySegment(input[idx], (byte)' ');
                         // Notecards are created *really* empty. Treat that as "no text" (just like after saving an empty notecard)
                         if (words.Count < 3)
+                        {
                             return new String[0];
+                        }
 
                         int version = int.Parse(Util.ArraySegmentToString(words[3], Encoding.UTF8));//int.Parse(words[3]);
                         if (version != 2)
+                        {
                             return new String[0];
+                        }
+
                         break;
 
                     case 1:
                         words = Util.SplitArraySegment(input[idx], (byte)' ');
                         if (Util.ArraySegmentToString(words[0], Encoding.UTF8) == "LLEmbeddedItems")
+                        {
                             break;
+                        }
 
                         if (Util.ArraySegmentToString(words[0], Encoding.UTF8) == "Text")
                         {
@@ -18629,7 +21351,10 @@ namespace InWorldz.Phlox.Engine
                                 }
 
                                 string ln = Util.ArraySegmentToString(input[idx], Encoding.UTF8);
-                                if (ln.Contains("\r")) ln = ln.Replace("\r", String.Empty);
+                                if (ln.Contains("\r"))
+                                {
+                                    ln = ln.Replace("\r", String.Empty);
+                                }
 
                                 output.Add(ln);
                                 count += input[idx].Count + 1;
@@ -18645,7 +21370,10 @@ namespace InWorldz.Phlox.Engine
                         {
                             int c = int.Parse(Util.ArraySegmentToString(words[1], Encoding.UTF8));
                             if (c > 0)
+                            {
                                 return new String[0];
+                            }
+
                             break;
                         }
                         break;
@@ -18673,7 +21401,9 @@ namespace InWorldz.Phlox.Engine
             lock (m_Notecards)
             {
                 if (!IsCachedNoLock(assetID))
+                {
                     return -1;
+                }
 
                 m_Notecards[assetID].lastRef = DateTime.Now;
                 return m_Notecards[assetID].text.Length;
@@ -18683,28 +21413,41 @@ namespace InWorldz.Phlox.Engine
         public static string GetLine(UUID assetID, int line, int startOffset, int maxLength)
         {
             if ((line < 0) || (maxLength < 0))
+            {
                 return String.Empty;
+            }
 
             string data;
 
             lock (m_Notecards)
             {
                 if (!IsCachedNoLock(assetID))
+                {
                     return String.Empty;
+                }
 
                 m_Notecards[assetID].lastRef = DateTime.Now;
 
                 if (maxLength == 0)  // 0 is valid so update lastRef before this check.
+                {
                     return String.Empty;
+                }
 
                 if (line >= m_Notecards[assetID].text.Length)
+                {
                     return "\n\n\n";
+                }
 
                 data = m_Notecards[assetID].text[line];
                 if (startOffset >= data.Length)
+                {
                     return String.Empty;  // no more data
+                }
+
                 if (startOffset + maxLength > data.Length)
+                {
                     maxLength = data.Length - startOffset;  // last bit of data on the line
+                }
 
                 return data.Substring(startOffset, maxLength);
             }
@@ -18721,7 +21464,9 @@ namespace InWorldz.Phlox.Engine
                 {
                     Notecard nc = m_Notecards[key];
                     if (nc.lastRef.AddSeconds(NOTECARD_CACHE_TIMEOUT) < DateTime.Now)
+                    {
                         m_Notecards.Remove(key);
+                    }
                 }
             }
         }

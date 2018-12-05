@@ -35,7 +35,7 @@ using System.Text;
 
 using OpenMetaverse;
 
-namespace InWorldz.Phlox.Engine
+namespace Halcyon.Phlox.Engine
 {
     /// <summary>
     /// A submitted request for script information

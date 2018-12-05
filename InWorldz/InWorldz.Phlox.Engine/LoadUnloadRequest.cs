@@ -40,7 +40,7 @@ using OpenSim.Region.Framework.Interfaces;
 using OpenMetaverse;
 using System.Threading;
 
-namespace InWorldz.Phlox.Engine
+namespace Halcyon.Phlox.Engine
 {
     internal class LoadUnloadRequest
     {

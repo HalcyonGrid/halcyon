@@ -13,7 +13,7 @@ namespace InWorldz.Testing
         {
             World = world;
             ConfigSource = configSource;
-            Config = ConfigSource.Configs["InWorldz.Phlox"];
+            Config = ConfigSource.Configs["Halcyon.Phlox"];
         }
 
         public IScriptWorkItem QueueEventHandler(object parms)

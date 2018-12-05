@@ -36,15 +36,15 @@ using OpenSim.Framework;
 using System.IO;
 
 using OpenMetaverse;
-using InWorldz.Phlox.VM;
+using Halcyon.Phlox.VM;
 using log4net;
 using System.Reflection;
 using System.Diagnostics;
 
-using InWorldz.Phlox.Serialization;
+using Halcyon.Phlox.Serialization;
 using OpenSim.Region.ScriptEngine.Shared.Api;
 
-namespace InWorldz.Phlox.Engine
+namespace Halcyon.Phlox.Engine
 {
     /// <summary>
     /// Loads a script. Searches for it from the most efficient source (bytecode already in memory)

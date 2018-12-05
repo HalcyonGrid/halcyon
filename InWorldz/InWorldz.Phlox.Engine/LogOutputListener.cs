@@ -34,14 +34,14 @@ using System.Linq;
 using System.Text;
 
 using OpenMetaverse;
-using InWorldz.Phlox.Types;
+using Halcyon.Phlox.Types;
 using log4net;
 using System.Reflection;
 using OpenSim.Region.Framework.Scenes;
 using OpenSim.Framework;
 using OpenSim.Region.ScriptEngine.Shared.ScriptBase;
 
-namespace InWorldz.Phlox.Engine
+namespace Halcyon.Phlox.Engine
 {
     internal class LogOutputListener : ILSLListener
     {

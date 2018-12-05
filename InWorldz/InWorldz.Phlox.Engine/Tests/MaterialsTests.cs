@@ -1,7 +1,7 @@
 using NUnit.Framework;
 using Nini.Config;
 using InWorldz.Testing;
-using InWorldz.Phlox.Types;
+using Halcyon.Phlox.Types;
 using Nini.Ini;
 using OpenMetaverse;
 using System.Collections.Generic;
@@ -9,7 +9,7 @@ using OpenSim.Region.ScriptEngine.Shared.ScriptBase;
 using OpenSim.Region.FrameworkTests;
 using OpenSim.Region.Framework.Scenes;
 
-namespace InWorldz.Phlox.Engine.Tests
+namespace Halcyon.Phlox.Engine.Tests
 {
 
     [TestFixture]
@@ -23,7 +23,7 @@ namespace InWorldz.Phlox.Engine.Tests
         {
             var iniDoc = new IniDocument();
             var configSource = new IniConfigSource(iniDoc);
-            configSource.AddConfig("InWorldz.Phlox");
+            configSource.AddConfig("Halcyon.Phlox");
             world = SceneHelper.CreateScene(9000, 1000, 1000);
             engine = new MockScriptEngine(world, configSource);
         }

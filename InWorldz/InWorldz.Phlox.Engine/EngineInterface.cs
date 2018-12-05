@@ -39,8 +39,8 @@ using OpenSim.Region.Framework.Scenes;
 using log4net;
 using System.Reflection;
 
-using InWorldz.Phlox.Glue;
-using InWorldz.Phlox.Types;
+using Halcyon.Phlox.Glue;
+using Halcyon.Phlox.Types;
 using OpenSim.Framework;
 using OpenMetaverse;
 using Nini.Config;
@@ -48,7 +48,7 @@ using System.Threading;
 using OpenSim.Region.Framework;
 using OpenSim.Region.CoreModules.Capabilities;
 
-namespace InWorldz.Phlox.Engine
+namespace Halcyon.Phlox.Engine
 {
     public delegate void WorkArrivedDelegate();
 
@@ -80,7 +80,7 @@ namespace InWorldz.Phlox.Engine
         {
             get 
             {
-                return "InWorldz.Phlox";
+                return "Halcyon.Phlox";
             }
         }
 
@@ -127,7 +127,7 @@ namespace InWorldz.Phlox.Engine
                 PreloadMethods(type);
             }
 
-            foreach (var type in Assembly.GetAssembly(typeof(InWorldz.Phlox.VM.Interpreter)).GetTypes())
+            foreach (var type in Assembly.GetAssembly(typeof(Halcyon.Phlox.VM.Interpreter)).GetTypes())
             {
                 PreloadMethods(type);
             }
@@ -621,7 +621,7 @@ namespace InWorldz.Phlox.Engine
 
         public string ScriptEngineName
         {
-            get { return "InWorldz.Phlox";  }
+            get { return "Halcyon.Phlox";  }
         }
 
         public IScriptApi GetApi(OpenMetaverse.UUID itemID, string name)
