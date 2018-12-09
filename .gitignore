@@ -230,9 +230,11 @@ bin/Regions
 
 # Other testing folder ignores 
 bin/*.dll*
+bin/*.DLL*
 bin/*.so*
 bin/*.dylib*
 bin/*.xml*
+bin/*.XML*
 bin/*.exe.config
 bin/*.stg
 bin/*/*.dll*
