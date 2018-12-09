@@ -229,7 +229,8 @@ bin/Regions
 *.p12
 
 # Other testing folder ignores 
-bin/*.dll
+bin/*.xml*
+bin/*.exe.config
 bin/Halcyon.exe
 bin/Halcyon.vshost.exe
 bin/OpenSim.Grid.UserServer.exe
