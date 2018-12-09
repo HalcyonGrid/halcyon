@@ -258,3 +258,4 @@ bin/blacklist.txt
 OpenSim/Framework/Servers/VersionInfo\.cs
 
 bin/pCampBotSentences\.txt
+bin/startuplogo\.txt
