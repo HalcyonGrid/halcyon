@@ -100,8 +100,12 @@ namespace OpenSim.Framework
                 _goodIPMasks.Clear();
                 while ((line = file.ReadLine()) != null)
                 {
-                    _log.InfoFormat("[TRUSTMGR] Added whitelist IP {0}", line);
-                    _goodIPMasks.Add(line);
+                    line = line.Trim();
+                    if (!String.IsNullOrWhiteSpace(line))
+                    {
+                        _log.InfoFormat("[TRUSTMGR] Added whitelist IP {0}", line);
+                        _goodIPMasks.Add(line);
+                    }
                 }
             }
         }
