@@ -96,21 +96,18 @@ namespace Halcyon.Data.Inventory.MySQL
         }
 
         /// <summary>
-        /// Returns the most appropriate folder for the given inventory type, or null if one could not be found
+        /// Returns the folder info for the given folder, or null if one could not be found.
         /// </summary>
         /// <param name="userId"></param>
         /// <param name="type"></param>
         /// <returns></returns>
-        public InventoryFolderBase findUserTopLevelFolderFor(UUID owner, UUID folderID)
+        public InventoryFolderBase findFolder(UUID owner, UUID folderID)
         {
-            InventoryFolderBase rootFolder = getUserRootFolder(owner);
-
-            string query = "SELECT * FROM inventoryfolders WHERE agentID = ?agentId AND folderId = ?folderId AND parentFolderId = ?rootId;";
+            string query = "SELECT * FROM inventoryfolders WHERE agentID = ?agentId AND folderId = ?folderId;";
 
             Dictionary<string, object> parms = new Dictionary<string, object>();
             parms.Add("?agentId", owner);
             parms.Add("?folderId", folderID);
-            parms.Add("?rootId", rootFolder.ID);
 
             try
             {
@@ -121,9 +118,7 @@ namespace Halcyon.Data.Inventory.MySQL
                         if (reader.Read())
                         {
                             // A null item (because something went wrong) breaks everything in the folder
-                            InventoryFolderBase folder = readInventoryFolder(reader);
-                            folder.Level = InventoryFolderBase.FolderLevel.TopLevel;
-                            return folder;
+                            return readInventoryFolder(reader);
                         }
                         else
                         {
@@ -138,6 +133,34 @@ namespace Halcyon.Data.Inventory.MySQL
                 m_log.Error(e.ToString());
                 return null;
             }
+        }
+
+        /// <summary>
+        /// Works its way up the parentage and returns the most top-level folder for the given folder, or null if one could not be found.
+        /// </summary>
+        /// <param name="userId"></param>
+        /// <param name="type"></param>
+        /// <returns></returns>
+        public InventoryFolderBase findUserTopLevelFolderFor(UUID owner, UUID folderID)
+        {
+            InventoryFolderBase rootFolder = getUserRootFolder(owner);
+            if (folderID == rootFolder.ID)
+                return rootFolder;
+
+            InventoryFolderBase folder = findFolder(owner, folderID);
+            while (folder != null) {
+                InventoryFolderBase parentFolder = findFolder(owner, folder.ParentID);
+                if (parentFolder == null) return null;
+
+                if (parentFolder.ID == rootFolder.ID)
+                {
+                    folder.Level = InventoryFolderBase.FolderLevel.TopLevel;
+                    return folder;
+                }
+                // walk up the parentage chain
+                folder = findFolder(owner, folder.ParentID);
+            }
+            return null;    // top-level folder not found
         }
 
         /// <summary>
