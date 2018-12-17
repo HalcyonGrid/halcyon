@@ -132,6 +132,10 @@ namespace OpenSim.Grid.UserServer
             m_console.Commands.AddCommand("default", false, "default logins",
                                           "default logins [<filename>]",
                                           "Show or set the initial region locations for new users via a file of locations", HandleDefault);
+
+            m_console.Commands.AddCommand("base", false, "trust reload",
+                                          "trust reload",
+                                          "Reloads the trust configuration for the trust manager", HandleTrustReload);
         }
 
         #region Console Command Handlers
@@ -306,6 +310,11 @@ namespace OpenSim.Grid.UserServer
                     }
                 }
             }
+        }
+
+        private void HandleTrustReload(string module, string[] args)
+        {
+            TrustManager.Instance.ReloadTrustLists();
         }
 
         public void RunCommand(string module, string[] cmd)
