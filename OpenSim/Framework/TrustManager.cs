@@ -97,6 +97,7 @@ namespace OpenSim.Framework
             using (System.IO.StreamReader file = new System.IO.StreamReader(IP_TRUST_FILE))
             {
                 string line;
+                _goodIPMasks.Clear();
                 while ((line = file.ReadLine()) != null)
                 {
                     _log.InfoFormat("[TRUSTMGR] Added whitelist IP {0}", line);
