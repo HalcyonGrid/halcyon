@@ -37,6 +37,8 @@ namespace OpenSim.Data
     /// </summary>
     public static class DataPluginFactory
     {
+        private static readonly log4net.ILog m_log = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
+
         /// <summary>
         /// Based on <typeparam name="T" />, returns the appropriate
         /// PluginInitializerBase instance in <paramref name="init" /> and
@@ -125,6 +127,11 @@ namespace OpenSim.Data
             // unless it is constrainted to the correct "Provider" entry in the addin.xml
             loader.Add(extensionPointPath, new PluginProviderFilter(provider));
             loader.Load();
+
+            if (loader.Plugins.Count <= 0)
+            {
+                m_log.Warn($"No plugins found for extension path {extensionPointPath}");
+            }
 
             return loader.Plugins;
         }
