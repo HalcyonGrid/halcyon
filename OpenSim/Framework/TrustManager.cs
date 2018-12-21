@@ -48,6 +48,7 @@ namespace OpenSim.Framework
 
         private object _lock = new object();
         private List<string> _goodIPMasks = new List<string>();
+        private bool _trustAll = false;
 
         private static readonly string[] DEFAULT_TRUSTED_NETWORKS = new string[] 
         {
@@ -81,7 +82,7 @@ namespace OpenSim.Framework
         {
             lock (_lock)
             {
-                _log.InfoFormat("[TRUSTMGR] Reloading trust lists");
+                _log.InfoFormat("[TRUSTMGR]: Reloading trust lists");
                 this.ReloadNetworkTrustList();
             }
         }
@@ -96,11 +97,26 @@ namespace OpenSim.Framework
             // Read the file and display it line by line.
             using (System.IO.StreamReader file = new System.IO.StreamReader(IP_TRUST_FILE))
             {
+                _goodIPMasks.Clear();
+                _trustAll = false;
+
                 string line;
                 while ((line = file.ReadLine()) != null)
                 {
-                    _log.InfoFormat("[TRUSTMGR] Added whitelist IP {0}", line);
-                    _goodIPMasks.Add(line);
+                    line = line.Trim();
+                    if (line.Equals("*"))
+                    {
+                        _log.InfoFormat("[TRUSTMGR]: Enabling trust wildcard for all IPs.");
+                        _goodIPMasks.Clear();
+                        _trustAll = true;
+                        break;
+                    }
+
+                    if (!String.IsNullOrWhiteSpace(line))
+                    {
+                        _log.InfoFormat("[TRUSTMGR]: Added whitelist IP {0}", line);
+                        _goodIPMasks.Add(line);
+                    }
                 }
             }
         }
@@ -120,6 +136,7 @@ namespace OpenSim.Framework
         {
             lock (_lock)
             {
+                if (_trustAll) return true;
                 string addr = endPoint.Address.ToString();
                 foreach (string ipMask in _goodIPMasks)
                 {
@@ -137,6 +154,7 @@ namespace OpenSim.Framework
         {
             lock (_lock)
             {
+                if (_trustAll) return true;
                 foreach (string ipMask in _goodIPMasks)
                 {
                     if (peer.StartsWith(ipMask))
