@@ -28,15 +28,7 @@
 using System;
 using System.Xml;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Reflection;
-using System.Runtime.InteropServices;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading;
-using log4net;
-using OpenSim.Framework;
 
 namespace OpenSim.Framework.Console
 {
@@ -717,6 +709,8 @@ namespace OpenSim.Framework.Console
             Commands.AddCommand(
                 "Help", false, "help", "help [<item>]",
                 "Display help on a particular command or on a list of commands in a category", Help);
+
+            ConsoleMode.DisableQuickEdit();
         }
 
         private void Help(string module, string[] cmd)
