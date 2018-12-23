@@ -82,9 +82,6 @@ namespace OpenSim.Region.CoreModules.World.Archiver
         // Filtered opt-in OAR loading
         Dictionary<UUID, int> m_optInTable = null;
         Dictionary<UUID, UUID> m_assetCreators = null;
-        // Dictionary<UUID, AssetBase> m_deferredAssets = null;
-        // user map is <userID, <newAssetID, oldAssetID>>
-        // Dictionary<UUID, Dictionary<UUID, UUID>> m_assetUserMap = null;
         IInventoryObjectSerializer m_inventorySerializer = null;
 
         int m_replacedPart = 0;
@@ -718,32 +715,6 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             return !objectFixingFailed;
         }
 
-/*
-        private void RemapUserAssetID(UUID userID, UUID oldAssetID, UUID newAssetID)
-        {
-            Dictionary<UUID, UUID> userAssetMap;
-            if (m_assetUserMap.ContainsKey(userID))
-                userAssetMap = m_assetUserMap[userID];
-            else
-                userAssetMap = new Dictionary<UUID, UUID>();
-
-            userAssetMap[oldAssetID] = newAssetID;
-        }
-
-        private UUID GetUserAssetID(UUID userID, UUID assetID)
-        {
-            // Check if the asset was remapped to a modified new asset for this user
-            if (m_assetUserMap.ContainsKey(userID))
-            {
-                Dictionary<UUID, UUID> userAssetMap = m_assetUserMap[userID];
-                if (userAssetMap.ContainsKey(assetID))
-                    return userAssetMap[assetID];
-            }
-
-            // otherwise no need to remap, return the ID of the original asset
-            return assetID;
-        }
-*/
         private void DearchiveRegion0DotStar(string optionsTable)
         {
             int successfulAssetRestores = 0;
@@ -755,8 +726,6 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             {
                 m_optInTable = GetUserContentOptions(optionsTable);
                 m_assetCreators = GetAssetCreators();
-                // m_deferredAssets = new Dictionary<UUID, AssetBase>();
-                // m_assetUserMap = new Dictionary<UUID, Dictionary<UUID, UUID>>();
                 ISerializationEngine engine;
                 if (ProviderRegistry.Instance.TryGet<ISerializationEngine>(out engine))
                 {
