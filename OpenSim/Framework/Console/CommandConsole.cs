@@ -710,7 +710,12 @@ namespace OpenSim.Framework.Console
                 "Help", false, "help", "help [<item>]",
                 "Display help on a particular command or on a list of commands in a category", Help);
 
-            ConsoleMode.DisableQuickEdit();
+            // Windows consoles have a Quick Edit mode that halts the process on a mouse click while the user interacts.
+            // We need to disable that unless the user does an Edit->Mark to select some text.
+            if (Util.IsWindows)
+            {
+                ConsoleMode.DisableQuickEdit();
+            }
         }
 
         private void Help(string module, string[] cmd)
