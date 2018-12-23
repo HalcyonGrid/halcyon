@@ -65,6 +65,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
 
         private ConnectionFactory _connFactory;
         private IConfigSource m_config;
+        private IRegionSerializerModule m_serializer;
 
         /// <value>
         /// Should the archive being loaded be merged with what is already on the region?
@@ -78,8 +79,13 @@ namespace OpenSim.Region.CoreModules.World.Archiver
 
         private bool m_skipErrorGroups = false;
 
+        // Filtered opt-in OAR loading
         Dictionary<UUID, int> m_optInTable = null;
         Dictionary<UUID, UUID> m_assetCreators = null;
+        // Dictionary<UUID, AssetBase> m_deferredAssets = null;
+        // user map is <userID, <newAssetID, oldAssetID>>
+        // Dictionary<UUID, Dictionary<UUID, UUID>> m_assetUserMap = null;
+        IInventoryObjectSerializer m_inventorySerializer = null;
 
         int m_replacedPart = 0;
         int m_replacedItem = 0;
@@ -107,18 +113,16 @@ namespace OpenSim.Region.CoreModules.World.Archiver
 
         public ArchiveReadRequest(IConfigSource config, Scene scene, string loadPath, bool merge, Guid requestId, bool allowUserReassignment, bool skipErrorGroups)
         {
-            m_config = config;
-            m_scene = scene;
-            m_loadStream = new GZipStream(GetStream(loadPath), CompressionMode.Decompress);
-            m_errorMessage = String.Empty;
-            m_merge = merge;
-            m_requestId = requestId;
-            m_allowUserReassignment = allowUserReassignment;
-            m_GroupsModule = scene.RequestModuleInterface<IGroupsModule>();
-            m_skipErrorGroups = skipErrorGroups;
+            Stream loadStream = new GZipStream(GetStream(loadPath), CompressionMode.Decompress);
+            InitArchiveRead(config, scene, loadStream, merge, requestId, allowUserReassignment, skipErrorGroups);
         }
 
         public ArchiveReadRequest(IConfigSource config, Scene scene, Stream loadStream, bool merge, Guid requestId, bool allowUserReassignment, bool skipErrorGroups)
+        {
+            InitArchiveRead(config, scene, loadStream, merge, requestId, allowUserReassignment, skipErrorGroups);
+        }
+
+        private void InitArchiveRead(IConfigSource config, Scene scene, Stream loadStream, bool merge, Guid requestId, bool allowUserReassignment, bool skipErrorGroups)
         {
             m_config = config;
             m_scene = scene;
@@ -128,6 +132,8 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             m_allowUserReassignment = allowUserReassignment;
             m_GroupsModule = scene.RequestModuleInterface<IGroupsModule>();
             m_skipErrorGroups = skipErrorGroups;
+
+            m_serializer = m_scene.RequestModuleInterface<IRegionSerializerModule>();
         }
 
         /// <summary>
@@ -229,6 +235,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
         {
             InitConnFactory();
 
+            m_log.InfoFormat("[ARCHIVER]: Saving {0} assets in OAR file.", assetCreatorsTable.Count);
             try
             {
                 using (ISimpleDB conn = _connFactory.GetConnection())
@@ -251,33 +258,76 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             }
         }
 
-        private void ScanObjectForAssetCreatorIDs(IRegionSerializerModule serializer, string serializedSOG)
+        private void ScanPartForAssetCreatorIDs(SceneObjectPart part, Dictionary<UUID, UUID> assetCreators)
         {
-            Dictionary<UUID, UUID> assetCreators = new Dictionary<UUID, UUID>();
-            SceneObjectGroup sceneObject;
             try
             {
-                sceneObject = serializer.DeserializeGroupFromXml2(serializedSOG);
-                if (sceneObject == null)
-                    return;
-
-                foreach (SceneObjectPart part in sceneObject.GetParts())
+                TaskInventoryDictionary inv = part.TaskInventory;
+                foreach (KeyValuePair<UUID, TaskInventoryItem> kvp in inv)
                 {
-                    lock (part.TaskInventory)
+                    TaskInventoryItem item = kvp.Value;
+                    if (item.AssetID != UUID.Zero)
                     {
-                        TaskInventoryDictionary inv = part.TaskInventory;
-                        foreach (KeyValuePair<UUID, TaskInventoryItem> kvp in inv)
+                        assetCreators[item.AssetID] = item.CreatorID;
+                    }
+                    if (item.InvType == (int)InventoryType.Object)
+                    {
+                        AssetBase asset = GetAsset(item.AssetID);
+                        if (asset != null)
                         {
-                            TaskInventoryItem item = kvp.Value;
-
-                            if (item.AssetID != UUID.Zero)
+                            if (item.ContainsMultipleItems)
                             {
-                                assetCreators[item.AssetID] = item.CreatorID;
+                            }
+                            else
+                            {
+                                SceneObjectGroup inventoryObject = ObjectFromItem(part, item);
+                                ScanObjectForAssetCreatorIDs(inventoryObject, assetCreators);
                             }
                         }
                     }
                 }
-                SaveAssetCreators(assetCreators);
+            }
+            catch (Exception e)
+            {
+                m_log.InfoFormat("[ARCHIVER]: Error while deserializing group: {0}", e);
+            }
+        }
+
+        private void ScanObjectForAssetCreatorIDs(SceneObjectGroup sceneObject, Dictionary<UUID, UUID> assetCreators)
+        {
+            try
+            {
+                foreach (SceneObjectPart part in sceneObject.GetParts())
+                {
+                    TaskInventoryDictionary inv = part.TaskInventory;
+                    foreach (KeyValuePair<UUID, TaskInventoryItem> kvp in inv)
+                    {
+                        TaskInventoryItem item = kvp.Value;
+
+                        if (item.AssetID != UUID.Zero)
+                        {
+                            assetCreators[item.AssetID] = item.CreatorID;
+                            ScanPartForAssetCreatorIDs(part, assetCreators);
+                        }
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                m_log.InfoFormat("[ARCHIVER]: Error while deserializing group: {0}", e);
+            }
+        }
+
+        private void ScanObjectForAssetCreatorIDs(string serializedSOG, Dictionary<UUID, UUID> assetCreators)
+        {
+            SceneObjectGroup sceneObject;
+            try
+            {
+                sceneObject = m_serializer.DeserializeGroupFromXml2(serializedSOG);
+                if (sceneObject == null)
+                    return;
+
+                ScanObjectForAssetCreatorIDs(sceneObject, assetCreators);
             }
             catch (Exception e)
             {
@@ -287,11 +337,11 @@ namespace OpenSim.Region.CoreModules.World.Archiver
 
         public void ScanArchiveForAssetCreatorIDs()
         {
+            Dictionary<UUID, UUID> assetCreators = new Dictionary<UUID, UUID>();
             string filePath = "NONE";
 
             try
             {
-                IRegionSerializerModule serializer = m_scene.RequestModuleInterface<IRegionSerializerModule>();
                 TarArchiveReader archive = new TarArchiveReader(m_loadStream);
                 TarArchiveReader.TarEntryType entryType;
                 byte[] data;
@@ -302,13 +352,17 @@ namespace OpenSim.Region.CoreModules.World.Archiver
 
                     if (filePath.StartsWith(ArchiveConstants.OBJECTS_PATH))
                     {
-                        ScanObjectForAssetCreatorIDs(serializer, Encoding.UTF8.GetString(data));
+                        ScanObjectForAssetCreatorIDs(Encoding.UTF8.GetString(data), assetCreators);
                     }
                 }
             }
             catch (Exception e)
             {
                 m_log.ErrorFormat("[ARCHIVER]: Aborting creator scan with error in archive file {0}.  {1}", filePath, e);
+            }
+            finally
+            {
+                SaveAssetCreators(assetCreators);
             }
         }
 
@@ -325,11 +379,11 @@ namespace OpenSim.Region.CoreModules.World.Archiver
         private SceneObjectGroup DeserializeObject(UUID itemId, byte[] bytes)
         {
             SceneObjectGroup grp;
-            ISerializationEngine engine;
 
-            if (ProviderRegistry.Instance.TryGet<ISerializationEngine>(out engine) && engine.InventoryObjectSerializer.CanDeserialize(bytes))
+            if (m_inventorySerializer == null) return null;
+            if (m_inventorySerializer.CanDeserialize(bytes))
             {
-                grp = engine.InventoryObjectSerializer.DeserializeGroupFromInventoryBytes(bytes);
+                grp = m_inventorySerializer.DeserializeGroupFromInventoryBytes(bytes);
             }
             else
             {
@@ -340,6 +394,17 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             ResetGroupAfterDeserialization(itemId, grp);
 
             return grp;
+        }
+
+        private AssetBase SerializeObjectToAsset(SceneObjectGroup grp)
+        {
+            if (m_inventorySerializer == null) return null;
+
+            byte[] bytes = m_inventorySerializer.SerializeGroupToInventoryBytes(grp, SerializationFlags.None);
+            AssetBase asset = new AssetBase(new UUID(grp.UUID), String.Empty);
+            asset.Type = (int)AssetType.Object;
+            asset.Data = bytes;
+            return asset;
         }
 
         private bool MustReplaceByCreatorOwner(UUID creatorID, UUID ownerID)
@@ -509,11 +574,11 @@ namespace OpenSim.Region.CoreModules.World.Archiver
         // returns true if anything in the object should be skipped on OAR file restore
         private bool FilterObjectByCreators(SceneObjectGroup sceneObject)
         {
+            bool filtered = false;
             if (m_optInTable == null) return false; // no filtering
 
             if (sceneObject == null) return true;
 
-            bool filtered = false;
             foreach (SceneObjectPart part in sceneObject.GetParts())
             {
                 try
@@ -529,33 +594,30 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             return filtered;
         }
 
+        private AssetBase GetAsset(UUID assetID)
+        {
+            if (assetID == UUID.Zero)
+                return null;
+            return m_scene.CommsManager.AssetCache.GetAsset(assetID, AssetRequestInfo.InternalRequest());
+        }
+
         // returns object on success, or null when objectFixingFailed == true
         private SceneObjectGroup ObjectFromItem(SceneObjectPart part, TaskInventoryItem item)
         {
-            AssetBase asset = null;
-            try
-            {
-                if (item.AssetID != UUID.Zero)
-                    asset = m_scene.CommsManager.AssetCache.GetAsset(item.AssetID, AssetRequestInfo.InternalRequest());
-                if (asset != null)
-                {
-                    if (item.ContainsMultipleItems)
-                    {
-                        // This should never happen with rezzed Contents but just in case...
-                        m_log.ErrorFormat("[ARCHIVER]: Don't know how to handle coalesced objects within an OAR file, for {0} in {1}", item.Name, part.ParentGroup.Name);
-                    }
-                    else
-                    {
-                        return DeserializeObject(item.ItemID, asset.Data);
-                    }
-                }
-            }
-            catch (Exception err)
-            {
-                m_log.WarnFormat("Could not fetch asset {0} for object in Contents of {1}: {2}", item.AssetID, part.Name, err.Message);
-            }
+            AssetBase asset = GetAsset(item.AssetID);
+            if (asset == null)
+                return null;
 
-            return null;
+            if (item.ContainsMultipleItems)
+            {
+                // This should never happen with rezzed Contents but just in case...
+                m_log.ErrorFormat("[ARCHIVER]: Don't know how to handle coalesced objects within an OAR file, for {0} in {1}", item.Name, part.ParentGroup.Name);
+                return null;
+            }
+            else
+            {
+                return DeserializeObject(item.ItemID, asset.Data);
+            }
         }
 
         // returns success==true, or false when objectFixingFailed == true
@@ -564,7 +626,19 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             UUID resolveWithUser = UUID.Zero;   // if m_allowUserReassignment, this is who gets it all.
             bool objectFixingFailed = false;
 
-            FilterObjectByCreators(sceneObject);
+            bool filtered = FilterObjectByCreators(sceneObject);
+
+            if (filtered)
+            {
+                // must re-serialize this part and store as an asset for reference when this 
+                // part's Contents are opened in the future
+                AssetBase newAsset = SerializeObjectToAsset(sceneObject);
+                if (newAsset != null)
+                {
+                    newAsset.FullID = UUID.Random();
+                    m_scene.CommsManager.AssetCache.AddAsset(newAsset, AssetRequestInfo.InternalRequest());
+                }
+            }
 
             // For now, give all incoming scene objects new uuids.  This will allow scenes to be cloned
             // on the same region server and multiple examples a single object archive to be imported
@@ -644,6 +718,32 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             return !objectFixingFailed;
         }
 
+/*
+        private void RemapUserAssetID(UUID userID, UUID oldAssetID, UUID newAssetID)
+        {
+            Dictionary<UUID, UUID> userAssetMap;
+            if (m_assetUserMap.ContainsKey(userID))
+                userAssetMap = m_assetUserMap[userID];
+            else
+                userAssetMap = new Dictionary<UUID, UUID>();
+
+            userAssetMap[oldAssetID] = newAssetID;
+        }
+
+        private UUID GetUserAssetID(UUID userID, UUID assetID)
+        {
+            // Check if the asset was remapped to a modified new asset for this user
+            if (m_assetUserMap.ContainsKey(userID))
+            {
+                Dictionary<UUID, UUID> userAssetMap = m_assetUserMap[userID];
+                if (userAssetMap.ContainsKey(assetID))
+                    return userAssetMap[assetID];
+            }
+
+            // otherwise no need to remap, return the ID of the original asset
+            return assetID;
+        }
+*/
         private void DearchiveRegion0DotStar(string optionsTable)
         {
             int successfulAssetRestores = 0;
@@ -655,6 +755,13 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             {
                 m_optInTable = GetUserContentOptions(optionsTable);
                 m_assetCreators = GetAssetCreators();
+                // m_deferredAssets = new Dictionary<UUID, AssetBase>();
+                // m_assetUserMap = new Dictionary<UUID, Dictionary<UUID, UUID>>();
+                ISerializationEngine engine;
+                if (ProviderRegistry.Instance.TryGet<ISerializationEngine>(out engine))
+                {
+                    m_inventorySerializer = engine.InventoryObjectSerializer;
+                }
             }
 
             try
@@ -717,7 +824,6 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             // Reload serialized prims
             m_log.InfoFormat("[ARCHIVER]: Preparing {0} scene objects.  Please wait.", serializedSceneObjects.Count);
 
-            IRegionSerializerModule serializer = m_scene.RequestModuleInterface<IRegionSerializerModule>();
             int sceneObjectsLoadedCount = 0;
 
             List<SceneObjectGroup> backupObjects = new List<SceneObjectGroup>();
@@ -730,7 +836,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                 SceneObjectGroup sceneObject;
                 try
                 {
-                    sceneObject = serializer.DeserializeGroupFromXml2(serializedSceneObject);
+                    sceneObject = m_serializer.DeserializeGroupFromXml2(serializedSceneObject);
                 }
                 catch (Exception e)
                 {
@@ -786,7 +892,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                     existingObject = ExistingNoCopyObjects[originalUUID];
                 // existingSOG here means existing NO-COPY object, not deleted from scene above
 
-                if (NoCopyObjectOrContents(backupObject))
+                if ((m_optInTable == null) && NoCopyObjectOrContents(backupObject))
                 {
                     if ((existingObject != null) && !existingObject.IsAttachment)
                     {
@@ -940,7 +1046,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                 }
                 catch (AssetServerException e)
                 {
-                    m_log.ErrorFormat("[ARCHIVER] Uploading asset {0} failed: {1}", uuid, e);
+                    m_log.ErrorFormat("[ARCHIVER] Uploading asset {0} failed: {1}", asset.FullID, e);
                 }
 
                 /**
