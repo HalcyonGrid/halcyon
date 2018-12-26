@@ -3707,25 +3707,30 @@ namespace OpenSim.Region.Framework.Scenes
             m_LastChildAgentUpdatePosition.Y = pos.Y;
             m_LastChildAgentUpdatePosition.Z = pos.Z;
 
-            ChildAgentDataUpdate cadu = new ChildAgentDataUpdate();
-            cadu.ActiveGroupID = UUID.Zero.Guid;
-            cadu.AgentID = UUID.Guid;
-            cadu.alwaysrun = m_setAlwaysRun;
-            cadu.AVHeight = m_avHeight;
-            sLLVector3 tempCameraCenter = new sLLVector3(new Vector3(m_CameraCenter.X, m_CameraCenter.Y, m_CameraCenter.Z));
-            cadu.cameraPosition = tempCameraCenter;
-            cadu.drawdistance = m_DrawDistance;
-            if (!this.IsBot)    // bots don't need IsGod checks
-                if (m_scene.Permissions?.IsGod(new UUID(cadu.AgentID)) ?? false)
-                    cadu.godlevel = m_godlevel;
-            cadu.GroupAccess = 0;
-            cadu.Position = new sLLVector3(pos);
-            cadu.regionHandle = m_scene.RegionInfo.RegionHandle;
-
             float multiplier = CalculateNeighborBandwidthMultiplier();
             //m_log.Info("[NeighborThrottle]: " + m_scene.GetInaccurateNeighborCount().ToString() + " - m: " + multiplier.ToString());
-            cadu.throttles = ControllingClient.GetThrottlesPacked(multiplier);
-            cadu.Velocity = new sLLVector3(Velocity);
+
+            ChildAgentDataUpdate cadu = new ChildAgentDataUpdate
+            {
+                ActiveGroupID = UUID.Zero.Guid,
+                AgentID = UUID.Guid,
+                alwaysrun = m_setAlwaysRun,
+                AVHeight = m_avHeight,
+                cameraPosition = new sLLVector3(new Vector3(m_CameraCenter.X, m_CameraCenter.Y, m_CameraCenter.Z)),
+                drawdistance = m_DrawDistance,
+                GroupAccess = 0,
+                Position = new sLLVector3(pos),
+                regionHandle = m_scene.RegionInfo.RegionHandle,
+                throttles = ControllingClient.GetThrottlesPacked(multiplier),
+                Velocity = new sLLVector3(Velocity),
+            };
+            if (!this.IsBot) // bots don't need IsGod checks
+            {
+                if (m_scene.Permissions?.IsGod(new UUID(cadu.AgentID)) ?? false)
+                {
+                    cadu.godlevel = m_godlevel;
+                }
+            }
 
             AgentPosition agentpos = new AgentPosition();
             agentpos.CopyFrom(cadu);
