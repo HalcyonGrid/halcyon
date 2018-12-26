@@ -1724,7 +1724,7 @@ namespace OpenSim.Region.Framework.Scenes
 
         public void UpdateForDrawDistanceChange()
         {
-            m_remotePresences.HandleDrawDistanceChanged((uint)m_DrawDistance);
+            m_remotePresences.HandleDrawDistanceChanged((uint)m_DrawDistance)?.Wait();
         }
 
         /// <summary>
@@ -1732,7 +1732,6 @@ namespace OpenSim.Region.Framework.Scenes
         /// </summary>
         public void HandleAgentUpdate(IClientAPI remoteClient, AgentUpdateArgs agentData)
         {
-            bool recoverPhysActor = false;
             if (m_isChildAgent)
             {
                 //m_log.Warn("[CROSSING]: HandleAgentUpdate from child agent ignored "+agentData.AgentID.ToString());
