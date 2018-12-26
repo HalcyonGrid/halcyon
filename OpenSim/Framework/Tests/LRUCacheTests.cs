@@ -28,13 +28,10 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading;
+
 using NUnit.Framework;
-using OpenSim.Framework;
+
 using OpenMetaverse;
 
 namespace OpenSim.Framework.Tests
@@ -52,41 +49,39 @@ namespace OpenSim.Framework.Tests
         [Test]
         public void TestSimpleCacheAndRetrieval()
         {
-            var cache = new LRUCache<UUID, String>(MAX_CACHE_SIZE);
-            String testData = "Test Data";
+            var cache = new LRUCache<UUID, string>(MAX_CACHE_SIZE);
+            string testData = "Test Data";
             UUID id = UUID.Random();
 
             cache.Add(id, testData);
             Assert.IsTrue(cache.Contains(id));
-            Assert.AreEqual(1, cache.Size);
+            Assert.AreEqual(1, cache.Size, "Size property was wrong");
 
-            String entry;
-            Assert.IsTrue(cache.TryGetValue(id, out entry));
+            Assert.IsTrue(cache.TryGetValue(id, out string entry));
             Assert.AreEqual(testData.Length, entry.Length);
-            Assert.AreEqual(1, cache.Size);
+            Assert.AreEqual(1, cache.Size, "Size property was wrong");
         }
 
         [Test]
         public void TestRetrieveItemThatDoesntExist()
         {
-            var cache = new LRUCache<UUID, String>(MAX_CACHE_SIZE);
-            String testData = "Test Data";
+            var cache = new LRUCache<UUID, string>(MAX_CACHE_SIZE);
+            string testData = "Test Data";
             UUID id = UUID.Random();
 
             cache.Add(id, testData);
 
-            String entry = null;
-            Assert.AreEqual(1, cache.Size);
-            Assert.AreEqual(1, cache.Count);
-            Assert.IsFalse(cache.TryGetValue(UUID.Random(), out entry));
+            Assert.AreEqual(1, cache.Size, "Size property was wrong");
+            Assert.AreEqual(1, cache.Count, "Count property was wrong");
+            Assert.IsFalse(cache.TryGetValue(UUID.Random(), out string entry));
             Assert.IsNull(entry);
         }
 
         [Test]
         public void TestFillCache()
         {
-            var cache = new LRUCache<UUID, String>(10);
-            String testData = "Test Data";
+            var cache = new LRUCache<UUID, string>(10);
+            string testData = "Test Data";
 
             for (int i = 0; i < 10; i++)
             {
@@ -94,15 +89,31 @@ namespace OpenSim.Framework.Tests
                 cache.Add(id, testData);
             }
 
-            Assert.AreEqual(10, cache.Count);
-            Assert.AreEqual(10, cache.Size);
+            Assert.AreEqual(10, cache.Count, "Count property was wrong");
+            Assert.AreEqual(10, cache.Size, "Size property was wrong");
+        }
+
+        [Test]
+        public void TestFillCacheLiteral()
+        {
+            string firstEntryData = "First Entry";
+            string secondEntryData = "Second Entry";
+
+            var cache = new LRUCache<UUID, string>(2)
+            {
+                { UUID.Random(), firstEntryData, firstEntryData.Length },
+                { UUID.Random(), secondEntryData, secondEntryData.Length }
+            };
+
+            Assert.AreEqual(2, cache.Count, "Count property was wrong");
+            Assert.AreEqual(2, cache.Size, "Size property was wrong");
         }
 
         [Test]
         public void TestOverflowCacheWithSmallerItem()
         {
-            var cache = new LRUCache<UUID, String>(10);
-            String testData = "Test Data";
+            var cache = new LRUCache<UUID, string>(10);
+            string testData = "Test Data";
 
             for (int i = 0; i < 10; i++)
             {
@@ -110,86 +121,82 @@ namespace OpenSim.Framework.Tests
                 cache.Add(id, testData);
             }
 
-            Assert.AreEqual(10, cache.Count);
-            Assert.AreEqual(10, cache.Size);
+            Assert.AreEqual(10, cache.Count, "Count property was wrong");
+            Assert.AreEqual(10, cache.Size, "Size property was wrong");
 
             UUID overflowId = UUID.Random();
-            String overflowData = "OverFlow";
+            string overflowData = "OverFlow";
             cache.Add(overflowId, overflowData);
 
-            Assert.AreEqual(10, cache.Count);
-            Assert.AreEqual(10, cache.Size);
+            Assert.AreEqual(10, cache.Count, "Count property was wrong");
+            Assert.AreEqual(10, cache.Size, "Size property was wrong");
 
-            String lastInsertedValue;
-            Assert.IsTrue(cache.TryGetValue(overflowId, out lastInsertedValue));
+            Assert.IsTrue(cache.TryGetValue(overflowId, out string lastInsertedValue));
             Assert.AreEqual(overflowData, lastInsertedValue);
         }
 
         [Test]
         public void TestOverflowReplacesFirstEntryAdded()
         {
-            var cache = new LRUCache<UUID, String>(10);
+            var cache = new LRUCache<UUID, string>(10);
 
             UUID firstEntryId = UUID.Random();
-            String firstEntryData = "First Entry";
+            string firstEntryData = "First Entry";
             cache.Add(firstEntryId, firstEntryData);
 
-            String testData = "Test Data";
+            string testData = "Test Data";
             for (int i = 0; i < 10; i++)
             {
                 var id = UUID.Random();
                 cache.Add(id, testData);
             }
 
-            Assert.AreEqual(10, cache.Count);
-            Assert.AreEqual(10, cache.Size);
+            Assert.AreEqual(10, cache.Count, "Count property was wrong");
+            Assert.AreEqual(10, cache.Size, "Size property was wrong");
 
-            String lastInsertedValue;
-            Assert.IsFalse(cache.TryGetValue(firstEntryId, out lastInsertedValue));
+            Assert.IsFalse(cache.TryGetValue(firstEntryId, out string lastInsertedValue));
             Assert.IsNull(lastInsertedValue);
         }
 
         [Test]
         public void TestAgingRemovesEntriesPastExpirationInterval()
         {
-            var cache = new LRUCache<UUID, String>(10, maxAge : 1000);
+            var cache = new LRUCache<UUID, string>(10, maxAge : 1000);
 
             UUID firstEntryId = UUID.Random();
-            String firstEntryData = "First Entry";
+            string firstEntryData = "First Entry";
             cache.Add(firstEntryId, firstEntryData);
 
             Thread.Sleep(2 * 1000);
             cache.Maintain();
 
-            Assert.AreEqual(0, cache.Count);
-            Assert.AreEqual(0, cache.Size);
+            Assert.AreEqual(0, cache.Count, "Count property was wrong");
+            Assert.AreEqual(0, cache.Size, "Size property was wrong");
 
-            String lastInsertedValue;
-            Assert.IsFalse(cache.TryGetValue(firstEntryId, out lastInsertedValue));
+            Assert.IsFalse(cache.TryGetValue(firstEntryId, out string lastInsertedValue));
             Assert.IsNull(lastInsertedValue);
         }
 
         [Test]
         public void TestAgingRemovesEntriesButPreservesReservedEntries()
         {
-            var cache = new LRUCache<UUID, String>(10, minSize : 1, maxAge : 1000);
+            var cache = new LRUCache<UUID, string>(10, minSize : 1, maxAge : 1000);
 
             UUID firstEntryId = UUID.Random();
-            String firstEntryData = "First Entry";
+            string firstEntryData = "First Entry";
             cache.Add(firstEntryId, firstEntryData);
 
             UUID secondEntryId = UUID.Random();
-            String secondEntryData = "Second Entry";
+            string secondEntryData = "Second Entry";
             cache.Add(secondEntryId, secondEntryData);
 
             Thread.Sleep(5 * 1000);
             cache.Maintain();
 
-            Assert.AreEqual(1, cache.Count);
-            Assert.AreEqual(1, cache.Size);
+            Assert.AreEqual(1, cache.Count, "Count property was wrong");
+            Assert.AreEqual(1, cache.Size, "Size property was wrong");
 
-            String lastInsertedValue;
-            Assert.IsFalse(cache.TryGetValue(firstEntryId, out lastInsertedValue));
+            Assert.IsFalse(cache.TryGetValue(firstEntryId, out string lastInsertedValue));
             Assert.IsNull(lastInsertedValue);
 
             Assert.IsTrue(cache.TryGetValue(secondEntryId, out lastInsertedValue));
@@ -200,23 +207,24 @@ namespace OpenSim.Framework.Tests
         public void TestAgingRemovesEntriesUsingBytesForReservedSize()
         {
             UUID firstEntryId = UUID.Random();
-            String firstEntryData = "First Entry";
+            string firstEntryData = "First Entry";
 
             UUID secondEntryId = UUID.Random();
-            String secondEntryData = "Second Entry";
+            string secondEntryData = "Second Entry";
 
-            var cache = new LRUCache<UUID, String>(capacity: 250, useSizing: true, minSize: secondEntryData.Length, maxAge: 1000);
-            cache.Add(firstEntryId, firstEntryData, firstEntryData.Length);
-            cache.Add(secondEntryId, secondEntryData, secondEntryData.Length);
+            var cache = new LRUCache<UUID, string>(capacity: 250, useSizing: true, minSize: secondEntryData.Length, maxAge: 1000)
+            {
+                { firstEntryId, firstEntryData, firstEntryData.Length },
+                { secondEntryId, secondEntryData, secondEntryData.Length }
+            };
 
             Thread.Sleep(5 * 1000);
             cache.Maintain();
 
-            Assert.AreEqual(1, cache.Count);
-            Assert.AreEqual(secondEntryData.Length, cache.Size);
+            Assert.AreEqual(1, cache.Count, "Count property was wrong");
+            Assert.AreEqual(secondEntryData.Length, cache.Size, "Size property was wrong");
 
-            String lastInsertedValue;
-            Assert.IsFalse(cache.TryGetValue(firstEntryId, out lastInsertedValue));
+            Assert.IsFalse(cache.TryGetValue(firstEntryId, out string lastInsertedValue));
             Assert.IsNull(lastInsertedValue);
 
             Assert.IsTrue(cache.TryGetValue(secondEntryId, out lastInsertedValue));
