@@ -2417,6 +2417,7 @@ namespace OpenSim.Framework
         /// Returns x/y min and max for a draw distance based region area around the given region location
         /// </summary>
         /// <param name="drawDistance">The draw distance we're checking</param>
+        /// <param name="maxRange">Maximum per-axis distance in number of regions</param>
         /// <param name="regionLocX">The X location of the current region</param>
         /// <param name="regionLocY">The Y location of the current region</param>
         /// <param name="xmin">Outputs the X minimum for the DD rectangle</param>
@@ -2435,14 +2436,8 @@ namespace OpenSim.Framework
 
             if (maxRange > 0)   // apply it
             {
-                if ((regionLocX - xmin) > maxRange)
-                    xmin = regionLocX - maxRange;
-                if ((regionLocY - ymin) > maxRange)
-                    ymin = regionLocY - maxRange;
-                if ((xmax - regionLocX) > maxRange)
-                    xmax = regionLocX + maxRange;
-                if ((ymax - regionLocY) > maxRange)
-                    ymax = regionLocY + maxRange;
+                xmin = Util.Clamp(xmin, regionLocX - maxRange, regionLocX + maxRange);
+                ymin = Util.Clamp(ymin, regionLocY - maxRange, regionLocY + maxRange);
             }
         }
 
