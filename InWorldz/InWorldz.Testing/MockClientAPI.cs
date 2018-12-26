@@ -134,7 +134,7 @@ namespace InWorldz.Testing
 
         public uint NeighborsRange
         {
-            get { return 1; }
+            get { return 2; }
             set { }
         }
 

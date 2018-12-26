@@ -47,9 +47,14 @@ namespace OpenSim.Region.FrameworkTests
     public class AvatarRemotePresencesTest
     {
         private Scene mockScene;
-        private Scene neighbor1left;
-        private Scene neighbor2left;
-        private Scene neighbor3left;
+        private Scene neighbor1left0up;
+        private Scene neighbor2left0up;
+        private Scene neighbor3left0up;
+        private Scene neighbor2left1up;
+        private Scene neighbor0left2up;
+        private Scene neighbor1left2up;
+        private Scene neighbor2left2up;
+        private Scene neighbor3left2up;
         private ScenePresence presence;
         private const ushort REGION_PORT_BASE = 9021;
 
@@ -59,16 +64,37 @@ namespace OpenSim.Region.FrameworkTests
             mockScene = SceneHelper.CreateScene(REGION_PORT_BASE, 1000, 1000);
             mockScene.RegisterModuleInterface<IEventQueue>(new InWorldz.Testing.MockEventQueue());
 
-            neighbor1left = SceneHelper.CreateScene(REGION_PORT_BASE+1, 999, 1000);
-            neighbor2left = SceneHelper.CreateScene(REGION_PORT_BASE+2, 998, 1000);
-            neighbor3left = SceneHelper.CreateScene(REGION_PORT_BASE+3, 997, 1000);
+            neighbor1left0up = SceneHelper.CreateScene(REGION_PORT_BASE + 1, 999, 1000);
+            neighbor2left0up = SceneHelper.CreateScene(REGION_PORT_BASE + 2, 998, 1000);
+            neighbor3left0up = SceneHelper.CreateScene(REGION_PORT_BASE + 3, 997, 1000);
+
+            neighbor2left1up = SceneHelper.CreateScene(REGION_PORT_BASE + 4, 998, 1001);
+
+            neighbor0left2up = SceneHelper.CreateScene(REGION_PORT_BASE + 5, 1000, 1002);
+            neighbor1left2up = SceneHelper.CreateScene(REGION_PORT_BASE + 6, 999, 1002);
+            neighbor2left2up = SceneHelper.CreateScene(REGION_PORT_BASE + 7, 998, 1002);
+            neighbor3left2up = SceneHelper.CreateScene(REGION_PORT_BASE + 8, 997, 1002);
 
             presence = new ScenePresence(mockScene, 256f, new MockClientAPI());
 
-            neighbor1left.CommsManager.HttpServer.AddHTTPHandler("/agent/", HandleAgentStuff);
-            neighbor1left.CommsManager.HttpServer.AddHTTPHandler("/agent2/", HandleAgentStuff);
-            neighbor2left.CommsManager.HttpServer.AddHTTPHandler("/agent/", HandleAgentStuff);
-            neighbor2left.CommsManager.HttpServer.AddHTTPHandler("/agent2/", HandleAgentStuff);
+            neighbor1left0up.CommsManager.HttpServer.AddHTTPHandler("/agent/", HandleAgentStuff);
+            neighbor1left0up.CommsManager.HttpServer.AddHTTPHandler("/agent2/", HandleAgentStuff);
+            neighbor2left0up.CommsManager.HttpServer.AddHTTPHandler("/agent/", HandleAgentStuff);
+            neighbor2left0up.CommsManager.HttpServer.AddHTTPHandler("/agent2/", HandleAgentStuff);
+            neighbor3left0up.CommsManager.HttpServer.AddHTTPHandler("/agent/", HandleAgentStuff);
+            neighbor3left0up.CommsManager.HttpServer.AddHTTPHandler("/agent2/", HandleAgentStuff);
+
+            neighbor2left1up.CommsManager.HttpServer.AddHTTPHandler("/agent/", HandleAgentStuff);
+            neighbor2left1up.CommsManager.HttpServer.AddHTTPHandler("/agent2/", HandleAgentStuff);
+
+            neighbor0left2up.CommsManager.HttpServer.AddHTTPHandler("/agent/", HandleAgentStuff);
+            neighbor0left2up.CommsManager.HttpServer.AddHTTPHandler("/agent2/", HandleAgentStuff);
+            neighbor1left2up.CommsManager.HttpServer.AddHTTPHandler("/agent/", HandleAgentStuff);
+            neighbor1left2up.CommsManager.HttpServer.AddHTTPHandler("/agent2/", HandleAgentStuff);
+            neighbor2left2up.CommsManager.HttpServer.AddHTTPHandler("/agent/", HandleAgentStuff);
+            neighbor2left2up.CommsManager.HttpServer.AddHTTPHandler("/agent2/", HandleAgentStuff);
+            neighbor3left2up.CommsManager.HttpServer.AddHTTPHandler("/agent/", HandleAgentStuff);
+            neighbor3left2up.CommsManager.HttpServer.AddHTTPHandler("/agent2/", HandleAgentStuff);
         }
 
         private Hashtable HandleAgentStuff(Hashtable request)
@@ -86,12 +112,19 @@ namespace OpenSim.Region.FrameworkTests
         public void Teardown()
         {
             SceneHelper.TearDownScene(mockScene);
-            SceneHelper.TearDownScene(neighbor1left);
-            SceneHelper.TearDownScene(neighbor2left);
-            SceneHelper.TearDownScene(neighbor3left);
+            SceneHelper.TearDownScene(neighbor1left0up);
+            SceneHelper.TearDownScene(neighbor2left0up);
+            SceneHelper.TearDownScene(neighbor3left0up);
+
+            SceneHelper.TearDownScene(neighbor2left1up);
+
+            SceneHelper.TearDownScene(neighbor0left2up);
+            SceneHelper.TearDownScene(neighbor1left2up);
+            SceneHelper.TearDownScene(neighbor2left2up);
+            SceneHelper.TearDownScene(neighbor3left2up);
         }
 
-    
+
         [Test]
         public void TestMakeRootAgentEventRegistration()
         {
@@ -290,16 +323,16 @@ namespace OpenSim.Region.FrameworkTests
             presences = presence.RemotePresences.GetRemotePresenceList();
             Assert.AreEqual(6, presences.Count);
 
-            Assert.IsTrue(presence.RemotePresences.HasPresenceOnRegion(Util.RegionHandleFromLocation(HOME - 1, HOME)));
-            Assert.IsTrue(presence.RemotePresences.HasPresenceOnRegion(Util.RegionHandleFromLocation(HOME - 2, HOME)));
-            Assert.IsFalse(presence.RemotePresences.HasPresenceOnRegion(Util.RegionHandleFromLocation(HOME - 3, HOME)));
+            Assert.IsTrue(presence.RemotePresences.HasPresenceOnRegion(Util.RegionHandleFromLocation(HOME - 1, HOME)), "Region -1,+0 failed to report a presence");
+            Assert.IsTrue(presence.RemotePresences.HasPresenceOnRegion(Util.RegionHandleFromLocation(HOME - 2, HOME)), "Region -2,+0 failed to report a presence");
+            Assert.IsFalse(presence.RemotePresences.HasPresenceOnRegion(Util.RegionHandleFromLocation(HOME - 3, HOME)), "Region -3,+0 reported a presence it should not have");
 
-            Assert.IsTrue(presence.RemotePresences.HasPresenceOnRegion(Util.RegionHandleFromLocation(HOME - 2, HOME + 1)));
+            Assert.IsTrue(presence.RemotePresences.HasPresenceOnRegion(Util.RegionHandleFromLocation(HOME - 2, HOME + 1)), "Region -2,+1 failed to report a presence");
 
-            Assert.IsTrue(presence.RemotePresences.HasPresenceOnRegion(Util.RegionHandleFromLocation(HOME - 0, HOME + 2)));
-            Assert.IsTrue(presence.RemotePresences.HasPresenceOnRegion(Util.RegionHandleFromLocation(HOME - 1, HOME + 2)));
-            Assert.IsTrue(presence.RemotePresences.HasPresenceOnRegion(Util.RegionHandleFromLocation(HOME - 2, HOME + 2)));
-            Assert.IsFalse(presence.RemotePresences.HasPresenceOnRegion(Util.RegionHandleFromLocation(HOME - 3, HOME + 2)));
+            Assert.IsTrue(presence.RemotePresences.HasPresenceOnRegion(Util.RegionHandleFromLocation(HOME - 0, HOME + 2)), "Region +0,+2 failed to report a presence");
+            Assert.IsTrue(presence.RemotePresences.HasPresenceOnRegion(Util.RegionHandleFromLocation(HOME - 1, HOME + 2)), "Region -1,+2 failed to report a presence");
+            Assert.IsTrue(presence.RemotePresences.HasPresenceOnRegion(Util.RegionHandleFromLocation(HOME - 2, HOME + 2)), "Region -2,+2 failed to report a presence");
+            Assert.IsFalse(presence.RemotePresences.HasPresenceOnRegion(Util.RegionHandleFromLocation(HOME - 3, HOME + 2)), "Region -3,+2 reported a presence it should not have");
 
             // Clean up
             mockScene.EventManager.TriggerOnMakeChildAgent(presence);
