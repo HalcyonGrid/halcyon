@@ -3289,7 +3289,7 @@ namespace OpenSim.Region.Framework.Scenes
                 }
 
                 // followed suggestion from mic bowman. reversed the two lines below.
-                CheckForBorderCrossing();
+                CheckForBorderCrossing()?.Wait();
                 CheckForSignificantMovement(); // sends update to the modules.
             }
         }
@@ -3759,7 +3759,7 @@ namespace OpenSim.Region.Framework.Scenes
         /// <summary>
         /// Checks to see if the avatar is in range of a border and calls CrossToNewRegion
         /// </summary>
-        protected void CheckForBorderCrossing()
+        protected async Task CheckForBorderCrossing()
         {
             int neighbor = 0;
             Vector3 pos;
@@ -3853,7 +3853,7 @@ namespace OpenSim.Region.Framework.Scenes
                     pos2.X += fix[0];
                     pos2.Y += fix[1];
 
-                    CrossToNewRegion(neighborHandle, neighborInfo, pos2);
+                    await CrossToNewRegion(neighborHandle, neighborInfo, pos2);
                 }
             }
         }
@@ -3915,7 +3915,7 @@ namespace OpenSim.Region.Framework.Scenes
         /// If the neighbor accepts, remove the agent's viewable avatar from this scene
         /// set them to a child agent.
         /// </summary>
-        protected void CrossToNewRegion(ulong neighborHandle, SimpleRegionInfo neighborInfo, Vector3 positionInNewRegion)
+        protected async Task CrossToNewRegion(ulong neighborHandle, SimpleRegionInfo neighborInfo, Vector3 positionInNewRegion)
         {
             ulong started = Util.GetLongTickCount();
 
@@ -3930,7 +3930,7 @@ namespace OpenSim.Region.Framework.Scenes
                 }
             }
 
-            m_scene.CrossWalkingOrFlyingAgentToNewRegion(this, neighborHandle, neighborInfo, positionInNewRegion);
+            await m_scene.CrossWalkingOrFlyingAgentToNewRegion(this, neighborHandle, neighborInfo, positionInNewRegion);
 
             m_log.InfoFormat("[SCENE]: Crossing for avatar took {0} ms for {1}.", Util.GetLongTickCount()-started, this.Name);
         }
