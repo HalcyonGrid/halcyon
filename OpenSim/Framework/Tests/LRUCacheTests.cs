@@ -44,7 +44,7 @@ namespace OpenSim.Framework.Tests
     {
         private const int MAX_CACHE_SIZE = 250;
 
-        [TestFixtureSetUp]
+        [SetUp]
         public void Setup()
         {
         }
