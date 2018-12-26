@@ -82,13 +82,6 @@ namespace OpenSim.Region.FrameworkTests
             return reply;
         }
 
-        private void WaitTask(Task task)
-        {
-            if (task != null)
-                if (task.AsyncState != null)
-                    task.Wait();
-        }
-
         [TearDown]
         public void Teardown()
         {
@@ -175,7 +168,7 @@ namespace OpenSim.Region.FrameworkTests
             Assert.IsFalse(presence.RemotePresences.HasPresenceOnRegion(Util.RegionHandleFromLocation(998, 1000)));
             Assert.IsFalse(presence.RemotePresences.HasPresenceOnRegion(Util.RegionHandleFromLocation(997, 1000)));
 
-            WaitTask(presence.RemotePresences.HandleDrawDistanceChanged(512));
+            presence.RemotePresences.HandleDrawDistanceChanged(512)?.Wait();
             Thread.Sleep(1000);
             presences = presence.RemotePresences.GetRemotePresenceList();
             Assert.AreEqual(2, presences.Count);
@@ -184,7 +177,7 @@ namespace OpenSim.Region.FrameworkTests
             Assert.IsTrue(presence.RemotePresences.HasPresenceOnRegion(Util.RegionHandleFromLocation(998, 1000)));
             Assert.IsFalse(presence.RemotePresences.HasPresenceOnRegion(Util.RegionHandleFromLocation(997, 1000)));
 
-            WaitTask(presence.RemotePresences.HandleDrawDistanceChanged(256));
+            presence.RemotePresences.HandleDrawDistanceChanged(256)?.Wait();
             Thread.Sleep(1000);
             presences = presence.RemotePresences.GetRemotePresenceList();
             Assert.AreEqual(1, presences.Count);
@@ -214,7 +207,7 @@ namespace OpenSim.Region.FrameworkTests
 
             mockScene.EventManager.TriggerOnMakeRootAgent(presence);
             Thread.Sleep(500);
-            WaitTask(presence.RemotePresences.HandleDrawDistanceChanged(1024));
+            presence.RemotePresences.HandleDrawDistanceChanged(1024)?.Wait();
             Thread.Sleep(250);
 
             presences = presence.RemotePresences.GetRemotePresenceList();
@@ -249,7 +242,7 @@ namespace OpenSim.Region.FrameworkTests
 
             mockScene.EventManager.TriggerOnMakeRootAgent(presence);
             Thread.Sleep(500);
-            WaitTask(presence.RemotePresences.HandleDrawDistanceChanged(1024));
+            presence.RemotePresences.HandleDrawDistanceChanged(1024)?.Wait();
             Thread.Sleep(250);
 
             presences = presence.RemotePresences.GetRemotePresenceList();
@@ -291,7 +284,7 @@ namespace OpenSim.Region.FrameworkTests
 
             mockScene.EventManager.TriggerOnMakeRootAgent(presence);
             Thread.Sleep(500);
-            WaitTask(presence.RemotePresences.HandleDrawDistanceChanged(1024));
+            presence.RemotePresences.HandleDrawDistanceChanged(1024)?.Wait();
             Thread.Sleep(250);
 
             presences = presence.RemotePresences.GetRemotePresenceList();
@@ -335,7 +328,7 @@ namespace OpenSim.Region.FrameworkTests
 
             mockScene.EventManager.TriggerOnMakeRootAgent(presence);
             Thread.Sleep(500);
-            WaitTask(presence.RemotePresences.HandleDrawDistanceChanged(1024));
+            presence.RemotePresences.HandleDrawDistanceChanged(1024)?.Wait();
             Thread.Sleep(250);
 
             presences = presence.RemotePresences.GetRemotePresenceList();
