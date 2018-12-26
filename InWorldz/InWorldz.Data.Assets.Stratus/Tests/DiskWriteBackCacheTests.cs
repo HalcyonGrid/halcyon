@@ -47,7 +47,7 @@ namespace InWorldz.Data.Assets.Stratus.Tests
         private CloudFilesAssetClient _client;
         private bool _runTests;
 
-        [TestFixtureSetUp]
+        [SetUp]
         public void Setup()
         {
             if (Environment.GetEnvironmentVariable("CFUsername") == null)
@@ -70,7 +70,7 @@ namespace InWorldz.Data.Assets.Stratus.Tests
             _client.Start();
         }
 
-        [TestFixtureTearDown]
+        [TearDown]
         public void Stop()
         {
             if (!_runTests) return;

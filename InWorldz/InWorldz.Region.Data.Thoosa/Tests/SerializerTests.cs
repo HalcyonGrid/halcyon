@@ -49,7 +49,7 @@ namespace InWorldz.Region.Data.Thoosa.Tests
         private readonly List<string> PrimCompareIgnoreList = new List<string> { "ParentGroup", "FullUpdateCounter", "TerseUpdateCounter", 
                 "TimeStamp", "SerializedVelocity", "InventorySerial", "Rezzed" };
 
-        [TestFixtureSetUp]
+        [SetUp]
         public void Setup()
         {
             serEngine = new Engines.SerializationEngine();

@@ -18,7 +18,7 @@ namespace InWorldz.Phlox.Engine.Tests
         Scene world;
         MockScriptEngine engine;
 
-        [TestFixtureSetUp]
+        [SetUp]
         public void Setup()
         {
             var iniDoc = new IniDocument();
@@ -28,7 +28,7 @@ namespace InWorldz.Phlox.Engine.Tests
             engine = new MockScriptEngine(world, configSource);
         }
 
-        [TestFixtureTearDown]
+        [TearDown]
         public void Teardown()
         {
             SceneHelper.TearDownScene(world);

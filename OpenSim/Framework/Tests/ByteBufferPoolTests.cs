@@ -44,7 +44,7 @@ namespace OpenSim.Framework.Tests
     {
         private const int IDLE_BUFFER_MAX_AGE = 1;
 
-        [TestFixtureSetUp]
+        [SetUp]
         public void Setup()
         {
         }
