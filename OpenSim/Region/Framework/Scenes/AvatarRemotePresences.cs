@@ -261,7 +261,11 @@ namespace OpenSim.Region.Framework.Scenes
             if (foundPresence != null)
             {
                 //send a close to the neighbor
-                await _scene.InterregionComms.SendCloseAgentAsync(neighbor, _sp.UUID);
+                var intercom = _scene.InterregionComms;
+                if (intercom != null)
+                {
+                    await intercom.SendCloseAgentAsync(neighbor, _sp.UUID);
+                }
             }
         }
 
@@ -608,8 +612,9 @@ namespace OpenSim.Region.Framework.Scenes
             await Task.WhenAll(disconnectTasks);
 
             if (connectionTasks.Count > 0)
-                if (_sp != null)
-                    _sp.SendChildAgentUpdate(); // send the other regions the intial avatar info (pos, draw distance) for culling
+            {
+                _sp?.SendChildAgentUpdate(); // send the other regions the intial avatar info (pos, draw distance) for culling
+            }
         }
 
         /// <summary>

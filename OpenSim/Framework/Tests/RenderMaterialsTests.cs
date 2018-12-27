@@ -7,7 +7,7 @@ namespace OpenSim.Framework.Tests
     [TestFixture]
     public class RenderMaterialsTests
     {
-        [TestFixtureSetUp]
+        [SetUp]
         public void Init()
         {
         }

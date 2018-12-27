@@ -67,7 +67,14 @@ after_build:
 - ps: Rename-Item -Path bin -NewName halcyon-$env:APPVEYOR_BUILD_VERSION-$env:APPVEYOR_REPO_BRANCH-$env:EDITION
 
 # No tests for now.
-test: off
+test:
+  assemblies:
+    only:
+    - InWorldz.Data.Assets.Stratus.dll
+    - InWorldz.Phlox.Engine.dll
+    - InWorldz.Region.Data.Thoosa.dll
+    - OpenSim.Framework.Tests.dll
+    - OpenSim.Region.FrameworkTests.dll
 
 artifacts:
 - path: halcyon-$(APPVEYOR_BUILD_VERSION)-$(APPVEYOR_REPO_BRANCH)-$(EDITION)

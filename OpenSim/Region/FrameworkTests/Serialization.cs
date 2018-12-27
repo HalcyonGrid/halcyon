@@ -47,11 +47,6 @@ namespace OpenSim.Region.FrameworkTests
         private readonly List<string> PrimCompareIgnoreList = new List<string> { "ParentGroup", "FullUpdateCounter", "TerseUpdateCounter", 
                 "TimeStamp", "SerializedVelocity", "InventorySerial", "Rezzed" };
 
-        [TestFixtureSetUp]
-        public void Setup()
-        {
-        }
-
         [Test]
         public void TestGroupSerializationDeserialization()
         {

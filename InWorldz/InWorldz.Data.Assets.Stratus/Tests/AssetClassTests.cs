@@ -43,7 +43,7 @@ namespace InWorldz.Data.Assets.Stratus.Tests
     [TestFixture]
     class AssetClassTests
     {
-        [TestFixtureSetUp]
+        [SetUp]
         public void Setup()
         {
         }

@@ -1491,8 +1491,17 @@ namespace OpenSim.Framework.Servers.HttpServer
             m_log.InfoFormat(
                 "[BASE HTTP SERVER]: Starting {0} server on port {1}", Secure ? "HTTPS" : "HTTP", Port);
 
-            // netsh http add urlacl url=http://+:9000/ user=mdickson
-            // netsh http add urlacl url=https://+:9016/ user=mdickson
+            // For unit tests execute the following lines, replacing YOUR_USER with your user's login name. Often that is Administrator
+            // netsh http add urlacl url=http://+:9000/ user=YOUR_USER
+            // netsh http add urlacl url=http://+:9021/ user=YOUR_USER
+            // netsh http add urlacl url=http://+:9022/ user=YOUR_USER
+            // netsh http add urlacl url=http://+:9023/ user=YOUR_USER
+            // netsh http add urlacl url=http://+:9024/ user=YOUR_USER
+            // netsh http add urlacl url=http://+:9025/ user=YOUR_USER
+            // netsh http add urlacl url=http://+:9026/ user=YOUR_USER
+            // netsh http add urlacl url=http://+:9027/ user=YOUR_USER
+            // netsh http add urlacl url=http://+:9028/ user=YOUR_USER
+            // netsh http add urlacl url=http://+:9029/ user=YOUR_USER
 
             try
             {

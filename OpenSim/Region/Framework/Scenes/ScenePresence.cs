@@ -3717,7 +3717,7 @@ namespace OpenSim.Region.Framework.Scenes
             cadu.cameraPosition = tempCameraCenter;
             cadu.drawdistance = m_DrawDistance;
             if (!this.IsBot)    // bots don't need IsGod checks
-                if (m_scene.Permissions.IsGod(new UUID(cadu.AgentID)))
+                if (m_scene.Permissions?.IsGod(new UUID(cadu.AgentID)) ?? false)
                     cadu.godlevel = m_godlevel;
             cadu.GroupAccess = 0;
             cadu.Position = new sLLVector3(pos);
