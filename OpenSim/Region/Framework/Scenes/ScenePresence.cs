@@ -1014,7 +1014,7 @@ namespace OpenSim.Region.Framework.Scenes
             m_controllingClient.OnRequestWearables += SendWearables;
             m_controllingClient.OnSetAppearance += SetAppearance;
             m_controllingClient.OnCompleteMovementToRegion += CompleteMovement;
-            m_controllingClient.OnAgentUpdate += FilterAgentUpdate;
+            m_controllingClient.OnAgentUpdate += FilterAgentUpdateHandler;
             m_controllingClient.OnAgentRequestSit += HandleAgentRequestSit;
             m_controllingClient.OnAgentSit += HandleAgentSit;
             m_controllingClient.OnSetAlwaysRun += HandleSetAlwaysRun;
@@ -1626,7 +1626,12 @@ namespace OpenSim.Region.Framework.Scenes
             SendAnimPack();
         }
 
-        public void FilterAgentUpdate(IClientAPI remoteClient, OpenMetaverse.Packets.AgentUpdatePacket.AgentDataBlock x)
+        public async void FilterAgentUpdateHandler(IClientAPI remoteClient, OpenMetaverse.Packets.AgentUpdatePacket.AgentDataBlock x)
+        {
+            await FilterAgentUpdate(remoteClient, x);
+        }
+
+        public async Task FilterAgentUpdate(IClientAPI remoteClient, OpenMetaverse.Packets.AgentUpdatePacket.AgentDataBlock x)
         {
             bool update;
 
@@ -1675,7 +1680,7 @@ namespace OpenSim.Region.Framework.Scenes
                 arg.State = x.State;
 
                 m_lastAgentUpdate = arg; // save this set of arguments for nexttime
-                HandleAgentUpdate(remoteClient, arg);
+                await HandleAgentUpdate(remoteClient, arg);
             }
         }
 
@@ -1722,17 +1727,16 @@ namespace OpenSim.Region.Framework.Scenes
             return IsAtTarget(target, MOVE_TO_TARGET_TOLERANCE * 2.0f);
         }
 
-        public void UpdateForDrawDistanceChange()
+        public async Task UpdateForDrawDistanceChange()
         {
-            m_remotePresences.HandleDrawDistanceChanged((uint)m_DrawDistance);
+            await m_remotePresences.HandleDrawDistanceChanged((uint)m_DrawDistance);
         }
 
         /// <summary>
         /// This is the event handler for client movement.   If a client is moving, this event is triggering.
         /// </summary>
-        public void HandleAgentUpdate(IClientAPI remoteClient, AgentUpdateArgs agentData)
+        public async Task HandleAgentUpdate(IClientAPI remoteClient, AgentUpdateArgs agentData)
         {
-            bool recoverPhysActor = false;
             if (m_isChildAgent)
             {
                 //m_log.Warn("[CROSSING]: HandleAgentUpdate from child agent ignored "+agentData.AgentID.ToString());
@@ -1827,7 +1831,7 @@ namespace OpenSim.Region.Framework.Scenes
             if (m_DrawDistance != agentData.Far)
             {
                 m_DrawDistance = agentData.Far;
-                UpdateForDrawDistanceChange();
+                await UpdateForDrawDistanceChange();
             }
 
             if ((flags & (uint) AgentManager.ControlFlags.AGENT_CONTROL_STAND_UP) != 0)

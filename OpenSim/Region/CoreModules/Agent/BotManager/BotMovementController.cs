@@ -37,6 +37,7 @@ using OpenMetaverse;
 using OpenSim.Framework;
 using OpenSim.Region.Physics.Manager;
 using OpenSim.Region.Framework.Interfaces;
+using System.Threading.Tasks;
 
 namespace OpenSim.Region.CoreModules.Agent.BotManager
 {
@@ -207,12 +208,12 @@ namespace OpenSim.Region.CoreModules.Agent.BotManager
             m_scene.EventManager.OnFrame -= Scene_OnFrame;
         }
 
-        private void Scene_OnFrame()
+        private async void Scene_OnFrame()
         {
             if (m_movementAction == null)
                 return;
 
-            if (!m_movementAction.Frame())
+            if (!await m_movementAction.Frame())
             {
                 lock (m_movementLock)
                     StopTrackingFrames();

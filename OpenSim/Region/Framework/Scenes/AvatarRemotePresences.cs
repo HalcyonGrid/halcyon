@@ -122,7 +122,7 @@ namespace OpenSim.Region.Framework.Scenes
         /// Called when this presence is being changed to a root agent
         /// </summary>
         /// <param name="presence"></param>
-        void EventManager_OnMakeRootAgent(ScenePresence presence)
+        async void EventManager_OnMakeRootAgent(ScenePresence presence)
         {
             if (presence.IsBot) return;
 
@@ -134,7 +134,7 @@ namespace OpenSim.Region.Framework.Scenes
                 //set up our initial connections to neighbors
                 //let the task run async in the background
                 const int CROSSING_RESYNC_DELAY = 500;
-                this.CalculateAndResyncNeighbors((uint)presence.DrawDistance, presence.ControllingClient.NeighborsRange, CROSSING_RESYNC_DELAY);
+                await CalculateAndResyncNeighbors((uint)presence.DrawDistance, presence.ControllingClient.NeighborsRange, CROSSING_RESYNC_DELAY);
             }
         }
 
@@ -185,16 +185,16 @@ namespace OpenSim.Region.Framework.Scenes
         /// </summary>
         /// <param name="neighbor"></param>
         /// <param name="changeType"></param>
-        void SurroundingRegions_OnNeighborStateChange(SimpleRegionInfo neighbor, NeighborStateChangeType changeType)
+        async void SurroundingRegions_OnNeighborStateChange(SimpleRegionInfo neighbor, NeighborStateChangeType changeType)
         {
             switch (changeType)
             {
                 case NeighborStateChangeType.NeighborUp:
-                    this.HandleNeighborUp(neighbor);
+                    await HandleNeighborUp(neighbor);
                     break;
 
                 case NeighborStateChangeType.NeighborDown:
-                    this.HandleNeighborDown(neighbor);
+                    await HandleNeighborDown(neighbor);
                     break;
             }
         }

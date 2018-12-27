@@ -6050,7 +6050,7 @@ namespace OpenSim.Region.Framework.Scenes
             return this.WaitScenePresence(agentId, maxSpWait) != null;
         }
 
-        internal void CrossWalkingOrFlyingAgentToNewRegion(ScenePresence scenePresence, ulong neighborHandle, SimpleRegionInfo neighborInfo, Vector3 positionInNewRegion)
+        internal async void CrossWalkingOrFlyingAgentToNewRegion(ScenePresence scenePresence, ulong neighborHandle, SimpleRegionInfo neighborInfo, Vector3 positionInNewRegion)
         {
             AvatarTransit.TransitArguments args = new AvatarTransit.TransitArguments
             {
@@ -6063,7 +6063,7 @@ namespace OpenSim.Region.Framework.Scenes
                 UserId = scenePresence.UUID,
             };
 
-            m_transitController.TryBeginTransit(args);
+            await m_transitController.TryBeginTransit(args);
         }
 
         internal bool AvatarIsInTransit(UUID uuid)

@@ -36,6 +36,7 @@ using OpenMetaverse;
 using OpenSim.Region.Framework.Interfaces;
 using OpenSim.Region.Framework.Scenes;
 using OpenSim.Framework;
+using System.Threading.Tasks;
 
 namespace OpenSim.Region.CoreModules.Agent.BotManager
 {
@@ -59,24 +60,24 @@ namespace OpenSim.Region.CoreModules.Agent.BotManager
         }
 
         public abstract void Start();
-        public abstract void Stop();
-        public abstract void UpdateInformation();
-        public abstract void CheckInformationBeforeMove();
+        public abstract Task Stop();
+        public abstract Task UpdateInformation();
+        public abstract Task CheckInformationBeforeMove();
 
-        public virtual bool Frame()
+        public virtual async Task<bool> Frame()
         {
             ScenePresence botPresence = m_controller.Scene.GetScenePresence(m_controller.Bot.AgentID);
             if (botPresence == null)
                 return false;
 
             m_frame++;
-            GetNextDestination();
+            await GetNextDestination();
             SetBeginningOfMovementFrame();
 
             if (m_frame % 10 == 0) //Only every 10 frames
             {
                 m_frame = 0;
-                UpdateInformation();
+                await UpdateInformation();
             }
             return true;
         }
@@ -97,10 +98,10 @@ namespace OpenSim.Region.CoreModules.Agent.BotManager
             m_timeOfLastStep = DateTime.Now;
         }
 
-        private void GetNextDestination()
+        private async Task GetNextDestination()
         {
             //Fire the move event
-            CheckInformationBeforeMove();
+            await CheckInformationBeforeMove();
 
             ScenePresence botPresence = m_controller.Scene.GetScenePresence(m_controller.Bot.AgentID);
 
@@ -110,7 +111,7 @@ namespace OpenSim.Region.CoreModules.Agent.BotManager
                 return;
             if (m_paused)
             {
-                StopMoving(botPresence, LastFlying, false);
+                await StopMoving(botPresence, LastFlying, false);
                 return;
             }
 
@@ -143,15 +144,15 @@ namespace OpenSim.Region.CoreModules.Agent.BotManager
                     switch (state)
                     {
                         case TravelMode.Fly:
-                            FlyTo(botPresence, pos);
+                            await FlyTo(botPresence, pos);
                             break;
                         case TravelMode.Run:
                             botPresence.SetAlwaysRun = true;
-                            WalkTo(botPresence, pos);
+                            await WalkTo(botPresence, pos);
                             break;
                         case TravelMode.Walk:
                             botPresence.SetAlwaysRun = false;
-                            WalkTo(botPresence, pos);
+                            await WalkTo(botPresence, pos);
                             break;
                         case TravelMode.Teleport:
                             //We have to do this here as if there is a wait before the teleport, we won't get the wait event fired
@@ -162,7 +163,7 @@ namespace OpenSim.Region.CoreModules.Agent.BotManager
                             changingNodes = true;
                             break;
                         case TravelMode.Wait:
-                            StopMoving(botPresence, LastFlying, false);
+                            await StopMoving(botPresence, LastFlying, false);
                             break;
                     }
                 }
@@ -172,7 +173,7 @@ namespace OpenSim.Region.CoreModules.Agent.BotManager
             }
             else
             {
-                StopMoving(botPresence, LastFlying, true);
+                await StopMoving(botPresence, LastFlying, true);
                 if (!m_hasFiredFinishedMovingEvent)
                 {
                     m_hasFiredFinishedMovingEvent = true;
@@ -234,7 +235,7 @@ namespace OpenSim.Region.CoreModules.Agent.BotManager
         }
 
         // Makes the bot fly to the specified destination
-        public void StopMoving(ScenePresence botPresence, bool fly, bool clearPath)
+        public async Task StopMoving(ScenePresence botPresence, bool fly, bool clearPath)
         {
             if (m_hasStoppedMoving)
                 return;
@@ -246,8 +247,10 @@ namespace OpenSim.Region.CoreModules.Agent.BotManager
             //Send the stop message
             m_movementFlag = (uint)AgentManager.ControlFlags.NONE;
             if (fly)
+            {
                 m_movementFlag |= (uint)AgentManager.ControlFlags.AGENT_CONTROL_FLY;
-            OnBotAgentUpdate(botPresence, Vector3.Zero, m_movementFlag, m_bodyDirection, false);
+            }
+            await OnBotAgentUpdate(botPresence, Vector3.Zero, m_movementFlag, m_bodyDirection, false);
             //botPresence.CollisionPlane = Vector4.UnitW;
             var pa = botPresence.PhysicsActor;
             if (pa != null)
@@ -279,22 +282,22 @@ namespace OpenSim.Region.CoreModules.Agent.BotManager
         }
 
         // Makes the bot walk to the specified destination
-        public void WalkTo(ScenePresence presence, Vector3 destination)
+        public async Task WalkTo(ScenePresence presence, Vector3 destination)
         {
             if (!Util.IsZeroVector(destination - presence.AbsolutePosition))
             {
-                walkTo(presence, destination);
+                await WalkToInternal(presence, destination);
                 State = BotState.Walking;
                 LastFlying = false;
             }
         }
 
         // Makes the bot fly to the specified destination
-        public void FlyTo(ScenePresence presence, Vector3 destination)
+        public async Task FlyTo(ScenePresence presence, Vector3 destination)
         {
             if (Util.IsZeroVector(destination - presence.AbsolutePosition) == false)
             {
-                flyTo(presence, destination);
+                await FlyToInternal(presence, destination);
                 State = BotState.Flying;
                 LastFlying = true;
             }
@@ -302,12 +305,12 @@ namespace OpenSim.Region.CoreModules.Agent.BotManager
             {
                 m_movementFlag = (uint)AgentManager.ControlFlags.AGENT_CONTROL_AT_POS;
 
-                OnBotAgentUpdate(presence, Vector3.Zero, m_movementFlag, m_bodyDirection);
+                await OnBotAgentUpdate(presence, Vector3.Zero, m_movementFlag, m_bodyDirection);
                 m_movementFlag = (uint)AgentManager.ControlFlags.NONE;
             }
         }
 
-        private void RotateTo(ScenePresence presence, Vector3 destination)
+        private async Task RotateTo(ScenePresence presence, Vector3 destination)
         {
             Vector3 bot_forward = new Vector3(1, 0, 0);
             if (destination - presence.AbsolutePosition != Vector3.Zero)
@@ -318,7 +321,7 @@ namespace OpenSim.Region.CoreModules.Agent.BotManager
             }
             m_movementFlag = (uint)AgentManager.ControlFlags.AGENT_CONTROL_AT_POS;
 
-            OnBotAgentUpdate(presence, Vector3.Zero, m_movementFlag, m_bodyDirection);
+            await OnBotAgentUpdate(presence, Vector3.Zero, m_movementFlag, m_bodyDirection);
             m_movementFlag = (uint)AgentManager.ControlFlags.NONE;
         }
 
@@ -350,7 +353,7 @@ namespace OpenSim.Region.CoreModules.Agent.BotManager
         ///     Does the actual movement of the bot
         /// </summary>
         /// <param name="pos"></param>
-        protected void walkTo(ScenePresence presence, Vector3 pos)
+        protected async Task WalkToInternal(ScenePresence presence, Vector3 pos)
         {
             Vector3 bot_forward = new Vector3(2, 0, 0);
             Vector3 bot_toward = Vector3.Zero;
@@ -411,10 +414,13 @@ namespace OpenSim.Region.CoreModules.Agent.BotManager
                 m_movementFlag = (uint)(AgentManager.ControlFlags.AGENT_CONTROL_AT_POS);
 
             if (presence.AllowMovement)
-                OnBotAgentUpdate(presence, bot_toward, m_movementFlag, m_bodyDirection);
+            {
+                await OnBotAgentUpdate(presence, bot_toward, m_movementFlag, m_bodyDirection);
+            }
             else
-                OnBotAgentUpdate(presence, Vector3.Zero, (uint)AgentManager.ControlFlags.AGENT_CONTROL_STOP,
-                                              Quaternion.Identity);
+            {
+                await OnBotAgentUpdate(presence, Vector3.Zero, (uint) AgentManager.ControlFlags.AGENT_CONTROL_STOP, Quaternion.Identity);
+            }
 
             if (!isJumping)
                 m_movementFlag = (uint)AgentManager.ControlFlags.NONE;
@@ -424,7 +430,7 @@ namespace OpenSim.Region.CoreModules.Agent.BotManager
         ///     Does the actual movement of the bot
         /// </summary>
         /// <param name="pos"></param>
-        protected void flyTo(ScenePresence presence, Vector3 pos)
+        protected async Task FlyToInternal(ScenePresence presence, Vector3 pos)
         {
             Vector3 bot_forward = new Vector3(1, 0, 0), bot_toward = Vector3.Zero;
             if (pos - presence.AbsolutePosition != Vector3.Zero)
@@ -480,31 +486,33 @@ namespace OpenSim.Region.CoreModules.Agent.BotManager
             }
 
             if (presence.AllowMovement)
-                OnBotAgentUpdate(presence, bot_toward, m_movementFlag, m_bodyDirection);
+            {
+                await OnBotAgentUpdate(presence, bot_toward, m_movementFlag, m_bodyDirection);
+            }
             m_movementFlag = (uint)AgentManager.ControlFlags.AGENT_CONTROL_FLY;
         }
 
         #endregion
 
-        public void OnBotAgentUpdate(ScenePresence presence, Vector3 toward, uint controlFlag, Quaternion bodyRotation)
+        public async Task OnBotAgentUpdate(ScenePresence presence, Vector3 toward, uint controlFlag, Quaternion bodyRotation)
         {
-            OnBotAgentUpdate(presence, toward, controlFlag, bodyRotation, true);
+            await OnBotAgentUpdate(presence, toward, controlFlag, bodyRotation, true);
         }
 
-        public void OnBotAgentUpdate(ScenePresence presence, Vector3 toward, uint controlFlag, Quaternion bodyRotation, bool isMoving)
+        public async Task OnBotAgentUpdate(ScenePresence presence, Vector3 toward, uint controlFlag, Quaternion bodyRotation, bool isMoving)
         {
             if (m_controller.Bot.Frozen && isMoving)
             {
                 var pa = presence.PhysicsActor;
                 bool fly = pa != null && pa.Flying;
-                StopMoving(presence, fly, false);
+                await StopMoving(presence, fly, false);
                 return;
             }
 
             if (isMoving)
                 m_hasStoppedMoving = false;
             AgentUpdateArgs pack = new AgentUpdateArgs { ControlFlags = controlFlag, BodyRotation = bodyRotation };
-            presence.HandleAgentUpdate(presence.ControllingClient, pack);
+            await presence.HandleAgentUpdate(presence.ControllingClient, pack);
         }
 
         #endregion
