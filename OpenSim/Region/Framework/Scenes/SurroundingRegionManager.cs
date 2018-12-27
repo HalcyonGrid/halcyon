@@ -169,7 +169,7 @@ namespace OpenSim.Region.Framework.Scenes
             _scene = myRegion;
             _gridSendKey = gridSendKey;
             _reconcileAfterSecs = (ulong)Util.RandomClass.Next(NEIGHBOR_RECONCILIATION_TIME_RANGE_SECS.Item1, NEIGHBOR_RECONCILIATION_TIME_RANGE_SECS.Item2);
-            _regionHeartbeatTimer = new Timer(this.DoRegionHeartbeat, null, NEIGHBOR_PING_FREQUENCY_SECS * 1000, NEIGHBOR_PING_FREQUENCY_SECS * 1000);
+            _regionHeartbeatTimer = new Timer(async (object state) => await DoRegionHeartbeat(state), null, NEIGHBOR_PING_FREQUENCY_SECS * 1000, NEIGHBOR_PING_FREQUENCY_SECS * 1000);
 
             //register HTTP comms
             _scene.CommsManager.HttpServer.AddStreamHandler(new BinaryStreamHandler("POST", HEARTBEAT_HANDLER_URL, OnHeartbeatReceived));
@@ -280,14 +280,14 @@ namespace OpenSim.Region.Framework.Scenes
             SendMessageTo(neighborSnap, DOWN_HANDLER_URL, MessageType.Down);
         }
 
-        private void DoRegionHeartbeat(object state)
+        private async Task DoRegionHeartbeat(object state)
         {
             //do we need to reconcile?
             if (_timeNeighborsInitiallyQueried != 0 &&
                 Util.GetLongTickCount() - _timeNeighborsInitiallyQueried >= _reconcileAfterSecs * 1000)
             {
                 _timeNeighborsInitiallyQueried = 0;
-                ReconcileNeighborsFromStorage().Wait();
+                await ReconcileNeighborsFromStorage();
             }
 
             List<KnownNeighborRegion> neighborSnap = GetNeighborsSnapshot();
