@@ -103,7 +103,7 @@ namespace OpenSim.Framework.Serialization
 
             // If we've reached the end of the archive we'll be in null block territory, which means
             // the next byte will be 0
-            if (header[0] == 0)
+            if (header.Length < 1 || header[0] == 0)
                 return null;
 
             TarHeader tarHeader = new TarHeader();
