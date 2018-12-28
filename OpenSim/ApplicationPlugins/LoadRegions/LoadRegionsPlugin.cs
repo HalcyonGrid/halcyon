@@ -29,7 +29,6 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Threading;
-using System.Threading.Tasks;
 using log4net;
 using OpenSim.Framework;
 using OpenSim.Framework.RegionLoader.Filesystem;
@@ -79,7 +78,7 @@ namespace OpenSim.ApplicationPlugins.LoadRegions
             m_openSim.ApplicationRegistry.RegisterInterface<IRegionCreator>(this);
         }
 
-        public async void PostInitialize()
+        public void PostInitialize()
         {
             //m_log.Info("[LOADREGIONS]: Load Regions addin being initialized");
 
@@ -134,7 +133,7 @@ namespace OpenSim.ApplicationPlugins.LoadRegions
 
             foreach (var region in loadedRegions)
             {
-                await region.InformNeighborsImUp();
+                region.InformNeighborsImUp().FireAndForget();
             }
         }
 

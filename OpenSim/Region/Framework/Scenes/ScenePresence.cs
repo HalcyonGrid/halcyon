@@ -1014,7 +1014,7 @@ namespace OpenSim.Region.Framework.Scenes
             m_controllingClient.OnRequestWearables += SendWearables;
             m_controllingClient.OnSetAppearance += SetAppearance;
             m_controllingClient.OnCompleteMovementToRegion += CompleteMovement;
-            m_controllingClient.OnAgentUpdate += FilterAgentUpdateHandler;
+            m_controllingClient.OnAgentUpdate += FilterAgentUpdate;
             m_controllingClient.OnAgentRequestSit += HandleAgentRequestSit;
             m_controllingClient.OnAgentSit += HandleAgentSit;
             m_controllingClient.OnSetAlwaysRun += HandleSetAlwaysRun;
@@ -1626,12 +1626,7 @@ namespace OpenSim.Region.Framework.Scenes
             SendAnimPack();
         }
 
-        public async void FilterAgentUpdateHandler(IClientAPI remoteClient, OpenMetaverse.Packets.AgentUpdatePacket.AgentDataBlock x)
-        {
-            await FilterAgentUpdate(remoteClient, x);
-        }
-
-        public async Task FilterAgentUpdate(IClientAPI remoteClient, OpenMetaverse.Packets.AgentUpdatePacket.AgentDataBlock x)
+        public void FilterAgentUpdate(IClientAPI remoteClient, OpenMetaverse.Packets.AgentUpdatePacket.AgentDataBlock x)
         {
             bool update;
 
@@ -1665,22 +1660,24 @@ namespace OpenSim.Region.Framework.Scenes
             if (update)
             {
                 // m_log.WarnFormat("[SCENE PRESENCE]: AgentUpdate: {0} {1} {2} {3} {4}", this.Name, x.Flags.ToString("X2"), x.ControlFlags.ToString("X8"), x.State.ToString(), this.Velocity.ToString());
-                AgentUpdateArgs arg = new AgentUpdateArgs();
-                arg.AgentID = x.AgentID;
-                arg.BodyRotation = x.BodyRotation;
-                arg.CameraAtAxis = x.CameraAtAxis;
-                arg.CameraCenter = x.CameraCenter;
-                arg.CameraLeftAxis = x.CameraLeftAxis;
-                arg.CameraUpAxis = x.CameraUpAxis;
-                arg.ControlFlags = x.ControlFlags;
-                arg.Far = x.Far;
-                arg.Flags = x.Flags;
-                arg.HeadRotation = x.HeadRotation;
-                arg.SessionID = x.SessionID;
-                arg.State = x.State;
+                AgentUpdateArgs arg = new AgentUpdateArgs
+                {
+                    AgentID = x.AgentID,
+                    BodyRotation = x.BodyRotation,
+                    CameraAtAxis = x.CameraAtAxis,
+                    CameraCenter = x.CameraCenter,
+                    CameraLeftAxis = x.CameraLeftAxis,
+                    CameraUpAxis = x.CameraUpAxis,
+                    ControlFlags = x.ControlFlags,
+                    Far = x.Far,
+                    Flags = x.Flags,
+                    HeadRotation = x.HeadRotation,
+                    SessionID = x.SessionID,
+                    State = x.State
+                };
 
                 m_lastAgentUpdate = arg; // save this set of arguments for nexttime
-                await HandleAgentUpdate(remoteClient, arg);
+                HandleAgentUpdate(remoteClient, arg);
             }
         }
 
@@ -1735,7 +1732,7 @@ namespace OpenSim.Region.Framework.Scenes
         /// <summary>
         /// This is the event handler for client movement.   If a client is moving, this event is triggering.
         /// </summary>
-        public async Task HandleAgentUpdate(IClientAPI remoteClient, AgentUpdateArgs agentData)
+        public void HandleAgentUpdate(IClientAPI remoteClient, AgentUpdateArgs agentData)
         {
             if (m_isChildAgent)
             {
@@ -1831,7 +1828,7 @@ namespace OpenSim.Region.Framework.Scenes
             if (m_DrawDistance != agentData.Far)
             {
                 m_DrawDistance = agentData.Far;
-                await UpdateForDrawDistanceChange();
+                UpdateForDrawDistanceChange().FireAndForget(); // FireAndForget prevents exceptions from crashing the system and logs them. As opposed to awiting around for thi s to finish or never getting any of the exceptions.
             }
 
             if ((flags & (uint) AgentManager.ControlFlags.AGENT_CONTROL_STAND_UP) != 0)

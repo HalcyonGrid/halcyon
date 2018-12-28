@@ -37,7 +37,6 @@ using OpenSim.Region.Physics.Manager;
 using OpenSim.Framework;
 using OpenMetaverse;
 using OpenSim.Region.Framework.Interfaces;
-using System.Threading.Tasks;
 
 namespace OpenSim.Region.CoreModules.Agent.BotManager
 {
@@ -145,7 +144,7 @@ namespace OpenSim.Region.CoreModules.Agent.BotManager
             }
         }
 
-        public override async Task Stop()
+        public override void Stop()
         {
             ScenePresence presence = m_controller.Scene.GetScenePresence(m_description.FollowUUID);
             if (presence != null)
@@ -159,11 +158,11 @@ namespace OpenSim.Region.CoreModules.Agent.BotManager
             if (botPresence != null)
             {
                 var pa = botPresence.PhysicsActor;
-                await StopMoving(botPresence, pa != null && pa.Flying, true);
+                StopMoving(botPresence, pa != null && pa.Flying, true);
             }
         }
 
-        public override async Task UpdateInformation()
+        public override void UpdateInformation()
         {
             // FOLLOW an avatar - this is looking for an avatar UUID so wont follow a prim here  - yet
             //Call this each iteration so that if the av leaves, we don't get stuck following a null person
@@ -222,7 +221,7 @@ namespace OpenSim.Region.CoreModules.Agent.BotManager
                 if (m_description.NumberOfTimesJumpAttempted > 0)
                 {
                     botPresence.PhysicsActor.Flying = false;
-                    await WalkToInternal(botPresence, botPresence.AbsolutePosition);
+                    WalkToInternal(botPresence, botPresence.AbsolutePosition);
                     //Fix the animation from flying > walking
                     UpdateMovementAnimations(false);
                 }
@@ -240,7 +239,7 @@ namespace OpenSim.Region.CoreModules.Agent.BotManager
             ClearOutInSignificantPositions(botPresence, false);
         }
 
-        public override async Task CheckInformationBeforeMove()
+        public override void CheckInformationBeforeMove()
         {
             ScenePresence presence = m_controller.Scene.GetScenePresence(m_description.FollowUUID);
             //If its still null, the person doesn't exist, cancel the follow and return
@@ -271,7 +270,7 @@ namespace OpenSim.Region.CoreModules.Agent.BotManager
                 var physActor = presence.PhysicsActor;
                 bool fly = physActor == null ? m_description.AllowFlying : (m_description.AllowFlying && physActor.Flying);
 
-                await StopMoving(botPresence, fly, true);
+                StopMoving(botPresence, fly, true);
                 return;
             }
             if (distance > m_description.LostAvatarDistance)

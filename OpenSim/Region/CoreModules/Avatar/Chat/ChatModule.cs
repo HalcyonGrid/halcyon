@@ -137,9 +137,9 @@ namespace OpenSim.Region.CoreModules.Avatar.Chat
             return false;
         }
 
-        public virtual async void OnChatFromClient(object sender, OSChatMessage c)
+        public virtual void OnChatFromClient(object sender, OSChatMessage c)
         {
-            await OnChatFromClientInternal(sender, c);
+            OnChatFromClientInternal(sender, c).FireAndForget(); // FireAndForget prevents exceptions from crashing the system and logs them vs an async void method that does the former and not the latter.
         }
 
         public virtual async Task OnChatFromClientInternal(object sender, OSChatMessage c)

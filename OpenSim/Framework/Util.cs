@@ -52,6 +52,7 @@ using OpenMetaverse.StructuredData;
 using Amib.Threading;
 using System.Drawing;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 
 #if !_MONO_CLI_FLAG_
 using System.DirectoryServices.AccountManagement;
@@ -75,7 +76,7 @@ namespace OpenSim.Framework
     /// <summary>
     /// Miscellaneous utility functions
     /// </summary>
-    public class Util
+    public static class Util
     {
         private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
 
@@ -1675,6 +1676,30 @@ namespace OpenSim.Framework
         }
 
         #region FireAndForget Threading Pattern
+
+        /// <summary>
+        /// <para>Use to execute a function or method that is declared as async in a manner where you just want it to go do something and don't care if or when it returns.
+        /// Handles logging any exceptions emitted by the task.</para>
+        /// 
+        /// <para>When the await keyword results in too much delay, the Task.Wait() method is likewise too much delay and too risky, and just calling the async function without any decoration risks losing track of any excpetions, use this.</para>
+        /// 
+        /// <para>Examples:</para>
+        /// <para><code>  DoWorkAsync().FireAndForget();</code></para>
+        /// <para><code>  Util.FireAndForget(DoWorkAsync());</code></para>
+        /// <para>Both forms do the same thing.</para>
+        /// </summary>
+        /// <param name="task"></param>
+        public static async void FireAndForget(this Task task)
+        {
+            try
+            {
+                await task;
+            }
+            catch (Exception e)
+            {
+                m_log.Error("Exception caught processing an async Task:", e);
+            }
+        }
 
         /// <summary>
         /// Created to work around a limitation in Mono with nested delegates

@@ -36,7 +36,6 @@ using OpenSim.Region.Framework.Interfaces;
 using OpenMetaverse;
 using OpenSim.Region.Framework.Scenes;
 using OpenSim.Framework;
-using System.Threading.Tasks;
 
 namespace OpenSim.Region.CoreModules.Agent.BotManager
 {
@@ -121,7 +120,7 @@ namespace OpenSim.Region.CoreModules.Agent.BotManager
             }
         }
 
-        public override async Task Stop()
+        public override void Stop()
         {
             m_nodeGraph.Clear();
 
@@ -129,7 +128,7 @@ namespace OpenSim.Region.CoreModules.Agent.BotManager
             if (botPresence != null)
             {
                 var pa = botPresence.PhysicsActor;
-                await StopMoving(botPresence, pa != null && pa.Flying, true);
+                StopMoving(botPresence, pa != null && pa.Flying, true);
             }
         }
 
@@ -138,14 +137,12 @@ namespace OpenSim.Region.CoreModules.Agent.BotManager
             GenerateNodeGraph();
         }
 
-        public override Task CheckInformationBeforeMove()
+        public override void CheckInformationBeforeMove()
         {
-            return Task.FromResult(default(object));
         }
 
-        public override Task UpdateInformation()
+        public override void UpdateInformation()
         {
-            return Task.FromResult(default(object));
         }
     }
 }
