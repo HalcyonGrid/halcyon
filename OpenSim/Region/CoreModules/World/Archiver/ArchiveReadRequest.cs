@@ -131,6 +131,12 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             m_skipErrorGroups = skipErrorGroups;
 
             m_serializer = m_scene.RequestModuleInterface<IRegionSerializerModule>();
+
+            ISerializationEngine engine;
+            if (ProviderRegistry.Instance.TryGet<ISerializationEngine>(out engine))
+            {
+                m_inventorySerializer = engine.InventoryObjectSerializer;
+            }
         }
 
         /// <summary>
@@ -255,7 +261,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             }
         }
 
-        private void ScanPartForAssetCreatorIDs(SceneObjectPart part, Dictionary<UUID, UUID> assetCreators)
+        private void ScanPartForAssetCreatorIDs(SceneObjectPart part)
         {
             try
             {
@@ -265,7 +271,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                     TaskInventoryItem item = kvp.Value;
                     if (item.AssetID != UUID.Zero)
                     {
-                        assetCreators[item.AssetID] = item.CreatorID;
+                        m_assetCreators[item.AssetID] = item.CreatorID;
                     }
                     if (item.InvType == (int)InventoryType.Object)
                     {
@@ -278,7 +284,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                             else
                             {
                                 SceneObjectGroup inventoryObject = ObjectFromItem(part, item);
-                                ScanObjectForAssetCreatorIDs(inventoryObject, assetCreators);
+                                ScanObjectForAssetCreatorIDs(inventoryObject);
                             }
                         }
                     }
@@ -290,7 +296,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             }
         }
 
-        private void ScanObjectForAssetCreatorIDs(SceneObjectGroup sceneObject, Dictionary<UUID, UUID> assetCreators)
+        private void ScanObjectForAssetCreatorIDs(SceneObjectGroup sceneObject)
         {
             try
             {
@@ -303,8 +309,8 @@ namespace OpenSim.Region.CoreModules.World.Archiver
 
                         if (item.AssetID != UUID.Zero)
                         {
-                            assetCreators[item.AssetID] = item.CreatorID;
-                            ScanPartForAssetCreatorIDs(part, assetCreators);
+                            m_assetCreators[item.AssetID] = item.CreatorID;
+                            ScanPartForAssetCreatorIDs(part);
                         }
                     }
                 }
@@ -315,7 +321,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             }
         }
 
-        private void ScanObjectForAssetCreatorIDs(string serializedSOG, Dictionary<UUID, UUID> assetCreators)
+        private void ScanObjectForAssetCreatorIDs(string serializedSOG)
         {
             SceneObjectGroup sceneObject;
             try
@@ -324,7 +330,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                 if (sceneObject == null)
                     return;
 
-                ScanObjectForAssetCreatorIDs(sceneObject, assetCreators);
+                ScanObjectForAssetCreatorIDs(sceneObject);
             }
             catch (Exception e)
             {
@@ -334,7 +340,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
 
         public void ScanArchiveForAssetCreatorIDs()
         {
-            Dictionary<UUID, UUID> assetCreators = new Dictionary<UUID, UUID>();
+            m_assetCreators = new Dictionary<UUID, UUID>();
             string filePath = "NONE";
 
             try
@@ -349,7 +355,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
 
                     if (filePath.StartsWith(ArchiveConstants.OBJECTS_PATH))
                     {
-                        ScanObjectForAssetCreatorIDs(Encoding.UTF8.GetString(data), assetCreators);
+                        ScanObjectForAssetCreatorIDs(Encoding.UTF8.GetString(data));
                     }
                 }
             }
@@ -359,7 +365,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             }
             finally
             {
-                SaveAssetCreators(assetCreators);
+                SaveAssetCreators(m_assetCreators);
             }
         }
 
@@ -539,10 +545,11 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             lock (part.TaskInventory)
             {
                 TaskInventoryDictionary inv = part.TaskInventory;
+                List<TaskInventoryItem> replacedItems = new List<TaskInventoryItem>();
                 foreach (KeyValuePair<UUID, TaskInventoryItem> kvp in inv)
                 {
                     TaskInventoryItem item = kvp.Value;
-                    m_log.WarnFormat("Not filtering inventory item for {0} in {1}", item.Name, part.ParentGroup.Name);
+                    // m_log.WarnFormat("Now filtering inventory item for {0} in {1}", item.Name, part.ParentGroup.Name);
                     if (item.InvType == (int)InventoryType.Object)
                     {
                         SceneObjectGroup inventoryObject = ObjectFromItem(part, item);
@@ -555,14 +562,28 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                         }
                     }
                     else
+                    if (item.CreatorID.Equals(item.OwnerID))
+                    {
+                        if (item.AssetID != UUID.Zero)
+                        {
+                            m_assetCreators[item.AssetID] = item.CreatorID;
+                        }
+
+                    }
+                    else
                     if (MustReplaceByAsset(item.AssetID, item.OwnerID))
                     {
                         item.AssetID = UUID.Zero;
+                        replacedItems.Add(item);
                         m_replacedItem++;
                         filtered = true;
                     }
                     else
                         m_keptItem++;
+                }
+                foreach (var item in replacedItems)
+                {
+                    part.TaskInventory[item.ItemID] = item;
                 }
             }
             return filtered;
@@ -726,11 +747,6 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             {
                 m_optInTable = GetUserContentOptions(optionsTable);
                 m_assetCreators = GetAssetCreators();
-                ISerializationEngine engine;
-                if (ProviderRegistry.Instance.TryGet<ISerializationEngine>(out engine))
-                {
-                    m_inventorySerializer = engine.InventoryObjectSerializer;
-                }
             }
 
             try
