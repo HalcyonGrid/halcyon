@@ -16,9 +16,7 @@ namespace OpenSim.Framework
 {
     /// <summary>
     /// Implements a least recently used cache.  Basically a linked list with hash indexes and a 
-    /// limited size  
-    /// 
-    /// TODO:  Implement IDictionary
+    /// limited size.
     /// </summary>
     public class LRUCache<K, T> : IEnumerable<KeyValuePair<K,T>>
     {
@@ -43,40 +41,34 @@ namespace OpenSim.Framework
         private int _capacity;
 
         private Dictionary<K, int> _objectSizes;
-        private int _totalSize;
-        private bool _useSizing = false;
 
          /// <summary>
          /// A system timer and interval values used to age the cache;
          /// </summary>
         private Dictionary<K, DateTime> _lastAccessedTime = null;
-        private int _minSize;
         private int _maxAge;
-        private int _expireInterval;
 
         /// <summary>
-        /// Constructs an LRUCache with the given maximum size, maximum age and expiration interval
+        /// Constructs an LRUCache with the given maximum size, maximum age, and expiration interval.
         /// </summary>
         /// <param name="capacity"></param>
-        /// <param name="useSizing">Whether or not to use explicit object sizes</param>
+        /// <param name="useSizing">Whether or not to use explicit object byte sizes.</param>
         /// <param name="minSize">Minimum size in bytes in the cache. Below this level and no aging is performed.</param>
         /// <param name="maxAge">The maximum age in milliseconds an an entry should live in cache 
         ///     before it's a candidate to be removed.</param>
-        /// <param name="expireInterval">Time in milliseconds between checks for expired entries.</param>
         public LRUCache(int capacity, bool useSizing = false, int minSize = 0, int maxAge = 0)
         {
             _storage = new C5.HashedLinkedList<KeyValuePair<K, T>>(new KVPComparer<K, T>());
             _capacity = capacity;
-            _totalSize = 0;
+            Size = 0;
 
             if (useSizing)
             {
                 _objectSizes = new Dictionary<K, int>();
-                _useSizing = true;
             }
 
             _maxAge = maxAge;
-            _minSize = (minSize <= 0 ? 0 : minSize);
+            RequiredReserve = (minSize <= 0 ? 0 : minSize);
             _lastAccessedTime = null;
 
             if (_maxAge > 0)
@@ -85,36 +77,43 @@ namespace OpenSim.Framework
             }
         }
 
-        #region TimerDrivenAging
+        #region Aging
 
         /// <summary>
         /// Removes items that have not been accessed in maxAge from the list
         /// </summary>
         public void Maintain()
         {
-            if (_maxAge == 0) return;
+            if (_maxAge == 0)
+            {
+                return;
+            }
             
             var entries = new List<KeyValuePair<K, T>>();
             int entriesSize = 0;
 
             foreach (var entry in _storage)
-            {   
-                DateTime lastAccess;
-                if (_lastAccessedTime.TryGetValue(entry.Key, out lastAccess) == false)
+            {
+                if (_lastAccessedTime.TryGetValue(entry.Key, out DateTime lastAccess) == false)
+                {
                     continue;
+                }
                 var age = DateTime.Now - lastAccess;
 
                 // Check to see if this is a candidate.  If not we move on because the cache
                 // is in LRU order and we would have visited entries that are candidates already
                 if (age.TotalMilliseconds <= (double)_maxAge)
+                {
                     break;
+                }
 
                 // See if there is a reserve we are maintaining.  If so and we are below it
                 // we'll break out and clean up.  This and subsequent entries should be preserved.
-                int entrySize = (_useSizing ? _objectSizes[entry.Key] : 1);
-                if ((RequiredReserve > 0) && 
-                    ((Size - (entrySize + entriesSize)) < RequiredReserve))
-                        break;
+                int entrySize = (_objectSizes != null ? _objectSizes[entry.Key] : 1);
+                if (RequiredReserve > 0 &&  (Size - (entrySize + entriesSize)) < RequiredReserve)
+                {
+                    break;
+                }
 
                 entriesSize += entrySize;
                 entries.Add(entry);
@@ -176,11 +175,11 @@ namespace OpenSim.Framework
 
         /// <summary>
         /// Adds an item/moves an item up in the LRU cache and returns whether or not
-        /// the item with the given key already existed
+        /// the item with the given key already existed.
         /// </summary>
         /// <param name="key"></param>
         /// <param name="item"></param>
-        /// <returns>If the object already existed</returns>
+        /// <returns>If the object already existed.</returns>
         public bool Add(K key, T item)
         {
             return this.Add(key, item, 1);
@@ -188,12 +187,12 @@ namespace OpenSim.Framework
 
         /// <summary>
         /// Adds an item/moves an item up in the LRU cache and returns whether or not
-        /// the item with the given key already existed
+        /// the item with the given key already existed.
         /// </summary>
         /// <param name="key"></param>
         /// <param name="item"></param>
-        /// <param name="size">Size of the item</param>
-        /// <returns>If the object already existed</returns>
+        /// <param name="size">Size of the item in bytes.</param>
+        /// <returns>If the object already existed.</returns>
         public bool Add(K key, T item, int size)
         {
             KeyValuePair<K, T> kvp = new KeyValuePair<K, T>(key, item);
@@ -203,7 +202,7 @@ namespace OpenSim.Framework
             bool removed = _storage.Remove(kvp);
 
             //are we at capacity?
-            if ((!removed) && _totalSize >= _capacity)
+            if ((!removed) && Size >= _capacity)
             {
                 EnsureCapacity(size);
             }
@@ -215,10 +214,14 @@ namespace OpenSim.Framework
             {
                 if (_objectSizes.ContainsKey(key))  // replaced
                 {
-                    _totalSize -= _objectSizes[key];
+                    Size -= _objectSizes[key];
                 }
-                _totalSize += size;
+                Size += size;
                 _objectSizes[key] = size;
+            }
+            else
+            {
+                ++Size; // Matches decrement in AccountForRemoval
             }
 
             if (_lastAccessedTime != null)
@@ -249,7 +252,7 @@ namespace OpenSim.Framework
         public void Clear()
         {
             _storage.Clear();
-            _totalSize = 0;
+            Size = 0;
             if (_objectSizes != null) _objectSizes.Clear();
             if (_lastAccessedTime != null) _lastAccessedTime.Clear();
         }
@@ -260,6 +263,9 @@ namespace OpenSim.Framework
             return _storage.Contains(kvp);
         }
 
+        /// <summary>
+        /// Count of entries in the underlying storage mechanism.
+        /// </summary>
         public int Count
         {
             get
@@ -268,20 +274,20 @@ namespace OpenSim.Framework
             }
         }
 
-        public int Size
-        {
-            get { return _totalSize; }
-        }
+        /// <summary>
+        /// Returns the raw data size of the cache in bytes, assuming the items were added with correct size information.
+        /// </summary>
+        public int Size { get; private set; }
 
         public int RemainingCapacity
         {
-            get { return _capacity - _totalSize; }
+            get { return _capacity - Size; }
         }
 
-        public int RequiredReserve
-        {
-            get { return _minSize; }
-        }
+        /// <summary>
+        /// Minimum size in bytes in the cache. Below this level and no aging is performed.
+        /// </summary>
+        public int RequiredReserve { get; }
 
         public bool IsReadOnly
         {
@@ -310,12 +316,12 @@ namespace OpenSim.Framework
         {
             if (_objectSizes != null)
             {
-                _totalSize -= _objectSizes[key];
+                Size -= _objectSizes[key];
                 _objectSizes.Remove(key);
             }
             else
             {
-                _totalSize--;
+                Size--;
             }
 
             if (_lastAccessedTime != null)

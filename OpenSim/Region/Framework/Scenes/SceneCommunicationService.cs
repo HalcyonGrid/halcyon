@@ -375,7 +375,7 @@ namespace OpenSim.Region.Framework.Scenes
         {
             foreach (ulong regionHandle in presence.KnownChildRegionHandles)
             {
-                if (regionHandle != m_regionInfo.RegionHandle)
+                if (regionHandle != m_regionInfo?.RegionHandle)
                 {
                     SendChildAgentDataUpdateDelegate d = SendChildAgentDataUpdateAsync;
                     d.BeginInvoke(cAgentData, regionHandle,

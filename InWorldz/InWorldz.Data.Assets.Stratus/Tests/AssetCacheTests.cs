@@ -40,7 +40,7 @@ namespace InWorldz.Data.Assets.Stratus.Tests
     [TestFixture]
     class AssetCacheTests
     {
-        [TestFixtureSetUp]
+        [SetUp]
         public void Setup()
         {
             Config.Settings.Instance.CFCacheSize = Config.Constants.MAX_CACHEABLE_ASSET_SIZE * 10;

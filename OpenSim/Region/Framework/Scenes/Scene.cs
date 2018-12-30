@@ -6068,7 +6068,7 @@ namespace OpenSim.Region.Framework.Scenes
 
         internal bool AvatarIsInTransit(UUID uuid)
         {
-            return m_transitController.AvatarIsInTransit(uuid);
+            return m_transitController?.AvatarIsInTransit(uuid) ?? false;
         }
 
         internal bool AvatarIsInTransitOnPrim(UUID uuid)

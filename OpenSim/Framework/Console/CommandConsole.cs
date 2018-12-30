@@ -28,15 +28,7 @@
 using System;
 using System.Xml;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Reflection;
-using System.Runtime.InteropServices;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading;
-using log4net;
-using OpenSim.Framework;
 
 namespace OpenSim.Framework.Console
 {
@@ -717,6 +709,13 @@ namespace OpenSim.Framework.Console
             Commands.AddCommand(
                 "Help", false, "help", "help [<item>]",
                 "Display help on a particular command or on a list of commands in a category", Help);
+
+            // Windows consoles have a Quick Edit mode that halts the process on a mouse click while the user interacts.
+            // We need to disable that unless the user does an Edit->Mark to select some text.
+            if (Util.IsWindows)
+            {
+                ConsoleMode.DisableQuickEdit();
+            }
         }
 
         private void Help(string module, string[] cmd)

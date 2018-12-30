@@ -17,7 +17,7 @@ namespace InWorldz.Phlox.Engine.Tests
         LSLSystemAPI lslSystemApi;
         Scene world;
 
-        [TestFixtureSetUp]
+        [SetUp]
         public void Setup()
         {
             var iniDoc = new IniDocument();
@@ -28,7 +28,7 @@ namespace InWorldz.Phlox.Engine.Tests
             lslSystemApi = new LSLSystemAPI(engine, null, 0, UUID.Zero);
         }
 
-        [TestFixtureTearDown]
+        [TearDown]
         public void Teardown()
         {
             SceneHelper.TearDownScene(world);

@@ -200,8 +200,9 @@ FakesAssemblies/
 # Visual Studio 6 workspace options file
 *.opt
 
-# Produced by runprebuild.bat (prbably not used by anyone since it's an absolute hard-coded path)
-compile.bat
+# Unit testing
+nunit.framework.*
+bin/cache/*/*.asset
 
 # Bin stuff that we don't want to commit that gets created when you run the server
 *.nxs
