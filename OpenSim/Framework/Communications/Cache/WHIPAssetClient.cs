@@ -354,10 +354,6 @@ namespace InWorldz.Whip.Client
                 //there is an error, log it, and then tell the caller we have no asset to give
                 if (!_loadingDefaultAssets)
                 {
-                    _log.ErrorFormat(
-                        "[WHIP.AssetClient]: Failure storing asset {0}" + Environment.NewLine + e.ToString()
-                        + Environment.NewLine, asset.FullID);
-
                     if (e.Message.Contains("already exists")) 
                     {
                         //this is hacky, but I dont want to edit the whip client this
@@ -366,6 +362,9 @@ namespace InWorldz.Whip.Client
                     }
                     else
                     {
+                        _log.ErrorFormat(
+                            "[WHIP.AssetClient]: Failure storing asset {0}" + Environment.NewLine + e.ToString()
+                            + Environment.NewLine, asset.FullID);
                         throw new AssetServerException(e.Message, e);
                     }
                 }
