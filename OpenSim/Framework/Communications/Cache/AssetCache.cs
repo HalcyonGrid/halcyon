@@ -310,8 +310,8 @@ namespace OpenSim.Framework.Communications.Cache
                 catch (AssetAlreadyExistsException e)
                 {
                     //Don't rethrow this exception. AssetServerExceptions thrown from here
-                    //will trigger a message on the client
-                    m_log.WarnFormat("[ASSET CACHE] Not storing asset that already exists: {0}", e.Message);
+                    // Let's not report this as a warning since this isn't a problem.
+                    // m_log.WarnFormat("[ASSET CACHE] Not storing asset that already exists: {0}", e.Message);
                 }
 
                 StatsManager.SimExtraStats.AddAssetWriteTime((long)(Util.GetLongTickCount() - startTime));
