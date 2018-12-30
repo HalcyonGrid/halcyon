@@ -452,7 +452,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             return mustReplace;
         }
 
-        private bool FilterPrimTexturesByCreator(SceneObjectPart part)
+        private bool FilterPrimTexturesByCreator(SceneObjectPart part, UUID ownerID)
         {
             bool filtered = false;
             Primitive.TextureEntry te = new Primitive.TextureEntry(part.Shape.TextureEntry, 0, part.Shape.TextureEntry.Length);
@@ -462,7 +462,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                 if (te.FaceTextures[i] != null)
                 {
                     Primitive.TextureEntryFace face = (Primitive.TextureEntryFace)te.FaceTextures[i].Clone();
-                    if (MustReplaceByAsset(face.TextureID, part.OwnerID))
+                    if (MustReplaceByAsset(face.TextureID, ownerID))
                     {
                         face.TextureID = Primitive.TextureEntry.WHITE_TEXTURE;
                         // Shortcut: if we're dropping the face's actual texture, assume we drop the materials too.
@@ -479,12 +479,12 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             return filtered;
         }
 
-        private bool FilterOtherPrimAssetsByCreator(SceneObjectPart part)
+        private bool FilterOtherPrimAssetsByCreator(SceneObjectPart part, UUID ownerID)
         {
             bool filtered = false;
             if (part.Sound != UUID.Zero)
             {
-                if (MustReplaceByAsset(part.Sound, part.OwnerID))
+                if (MustReplaceByAsset(part.Sound, ownerID))
                 {
                     part.Sound = UUID.Zero;
                     m_replacedSound++;
@@ -496,7 +496,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
 
             if (part.CollisionSound != UUID.Zero)
             {
-                if (MustReplaceByAsset(part.CollisionSound, part.OwnerID))
+                if (MustReplaceByAsset(part.CollisionSound, ownerID))
                 {
                     part.CollisionSound = UUID.Zero;
                     m_replacedSound++;
@@ -508,17 +508,17 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             return filtered;
         }
 
-        private bool FilterPart(SceneObjectPart part)
+        private bool FilterPart(SceneObjectPart part, UUID ownerID)
         {
             bool filtered = false;
             // Check if object creator has opted in
-            if (MustReplaceByCreatorOwner(part.CreatorID, part.OwnerID))
+            if (MustReplaceByCreatorOwner(part.CreatorID, ownerID))
             {
                 // Creator of prim has not opted-in for this instance.
                 // First, replace the prim with a default prim.
                 part.Shape = PrimitiveBaseShape.Default.Copy();
                 // Now the object owner becomes the creator too of the replacement prim.
-                part.CreatorID = part.OwnerID;
+                part.CreatorID = ownerID;
                 part.BaseMask = (uint)(PermissionMask.All | PermissionMask.Export);
                 part.OwnerMask = (uint)(PermissionMask.All | PermissionMask.Export);
                 part.NextOwnerMask = (uint)PermissionMask.All;
@@ -530,10 +530,10 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             else
             {
                 m_keptPart++;
-                filtered |= FilterPrimTexturesByCreator(part);
+                filtered |= FilterPrimTexturesByCreator(part, ownerID);
             }
             // Now in both cases filter other prim assets
-            filtered |= FilterOtherPrimAssetsByCreator(part);
+            filtered |= FilterOtherPrimAssetsByCreator(part, ownerID);
 
             return filtered;
         }
@@ -554,7 +554,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
         }
 
         // depth==0 when it's the top-level object (no need to reserialize changes as asset)
-        private bool FilterContents(SceneObjectPart part, int depth)
+        private bool FilterContents(SceneObjectPart part, UUID ownerID, int depth)
         {
             bool filtered = false;
             // Now let's take a look inside the Contents
@@ -568,18 +568,16 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                     // m_log.WarnFormat("Now filtering inventory item for {0} in {1}", item.Name, part.ParentGroup.Name);
                     
                     // First, let's cache the creator.
-                    if (item.CreatorID.Equals(item.OwnerID))
+                    if (item.CreatorID.Equals(ownerID) && (item.AssetID != UUID.Zero))
                     {
-                        if (item.AssetID != UUID.Zero)
-                        {
-                            m_assetCreators[item.AssetID] = item.CreatorID;
-                        }
+                        m_assetCreators[item.AssetID] = item.CreatorID;
                     }
 
+                    // Now let's check whether the item needs filtering...
                     if (item.InvType == (int)InventoryType.Object)
                     {
                         SceneObjectGroup inventoryObject = ObjectFromItem(part, item);
-                        if (inventoryObject == null || FilterObjectByCreators(inventoryObject, depth + 1))
+                        if (inventoryObject == null || FilterObjectByCreators(inventoryObject, ownerID, depth + 1))
                         {
                             // if (depth > 0)
                                 ReserializeObjectIntoItem(inventoryObject, item);
@@ -589,12 +587,12 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                         }
                     }
                     else
-                    if (item.CreatorID.Equals(item.OwnerID))
+                    if (item.CreatorID.Equals(ownerID))
                     {
                         m_keptItem++;
                     }
                     else
-                    if (MustReplaceByAsset(item.AssetID, item.OwnerID))
+                    if (MustReplaceByAsset(item.AssetID, ownerID))
                     {
                         item.AssetID = UUID.Zero;
                         filtered = true;
@@ -615,7 +613,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
         }
 
         // returns true if anything in the object should be skipped on OAR file restore
-        private bool FilterObjectByCreators(SceneObjectGroup sceneObject, int depth)
+        private bool FilterObjectByCreators(SceneObjectGroup sceneObject, UUID ownerID, int depth)
         {
             bool filtered = false;
             if (m_optInTable == null) return false; // no filtering
@@ -626,8 +624,8 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             {
                 try
                 {
-                    filtered |= FilterPart(part);
-                    filtered |= FilterContents(part, depth);
+                    filtered |= FilterPart(part, ownerID);
+                    filtered |= FilterContents(part, ownerID, depth);
                 }
                 catch (Exception e)
                 {
@@ -664,12 +662,12 @@ namespace OpenSim.Region.CoreModules.World.Archiver
         }
 
         // returns success==true, or false when objectFixingFailed == true
-        private bool DearchiveSceneObject(SceneObjectGroup sceneObject, bool checkContents, Dictionary<UUID, UUID> OriginalBackupIDs)
+        private bool DearchiveSceneObject(SceneObjectGroup sceneObject, UUID ownerID, bool checkContents, Dictionary<UUID, UUID> OriginalBackupIDs)
         {
             UUID resolveWithUser = UUID.Zero;   // if m_allowUserReassignment, this is who gets it all.
             bool objectFixingFailed = false;
 
-            bool filtered = FilterObjectByCreators(sceneObject, 0);
+            bool filtered = FilterObjectByCreators(sceneObject, ownerID, 0);
 
             // For now, give all incoming scene objects new uuids.  This will allow scenes to be cloned
             // on the same region server and multiple examples a single object archive to be imported
@@ -699,6 +697,10 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                     // part.CreatorID = masterAvatarId;
                 }
 
+                if (ResolveUserUuid(ownerID))
+                {
+                    part.OwnerID = ownerID;
+                } else
                 if (!ResolveUserUuid(part.OwnerID))
                 {
                     m_log.WarnFormat("[ARCHIVER]: Could not resolve av/group ID {0} for object '{1}' part owner", part.OwnerID, sceneObject.Name);
@@ -708,9 +710,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
 
                 if (!ResolveUserUuid(part.LastOwnerID))
                 {
-                    m_log.WarnFormat("[ARCHIVER]: Could not resolve av/group ID {0} for object '{1}' part last owner", part.LastOwnerID, sceneObject.Name);
-                    objectFixingFailed = true;
-                    part.LastOwnerID = resolveWithUser;
+                    part.LastOwnerID = part.OwnerID;
                 }
 
                 // Fix ownership/creator of inventory items
@@ -722,7 +722,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                     foreach (KeyValuePair<UUID, TaskInventoryItem> kvp in inv)
                     {
                         TaskInventoryItem item = kvp.Value;
-                        if (!ResolveUserUuid(item.OwnerID))
+                        if (!ResolveUserUuid(ownerID))
                         {
                             m_log.WarnFormat("[ARCHIVER]: Could not resolve av/group ID {0} for object '{1}' inventory item owner", item.OwnerID, sceneObject.Name);
                             objectFixingFailed = true;
@@ -741,7 +741,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                         {
                             SceneObjectGroup inventoryObject = ObjectFromItem(part, item);
                             if (inventoryObject != null)
-                                FilterObjectByCreators(inventoryObject, 1);
+                                FilterObjectByCreators(inventoryObject, ownerID, 1);
                         }
                     }
                 }
@@ -849,7 +849,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                     else throw new Exception("Error while deserializing group");
                 }
 
-                if (!DearchiveSceneObject(sceneObject, true, OriginalBackupIDs))
+                if (!DearchiveSceneObject(sceneObject, sceneObject.OwnerID, true, OriginalBackupIDs))
                     objectFixingFailed = true;
 
                 backupObjects.Add(sceneObject);
