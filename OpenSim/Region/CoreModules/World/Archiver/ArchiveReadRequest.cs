@@ -538,7 +538,23 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             return filtered;
         }
 
-        private bool FilterContents(SceneObjectPart part)
+        private void ReserializeObjectIntoItem(SceneObjectGroup newInventoryObject, TaskInventoryItem item)
+        {
+            // We're filtering an object inside the Contents, so
+            // replace the asset with a filtered one in this nested object.
+            // Must re-serialize this part and store as an asset for reference 
+            // for when this part's Contents are opened in the future
+            AssetBase newAsset = SerializeObjectToAsset(newInventoryObject);
+            if (newAsset != null)
+            {
+                newAsset.FullID = UUID.Random();
+                m_scene.CommsManager.AssetCache.AddAsset(newAsset, AssetRequestInfo.InternalRequest());
+                item.AssetID = newAsset.FullID;
+            }
+        }
+
+        // depth==0 when it's the top-level object (no need to reserialize changes as asset)
+        private bool FilterContents(SceneObjectPart part, int depth)
         {
             bool filtered = false;
             // Now let's take a look inside the Contents
@@ -550,37 +566,41 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                 {
                     TaskInventoryItem item = kvp.Value;
                     // m_log.WarnFormat("Now filtering inventory item for {0} in {1}", item.Name, part.ParentGroup.Name);
-                    if (item.InvType == (int)InventoryType.Object)
-                    {
-                        SceneObjectGroup inventoryObject = ObjectFromItem(part, item);
-                        if (inventoryObject == null || FilterObjectByCreators(inventoryObject))
-                        {
-                            // we're filtering an object inside the Contents. We can't practically do this more selectively.
-                            // Clear the asset to filter out this nested object.
-                            item.AssetID = UUID.Zero;
-                            filtered = true;
-                        }
-                    }
-                    else
+                    
+                    // First, let's cache the creator.
                     if (item.CreatorID.Equals(item.OwnerID))
                     {
                         if (item.AssetID != UUID.Zero)
                         {
                             m_assetCreators[item.AssetID] = item.CreatorID;
                         }
-
+                    }
+                    else
+                    if (item.InvType == (int)InventoryType.Object)
+                    {
+                        SceneObjectGroup inventoryObject = ObjectFromItem(part, item);
+                        if (inventoryObject == null || FilterObjectByCreators(inventoryObject, depth+1))
+                        {
+                            if (depth > 0)
+                                ReserializeObjectIntoItem(inventoryObject, item);
+                            filtered = true; // ripple effect. this object's Contents changed, new asset ID in items.
+                            replacedItems.Add(item);
+                            m_replacedItem++;
+                        }
                     }
                     else
                     if (MustReplaceByAsset(item.AssetID, item.OwnerID))
                     {
                         item.AssetID = UUID.Zero;
+                        filtered = true;
                         replacedItems.Add(item);
                         m_replacedItem++;
-                        filtered = true;
                     }
                     else
                         m_keptItem++;
                 }
+
+                // Now, while not iterating the dictionary any more, update some of the items with the mods.
                 foreach (var item in replacedItems)
                 {
                     part.TaskInventory[item.ItemID] = item;
@@ -590,7 +610,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
         }
 
         // returns true if anything in the object should be skipped on OAR file restore
-        private bool FilterObjectByCreators(SceneObjectGroup sceneObject)
+        private bool FilterObjectByCreators(SceneObjectGroup sceneObject, int depth)
         {
             bool filtered = false;
             if (m_optInTable == null) return false; // no filtering
@@ -602,7 +622,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                 try
                 {
                     filtered |= FilterPart(part);
-                    filtered |= FilterContents(part);
+                    filtered |= FilterContents(part, depth);
                 }
                 catch (Exception e)
                 {
@@ -644,19 +664,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             UUID resolveWithUser = UUID.Zero;   // if m_allowUserReassignment, this is who gets it all.
             bool objectFixingFailed = false;
 
-            bool filtered = FilterObjectByCreators(sceneObject);
-
-            if (filtered)
-            {
-                // must re-serialize this part and store as an asset for reference when this 
-                // part's Contents are opened in the future
-                AssetBase newAsset = SerializeObjectToAsset(sceneObject);
-                if (newAsset != null)
-                {
-                    newAsset.FullID = UUID.Random();
-                    m_scene.CommsManager.AssetCache.AddAsset(newAsset, AssetRequestInfo.InternalRequest());
-                }
-            }
+            bool filtered = FilterObjectByCreators(sceneObject, 0);
 
             // For now, give all incoming scene objects new uuids.  This will allow scenes to be cloned
             // on the same region server and multiple examples a single object archive to be imported
@@ -728,7 +736,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                         {
                             SceneObjectGroup inventoryObject = ObjectFromItem(part, item);
                             if (inventoryObject != null)
-                                FilterObjectByCreators(inventoryObject);
+                                FilterObjectByCreators(inventoryObject, 1);
                         }
                     }
                 }
