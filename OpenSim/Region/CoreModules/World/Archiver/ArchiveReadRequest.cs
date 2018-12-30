@@ -575,18 +575,23 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                             m_assetCreators[item.AssetID] = item.CreatorID;
                         }
                     }
-                    else
+
                     if (item.InvType == (int)InventoryType.Object)
                     {
                         SceneObjectGroup inventoryObject = ObjectFromItem(part, item);
-                        if (inventoryObject == null || FilterObjectByCreators(inventoryObject, depth+1))
+                        if (inventoryObject == null || FilterObjectByCreators(inventoryObject, depth + 1))
                         {
-                            if (depth > 0)
+                            // if (depth > 0)
                                 ReserializeObjectIntoItem(inventoryObject, item);
                             filtered = true; // ripple effect. this object's Contents changed, new asset ID in items.
                             replacedItems.Add(item);
                             m_replacedItem++;
                         }
+                    }
+                    else
+                    if (item.CreatorID.Equals(item.OwnerID))
+                    {
+                        m_keptItem++;
                     }
                     else
                     if (MustReplaceByAsset(item.AssetID, item.OwnerID))
@@ -1041,18 +1046,6 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                 {
                     m_log.ErrorFormat("[ARCHIVER] Uploading asset {0} failed: {1}", asset.FullID, e);
                 }
-
-                /**
-                 * Create layers on decode for image assets.  This is likely to significantly increase the time to load archives so
-                 * it might be best done when dearchive takes place on a separate thread
-                if (asset.Type=AssetType.Texture)
-                {
-                    IJ2KDecoder cacheLayerDecode = scene.RequestModuleInterface<IJ2KDecoder>();
-                    if (cacheLayerDecode != null)
-                        cacheLayerDecode.syncdecode(asset.FullID, asset.Data);
-                }
-                */
-
                 return true;
             }
             else
