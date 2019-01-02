@@ -98,6 +98,10 @@ namespace OpenSim.Region.CoreModules.World.Archiver
         int m_keptNonCreator = 0;   // MINE
         int m_keptCreator = 0;      // NONE
 
+        int m_scannedObjects = 0;
+        int m_scannedParts = 0;
+        int m_scannedItems = 0;
+
         /// <summary>
         /// Used to cache lookups for valid uuids.
         /// </summary>
@@ -137,6 +141,10 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             {
                 m_inventorySerializer = engine.InventoryObjectSerializer;
             }
+
+            m_scannedObjects = 0;
+            m_scannedParts = 0;
+            m_scannedItems = 0;
         }
 
         /// <summary>
@@ -238,7 +246,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
         {
             InitConnFactory();
 
-            m_log.InfoFormat("[ARCHIVER]: Saving {0} assets in OAR file.", assetCreatorsTable.Count);
+            m_log.InfoFormat("[ARCHIVER]: Saved {0} asset creators referenced from OAR file.", assetCreatorsTable.Count);
             try
             {
                 using (ISimpleDB conn = _connFactory.GetConnection())
@@ -268,6 +276,10 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                 TaskInventoryDictionary inv = part.TaskInventory;
                 foreach (KeyValuePair<UUID, TaskInventoryItem> kvp in inv)
                 {
+                    m_scannedItems++;
+                    if ((m_scannedItems % 1000) == 0)
+                        m_log.InfoFormat("[ARCHIVER]: {0} objects, {1} parts, {2} items scanned.", m_scannedObjects, m_scannedParts, m_scannedItems);
+
                     TaskInventoryItem item = kvp.Value;
                     if (item.AssetID != UUID.Zero)
                     {
@@ -284,7 +296,8 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                             else
                             {
                                 SceneObjectGroup inventoryObject = ObjectFromItem(part, item);
-                                ScanObjectForAssetCreatorIDs(inventoryObject);
+                                if (inventoryObject != null)
+                                    ScanObjectForAssetCreatorIDs(inventoryObject);
                             }
                         }
                     }
@@ -300,19 +313,13 @@ namespace OpenSim.Region.CoreModules.World.Archiver
         {
             try
             {
+                m_scannedObjects++;
                 foreach (SceneObjectPart part in sceneObject.GetParts())
                 {
-                    TaskInventoryDictionary inv = part.TaskInventory;
-                    foreach (KeyValuePair<UUID, TaskInventoryItem> kvp in inv)
-                    {
-                        TaskInventoryItem item = kvp.Value;
-
-                        if (item.AssetID != UUID.Zero)
-                        {
-                            m_assetCreators[item.AssetID] = item.CreatorID;
-                            ScanPartForAssetCreatorIDs(part);
-                        }
-                    }
+                    m_scannedParts++;
+                    if ((m_scannedParts % 1000) == 0)
+                        m_log.InfoFormat("[ARCHIVER]: {0} objects, {1} parts, {2} items scanned.", m_scannedObjects, m_scannedParts, m_scannedItems);
+                    ScanPartForAssetCreatorIDs(part);
                 }
             }
             catch (Exception e)
@@ -365,6 +372,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             }
             finally
             {
+                m_log.InfoFormat("[ARCHIVER]: Scan complete: {0} objects, {1} parts, {2} items.", m_scannedObjects, m_scannedParts, m_scannedItems);
                 SaveAssetCreators(m_assetCreators);
             }
         }
