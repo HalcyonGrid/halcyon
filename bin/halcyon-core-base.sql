@@ -1022,6 +1022,32 @@ CREATE TABLE `users` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
+CREATE TABLE `emailregistrations` (
+  `uuid` char(36) NOT NULL,
+  `time` int(10) unsigned NOT NULL,
+  `region` char(36) NOT NULL,
+  PRIMARY KEY (`uuid`),
+  KEY `time` (`time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+CREATE TABLE `emailmessages` (
+  `ID` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `uuid` char(36) NOT NULL,
+  `sent` int(10) unsigned NOT NULL,
+  `from` varchar(96) NOT NULL,
+  `subject` varchar(96) NOT NULL,
+  `body` varchar(1024) NOT NULL,
+  PRIMARY KEY (`ID`),
+  KEY `UUID` (`uuid`),
+  KEY `sent` (`sent`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+CREATE TABLE `asset_creators` (
+  `assetId` varchar(36) NOT NULL,
+  `creatorId` varchar(36) NOT NULL,
+  PRIMARY KEY (`assetId`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
 /*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
 /*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
@@ -1029,5 +1055,3 @@ CREATE TABLE `users` (
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
-
--- Dump completed on 2015-09-28 11:55:45
