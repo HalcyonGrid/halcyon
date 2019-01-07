@@ -80,9 +80,9 @@ namespace OpenSim.Region.CoreModules.World.Archiver
         private bool m_skipErrorGroups = false;
 
         // Filtered opt-in OAR loading
-        Dictionary<UUID, int> m_optInTable = null;
-        Dictionary<UUID, UUID> m_assetCreators = null;
-        IInventoryObjectSerializer m_inventorySerializer = null;
+        private Dictionary<UUID, int> m_optInTable = null;
+        private Dictionary<UUID, UUID> m_assetCreators = null;
+        private IInventoryObjectSerializer m_inventorySerializer = null;
 
         int m_replacedPart = 0;
         int m_replacedItem = 0;
@@ -453,17 +453,58 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             bool mustReplace = true;
             if (m_assetCreators.ContainsKey(assetID))
             {
+                // We have explicit wishes from the creator
                 UUID creatorID = m_assetCreators[assetID];
                 mustReplace = MustReplaceByCreatorOwner(creatorID, ownerID);
             }
 
+            // The creator is unknown, assume opt-in denied, replace
             return mustReplace;
+        }
+
+        private void ReplaceDescription(SceneObjectPart part, UUID prevCreatorID)
+        {
+            if (String.IsNullOrWhiteSpace(part.Description) || part.Description.ToLower().Equals("(no description)"))
+            {
+                part.Description = $"(Replaced: Prim created by {prevCreatorID})";
+            }
+        }
+
+        private void ReplacePartWithDefaultPrim(SceneObjectPart part, UUID ownerID)
+        {
+            // First, replace the prim with a default prim.
+            part.Shape = PrimitiveBaseShape.Default.Copy();
+            ReplaceDescription(part, part.CreatorID);
+
+            // Now the object owner becomes the creator too of the replacement prim.
+            part.CreatorID = ownerID;
+            part.BaseMask = (uint)(PermissionMask.All | PermissionMask.Export);
+            part.OwnerMask = (uint)(PermissionMask.All | PermissionMask.Export);
+            part.NextOwnerMask = (uint)PermissionMask.All;
+            part.EveryoneMask = (uint)PermissionMask.None;
+            // No need to replace textures since the whole prim was replaced.
+            m_replacedPart++;
         }
 
         private bool FilterPrimTexturesByCreator(SceneObjectPart part, UUID ownerID)
         {
             bool filtered = false;
             Primitive.TextureEntry te = new Primitive.TextureEntry(part.Shape.TextureEntry, 0, part.Shape.TextureEntry.Length);
+
+            int basicSculptType = part.Shape.SculptType & (byte)0x3F;
+            if (basicSculptType != (byte)SculptType.None)
+            {
+                if (basicSculptType == (byte)SculptType.Mesh)
+                {
+                    // Assume that mesh textures are created by the prim creator
+                    return false;
+                }
+                if (MustReplaceByAsset(part.Shape.SculptTexture, ownerID))
+                {
+                    ReplacePartWithDefaultPrim(part, ownerID);
+                    filtered = true;
+                }
+            }
 
             for (int i = 0; i < Primitive.TextureEntry.MAX_FACES; i++)
             {
@@ -524,15 +565,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             {
                 // Creator of prim has not opted-in for this instance.
                 // First, replace the prim with a default prim.
-                part.Shape = PrimitiveBaseShape.Default.Copy();
-                // Now the object owner becomes the creator too of the replacement prim.
-                part.CreatorID = ownerID;
-                part.BaseMask = (uint)(PermissionMask.All | PermissionMask.Export);
-                part.OwnerMask = (uint)(PermissionMask.All | PermissionMask.Export);
-                part.NextOwnerMask = (uint)PermissionMask.All;
-                part.EveryoneMask = (uint)PermissionMask.None;
-                // No need to replace textures since the whole prim was replaced.
-                m_replacedPart++;
+                ReplacePartWithDefaultPrim(part, ownerID);
                 filtered = true;
             }
             else
@@ -766,6 +799,10 @@ namespace OpenSim.Region.CoreModules.World.Archiver
 
             if (!String.IsNullOrWhiteSpace(optionsTable))
             {
+                // This code assumes that a full 'scan iwoar` was done for the specified OAR, to figure out which assets to allow.
+                // ScanArchiveForAssetCreatorIDs(); // done previously, separately
+
+                // Now a normal filtered load.
                 m_optInTable = GetUserContentOptions(optionsTable);
                 m_assetCreators = GetAssetCreators();
             }
@@ -773,10 +810,8 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             try
             {
                 TarArchiveReader archive = new TarArchiveReader(m_loadStream);
-               
-                byte[] data;
                 TarArchiveReader.TarEntryType entryType;
-
+                byte[] data;
                 while ((data = archive.ReadEntry(out filePath, out entryType)) != null)
                 {                    
                     //m_log.DebugFormat(
@@ -805,9 +840,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                         LoadRegionSettings(filePath, data);
                     }
                 }
-
                 //m_log.Debug("[ARCHIVER]: Reached end of archive");
-
                 archive.Close();
             }
             catch (Exception e)
@@ -1021,19 +1054,14 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             if (ArchiveConstants.EXTENSION_TO_ASSET_TYPE.ContainsKey(extension))
             {
                 sbyte assetType = ArchiveConstants.EXTENSION_TO_ASSET_TYPE[extension];
-
+                UUID assetID = new UUID(uuid);
                 //m_log.DebugFormat("[ARCHIVER]: Importing asset {0}, type {1}", uuid, assetType);
-
-                AssetBase asset = new AssetBase(new UUID(uuid), String.Empty);
-                asset.Type = assetType;
-                asset.Data = data;
-
                 if (m_optInTable != null)
                 {
                     // this is a `load iwoar` command and we need to filter based on opt-in status
-                    if (!m_assetCreators.ContainsKey(asset.FullID))
+                    if (!m_assetCreators.ContainsKey(assetID))
                         return false;
-                    UUID creatorId = m_assetCreators[asset.FullID];
+                    UUID creatorId = m_assetCreators[assetID];
                     if (!m_optInTable.ContainsKey(creatorId))
                         return false;
                     int optIn = m_optInTable[creatorId];
@@ -1048,11 +1076,14 @@ namespace OpenSim.Region.CoreModules.World.Archiver
 
                 try
                 {
+                    AssetBase asset = new AssetBase(assetID, String.Empty);
+                    asset.Type = assetType;
+                    asset.Data = data;
                     m_scene.CommsManager.AssetCache.AddAsset(asset, AssetRequestInfo.InternalRequest());
                 }
                 catch (AssetServerException e)
                 {
-                    m_log.ErrorFormat("[ARCHIVER] Uploading asset {0} failed: {1}", asset.FullID, e);
+                    m_log.ErrorFormat("[ARCHIVER] Uploading asset {0} failed: {1}", assetID, e);
                 }
                 return true;
             }
