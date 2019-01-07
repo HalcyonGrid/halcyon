@@ -57,6 +57,11 @@ namespace OpenSim.Region.CoreModules.World.Archiver
         private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
         private static readonly String ASSET_CREATORS = "asset_creators";
 
+        private static readonly UUID DEFAULT_TERRAIN_1 = new UUID("b8d3965a-ad78-bf43-699b-bff8eca6c975");  // Terrain Dirt
+        private static readonly UUID DEFAULT_TERRAIN_2 = new UUID("abb783e6-3e93-26c0-248a-247666855da3");  // Terrain Grass
+        private static readonly UUID DEFAULT_TERRAIN_3 = new UUID("179cdabd-398a-9b6b-1391-4dc333ba321f");  // Terrain Mountain
+        private static readonly UUID DEFAULT_TERRAIN_4 = new UUID("beb169c7-11ea-fff2-efe5-0f24dc881df2");  // Terrain Rock
+
         private Scene m_scene;
         private Stream m_loadStream;
         private Guid m_requestId;
@@ -1168,10 +1173,34 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             currentRegionSettings.RestrictPushing = loadedRegionSettings.RestrictPushing;
             currentRegionSettings.TerrainLowerLimit = loadedRegionSettings.TerrainLowerLimit;
             currentRegionSettings.TerrainRaiseLimit = loadedRegionSettings.TerrainRaiseLimit;
-            currentRegionSettings.TerrainTexture1 = loadedRegionSettings.TerrainTexture1;
-            currentRegionSettings.TerrainTexture2 = loadedRegionSettings.TerrainTexture2;
-            currentRegionSettings.TerrainTexture3 = loadedRegionSettings.TerrainTexture3;
-            currentRegionSettings.TerrainTexture4 = loadedRegionSettings.TerrainTexture4;
+            if (m_optInTable != null)
+            {
+                // this is a `load iwoar` command and we need to filter based on opt-in status
+                UUID ownerID = m_scene.RegionInfo.EstateSettings.EstateOwner;
+                if (MustReplaceByAsset(loadedRegionSettings.TerrainTexture1, ownerID))
+                    currentRegionSettings.TerrainTexture1 = DEFAULT_TERRAIN_1;
+                else
+                    currentRegionSettings.TerrainTexture1 = loadedRegionSettings.TerrainTexture1;
+                if (MustReplaceByAsset(loadedRegionSettings.TerrainTexture2, ownerID))
+                    currentRegionSettings.TerrainTexture2 = DEFAULT_TERRAIN_2;
+                else
+                    currentRegionSettings.TerrainTexture2 = loadedRegionSettings.TerrainTexture2;
+                if (MustReplaceByAsset(loadedRegionSettings.TerrainTexture3, ownerID))
+                    currentRegionSettings.TerrainTexture3 = DEFAULT_TERRAIN_3;
+                else
+                    currentRegionSettings.TerrainTexture3 = loadedRegionSettings.TerrainTexture3;
+                if (MustReplaceByAsset(loadedRegionSettings.TerrainTexture4, ownerID))
+                    currentRegionSettings.TerrainTexture4 = DEFAULT_TERRAIN_4;
+                else
+                    currentRegionSettings.TerrainTexture4 = loadedRegionSettings.TerrainTexture4;
+            }
+            else
+            {
+                currentRegionSettings.TerrainTexture1 = loadedRegionSettings.TerrainTexture1;
+                currentRegionSettings.TerrainTexture2 = loadedRegionSettings.TerrainTexture2;
+                currentRegionSettings.TerrainTexture3 = loadedRegionSettings.TerrainTexture3;
+                currentRegionSettings.TerrainTexture4 = loadedRegionSettings.TerrainTexture4;
+            }
             currentRegionSettings.UseEstateSun = loadedRegionSettings.UseEstateSun;
             currentRegionSettings.WaterHeight = loadedRegionSettings.WaterHeight;
 
