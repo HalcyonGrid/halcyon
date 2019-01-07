@@ -99,6 +99,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
         int m_keptCreator = 0;      // NONE
 
         int m_scannedObjects = 0;
+        int m_scannedMesh = 0;
         int m_scannedParts = 0;
         int m_scannedItems = 0;
 
@@ -143,6 +144,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             }
 
             m_scannedObjects = 0;
+            m_scannedMesh = 0;
             m_scannedParts = 0;
             m_scannedItems = 0;
         }
@@ -278,7 +280,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                 {
                     m_scannedItems++;
                     if ((m_scannedItems % 1000) == 0)
-                        m_log.InfoFormat("[ARCHIVER]: {0} objects, {1} parts, {2} items scanned.", m_scannedObjects, m_scannedParts, m_scannedItems);
+                        m_log.InfoFormat("[ARCHIVER]: {0} objects, {1} mesh, {2} parts, {3} items scanned.", m_scannedObjects, m_scannedMesh, m_scannedParts, m_scannedItems);
 
                     TaskInventoryItem item = kvp.Value;
                     if (item.AssetID != UUID.Zero)
@@ -302,6 +304,18 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                         }
                     }
                 }
+
+                // Check if part is mesh, assume SculptTexture asset is created by part creator.
+                int basicSculptType = part.Shape.SculptType & (byte)0x3F;
+                if (basicSculptType != (byte)SculptType.None)
+                {
+                    if ((basicSculptType == (byte)SculptType.Mesh) && (part.Shape.SculptTexture != UUID.Zero))
+                    {
+                        // Assume that mesh textures are created by the prim creator
+                        m_assetCreators[part.Shape.SculptTexture] = part.CreatorID;
+                        m_scannedMesh++;
+                    }
+                }
             }
             catch (Exception e)
             {
@@ -318,7 +332,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                 {
                     m_scannedParts++;
                     if ((m_scannedParts % 1000) == 0)
-                        m_log.InfoFormat("[ARCHIVER]: {0} objects, {1} parts, {2} items scanned.", m_scannedObjects, m_scannedParts, m_scannedItems);
+                        m_log.InfoFormat("[ARCHIVER]: {0} objects, {1} mesh, {2} parts, {3} items scanned.", m_scannedObjects, m_scannedMesh, m_scannedParts, m_scannedItems);
                     ScanPartForAssetCreatorIDs(part);
                 }
             }
@@ -372,7 +386,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             }
             finally
             {
-                m_log.InfoFormat("[ARCHIVER]: Scan complete: {0} objects, {1} parts, {2} items.", m_scannedObjects, m_scannedParts, m_scannedItems);
+                m_log.InfoFormat("[ARCHIVER]: Scan complete: {0} objects, {1} mesh, {2} parts, {3} items.", m_scannedObjects, m_scannedMesh, m_scannedParts, m_scannedItems);
                 SaveAssetCreators(m_assetCreators);
             }
         }
@@ -618,7 +632,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                     if (item.InvType == (int)InventoryType.Object)
                     {
                         SceneObjectGroup inventoryObject = ObjectFromItem(part, item);
-                        if (inventoryObject == null || FilterObjectByCreators(inventoryObject, ownerID, depth + 1))
+                        if ((inventoryObject != null) && FilterObjectByCreators(inventoryObject, ownerID, depth + 1))
                         {
                             // if (depth > 0)
                                 ReserializeObjectIntoItem(inventoryObject, item);
@@ -856,8 +870,8 @@ namespace OpenSim.Region.CoreModules.World.Archiver
 
             if (failedAssetRestores > 0)
             {
-                m_log.ErrorFormat("[ARCHIVER]: Failed to load {0} assets", failedAssetRestores);
-                m_errorMessage += String.Format("Failed to load {0} assets", failedAssetRestores);
+                m_log.ErrorFormat("[ARCHIVER]: Filtered or failed to load {0} assets", failedAssetRestores);
+                m_errorMessage += String.Format("Filtered or failed to load {0} assets", failedAssetRestores);
             }
 
             // Reload serialized prims
@@ -1060,17 +1074,25 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                 {
                     // this is a `load iwoar` command and we need to filter based on opt-in status
                     if (!m_assetCreators.ContainsKey(assetID))
+                    {
+                        m_log.ErrorFormat("[ARCHIVER]: Filtering asset {0} with unknown creator.", assetID);
                         return false;
+                    }
                     UUID creatorId = m_assetCreators[assetID];
                     if (!m_optInTable.ContainsKey(creatorId))
+                    {
+                        m_log.ErrorFormat("[ARCHIVER]: Filtering asset {0} with unrecognized creator {1}", assetID, creatorId);
                         return false;
+                    }
                     int optIn = m_optInTable[creatorId];
                     switch (optIn)
                     {
                         case 2: break; // allow the asset in so everyone can use it
                         case 1: break; // allow the asset in so creator can use it
-                        case 0: return false;   // asset is not allowed in
-                        default: return false;  // unknown status, cannot assume opt-in
+                        case 0:   // asset is not allowed in
+                        default:  // unknown status, cannot assume opt-in
+                            m_log.WarnFormat("Filtering asset {0} per creator {1} wishes: {2}", assetID, creatorId, optIn);
+                            return false;
                     }
                 }
 
