@@ -87,6 +87,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
         // Filtered opt-in OAR loading
         private Dictionary<UUID, int> m_optInTable = null;
         private Dictionary<UUID, UUID> m_assetCreators = null;
+        private Dictionary<UUID, String> m_libAssets = null;
         private IInventoryObjectSerializer m_inventorySerializer = null;
 
         int m_replacedPart = 0;
@@ -129,6 +130,18 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             InitArchiveRead(config, scene, loadStream, merge, requestId, allowUserReassignment, skipErrorGroups);
         }
 
+        private void WhitelistLibraryFolder(InventoryFolderImpl parentFolder)
+        {
+            foreach (var libItem in parentFolder.RequestListOfItems())
+            {
+                m_libAssets[libItem.AssetID] = libItem.Name;
+            }
+            foreach (var libFolder in parentFolder.RequestListOfFolderImpls())
+            {
+                WhitelistLibraryFolder(libFolder);
+            }
+        }
+
         private void InitArchiveRead(IConfigSource config, Scene scene, Stream loadStream, bool merge, Guid requestId, bool allowUserReassignment, bool skipErrorGroups)
         {
             m_config = config;
@@ -152,6 +165,9 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             m_scannedMesh = 0;
             m_scannedParts = 0;
             m_scannedItems = 0;
+
+            m_libAssets = new Dictionary<UUID, string>();
+            WhitelistLibraryFolder(m_scene.CommsManager.LibraryRoot);
         }
 
         /// <summary>
@@ -468,6 +484,9 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             if (assetID == UUID.Zero) return false;
             if (m_optInTable == null)
                 return false;    // no filtering
+
+            if (m_libAssets.ContainsKey(assetID))
+                return false;   // it's in the Library
 
             bool mustReplace = true;
             if (m_assetCreators.ContainsKey(assetID))
