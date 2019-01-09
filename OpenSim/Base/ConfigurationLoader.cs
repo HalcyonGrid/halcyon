@@ -243,7 +243,7 @@ namespace OpenSim
                 config.Set("user_source", String.Empty);
                 config.Set("asset_plugin", "OpenSim.Data.SQLite.dll");
                 config.Set("asset_source", "URI=file:Asset.db,version=3");
-                config.Set("LibraryName", "InWorldz Library");
+                config.Set("LibraryName", "Library");
                 config.Set("LibrariesXMLFile", string.Format(".{0}inventory{0}Libraries.xml", Path.DirectorySeparatorChar));
                 config.Set("AssetSetsXMLFile", string.Format(".{0}assets{0}AssetSets.xml", Path.DirectorySeparatorChar));
                 config.Set("dump_assets_to_file", false);
