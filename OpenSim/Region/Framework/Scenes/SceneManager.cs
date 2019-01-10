@@ -549,7 +549,8 @@ namespace OpenSim.Region.Framework.Scenes
                             if (ent is SceneObjectGroup)
                             {
                                 SceneObjectGroup SOG = (SceneObjectGroup)ent;
-                                if (OwnerID == SOG.OwnerID)
+                                // Allow UUID.Zero to represent a wildcard for all owners.
+                                if ((OwnerID == UUID.Zero) || (OwnerID == SOG.OwnerID))
                                     scene.DeleteSceneObject(SOG, false, false, true);
                             }
                         }

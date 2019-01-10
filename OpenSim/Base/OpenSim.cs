@@ -349,8 +349,8 @@ namespace OpenSim
                                           "Collects information about objects posting updates", HandleShow);
 
             m_console.Commands.AddCommand("region", false, "nuke",
-                                          "nuke",
-                                          "Delete all objects owned by the specified UUID", HandleNuke);
+                                          "nuke ownerUUID | all",
+                                          "Delete all objects owned by the specified UUID or all users", HandleNuke);
 
             m_console.Commands.AddCommand("region", false, "blacklist object owner",
                                           "blacklist object owner",
@@ -1226,19 +1226,24 @@ namespace OpenSim
             if (showParams.Length > 0)
             {
                 UUID OwnerID;
-                if (UUID.TryParse(showParams[0], out OwnerID))
+                if (showParams[0] == "all")
                 {
-                    m_console.Notice("Deploying nuke...");
+                    m_sceneManager.NukeObjectsOwnedBy(UUID.Zero);
+                }
+                else
+                if (UUID.TryParse(showParams[0], out OwnerID) && (OwnerID != UUID.Zero))
+                {
                     m_sceneManager.NukeObjectsOwnedBy(OwnerID);
-                    m_console.Notice("Nuke complete.");
                 } else
                 {
-                    m_console.Notice("That does not look like a UUID.");
+                    m_console.Notice("That does not look like a valid UUID.");
+                    return;
                 }
+                m_console.Notice("Nuke complete.");
             }
             else
             {
-                m_console.Notice("You must specify the UUID of the owner.");
+                m_console.Notice("You must specify the UUID of the owner, or 'all'.");
             }
         }
 
