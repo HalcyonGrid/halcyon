@@ -686,7 +686,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             bool filtered = false;
             if (item.ContainsMultipleItems)
             {
-                m_log.WarnFormat("[ARCHIVER]: Need to reserialize coalesced item: {0}");
+                // Need to reserialize coalesced item
                 CoalescedObject obj = m_inventorySerializer.DeserializeCoalescedObjFromInventoryBytes(asset.Data);
                 List<SceneObjectGroup> items = new List<SceneObjectGroup>();
                 List<ItemPermissionBlock> perms = new List<ItemPermissionBlock>();
@@ -1116,13 +1116,13 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                     // this is a `load iwoar` command and we need to filter based on opt-in status
                     if (!m_assetCreators.ContainsKey(assetID))
                     {
-                        m_log.ErrorFormat("[ARCHIVER]: Filtering asset {0} with unknown creator.", assetID);
+                        // m_log.ErrorFormat("[ARCHIVER]: Filtering asset {0} with unknown creator.", assetID);
                         return false;
                     }
                     UUID creatorId = m_assetCreators[assetID];
                     if (!m_optInTable.ContainsKey(creatorId))
                     {
-                        m_log.ErrorFormat("[ARCHIVER]: Filtering asset {0} with unrecognized creator {1}", assetID, creatorId);
+                        // m_log.ErrorFormat("[ARCHIVER]: Filtering asset {0} with unrecognized creator {1}", assetID, creatorId);
                         return false;
                     }
                     int optIn = m_optInTable[creatorId];
@@ -1132,7 +1132,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                         case 1: break; // allow the asset in so creator can use it
                         case 0:   // asset is not allowed in
                         default:  // unknown status, cannot assume opt-in
-                            m_log.WarnFormat("Filtering asset {0} per creator {1} wishes: {2}", assetID, creatorId, optIn);
+                            // m_log.WarnFormat("Filtering asset {0} per creator {1} wishes: {2}", assetID, creatorId, optIn);
                             return false;
                     }
                 }
