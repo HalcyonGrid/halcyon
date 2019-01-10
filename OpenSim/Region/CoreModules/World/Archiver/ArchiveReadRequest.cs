@@ -817,6 +817,15 @@ namespace OpenSim.Region.CoreModules.World.Archiver
         private void DearchiveSceneObject(SceneObjectGroup sceneObject, UUID ownerID, bool checkContents, Dictionary<UUID, UUID> OriginalBackupIDs)
         {
             UUID resolveWithUser = UUID.Zero;   // if m_allowUserReassignment, this is who gets it all.
+
+            // For now, give all incoming scene objects new uuids.  This will allow scenes to be cloned
+            // on the same region server and multiple examples a single object archive to be imported
+            // to the same scene (when this is possible).
+            UUID OldUUID = sceneObject.UUID;
+            sceneObject.ResetIDs();
+            // if sceneObject is no-copy, save the old ID with the new ID.
+            OriginalBackupIDs[sceneObject.UUID] = OldUUID;
+
             if (m_allowUserReassignment)
             {
                 // Try to retain the original creator/owner/lastowner if their uuid is present on this grid
