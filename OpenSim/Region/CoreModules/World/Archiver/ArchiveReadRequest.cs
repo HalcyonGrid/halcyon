@@ -62,6 +62,9 @@ namespace OpenSim.Region.CoreModules.World.Archiver
         private static readonly UUID DEFAULT_TERRAIN_3 = new UUID("179cdabd-398a-9b6b-1391-4dc333ba321f");  // Terrain Mountain
         private static readonly UUID DEFAULT_TERRAIN_4 = new UUID("beb169c7-11ea-fff2-efe5-0f24dc881df2");  // Terrain Rock
 
+        // The following could be Primitive.TextureEntry.WHITE_TEXTURE but that hides replacements, so let's use the more obvious.
+        private static readonly UUID DEFAULT_SUBSTITEXTURE = new UUID("89556747-24cb-43ed-920b-47caed15465f");  // plywood
+
         private Scene m_scene;
         private Stream m_loadStream;
         private Guid m_requestId;
@@ -583,7 +586,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                     Primitive.TextureEntryFace face = (Primitive.TextureEntryFace)te.FaceTextures[i].Clone();
                     if (MustReplaceByAsset(face.TextureID, ownerID))
                     {
-                        face.TextureID = Primitive.TextureEntry.WHITE_TEXTURE;
+                        face.TextureID = DEFAULT_SUBSTITEXTURE;
                         // Shortcut: if we're dropping the face's actual texture, assume we drop the materials too.
                         if (part.Shape.RenderMaterials.ContainsMaterial(face.MaterialID))
                             part.Shape.RenderMaterials.RemoveMaterial(face.MaterialID);
