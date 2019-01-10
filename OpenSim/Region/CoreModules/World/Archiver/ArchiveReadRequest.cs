@@ -315,10 +315,15 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                         {
                             if (item.ContainsMultipleItems)
                             {
+                                CoalescedObject obj = m_inventorySerializer.DeserializeCoalescedObjFromInventoryBytes(asset.Data);
+                                foreach (SceneObjectGroup grp in obj.Groups)
+                                {
+                                    ScanObjectForAssetCreatorIDs(grp);
+                                }
                             }
                             else
                             {
-                                SceneObjectGroup inventoryObject = ObjectFromItem(part, item);
+                                SceneObjectGroup inventoryObject = DeserializeObject(item.ItemID, asset.Data);
                                 if (inventoryObject != null)
                                     ScanObjectForAssetCreatorIDs(inventoryObject);
                             }
@@ -436,10 +441,19 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                 string xmlData = Utils.BytesToString(bytes);
                 grp = SceneObjectSerializer.FromOriginalXmlFormat(itemId, xmlData);
             }
-
             ResetGroupAfterDeserialization(itemId, grp);
 
             return grp;
+        }
+
+        private CoalescedObject DeserializeCoalescedObject(byte[] bytes)
+        {
+            if (m_inventorySerializer == null) return null;
+            if (m_inventorySerializer.CanDeserialize(bytes))
+            {
+                return m_inventorySerializer.DeserializeCoalescedObjFromInventoryBytes(bytes);
+            }
+            return null;
         }
 
         private AssetBase SerializeObjectToAsset(SceneObjectGroup grp)
@@ -447,7 +461,25 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             if (m_inventorySerializer == null) return null;
 
             byte[] bytes = m_inventorySerializer.SerializeGroupToInventoryBytes(grp, SerializationFlags.None);
-            AssetBase asset = new AssetBase(new UUID(grp.UUID), String.Empty);
+            AssetBase asset = new AssetBase(UUID.Random(), String.Empty);
+            asset.Type = (int)AssetType.Object;
+            asset.Data = bytes;
+            return asset;
+        }
+
+        private AssetBase ReserializeCoalescedToAsset(IList<SceneObjectGroup> items, List<ItemPermissionBlock> itemPermissions, SerializationFlags flags)
+        {
+            if (m_inventorySerializer == null) return null;
+
+            Dictionary<UUID, ItemPermissionBlock> perms = new Dictionary<UUID, ItemPermissionBlock>();
+            for (int i = 0; i < items.Count; i++)
+            {
+                perms.Add(items[i].UUID, itemPermissions[i]);
+            }
+            CoalescedObject csog = new CoalescedObject(items, perms);
+            byte[] bytes = m_inventorySerializer.SerializeCoalescedObjToInventoryBytes(csog, flags);
+
+            AssetBase asset = new AssetBase(UUID.Random(), String.Empty);
             asset.Type = (int)AssetType.Object;
             asset.Data = bytes;
             return asset;
@@ -598,6 +630,17 @@ namespace OpenSim.Region.CoreModules.World.Archiver
         private bool FilterPart(SceneObjectPart part, UUID ownerID)
         {
             bool filtered = false;
+
+            if (m_allowUserReassignment)
+            {
+                if (part.OwnerID != ownerID)
+                {
+                    // we're reassigning ownership, mark as filtered so that changes are saved
+                    part.OwnerID = ownerID;
+                    filtered = true;
+                }
+            }
+
             // Check if object creator has opted in
             if (MustReplaceByCreatorOwner(part.CreatorID, ownerID))
             {
@@ -617,19 +660,61 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             return filtered;
         }
 
-        private void ReserializeObjectIntoItem(SceneObjectGroup newInventoryObject, TaskInventoryItem item)
+        private void ReserializeAssetIntoItem(TaskInventoryItem item, AssetBase newAsset)
         {
             // We're filtering an object inside the Contents, so
             // replace the asset with a filtered one in this nested object.
             // Must re-serialize this part and store as an asset for reference 
             // for when this part's Contents are opened in the future
-            AssetBase newAsset = SerializeObjectToAsset(newInventoryObject);
             if (newAsset != null)
             {
-                newAsset.FullID = UUID.Random();
                 m_scene.CommsManager.AssetCache.AddAsset(newAsset, AssetRequestInfo.InternalRequest());
                 item.AssetID = newAsset.FullID;
             }
+        }
+
+        private bool FilterItem(SceneObjectPart part, TaskInventoryItem item, UUID ownerID, int depth)
+        {
+            if (item.AssetID == UUID.Zero) return false;
+
+            AssetBase asset = GetAsset(item.AssetID);
+            if (asset == null) return false;
+
+            bool filtered = false;
+            if (item.ContainsMultipleItems)
+            {
+                m_log.WarnFormat("[ARCHIVER]: Need to reserialize coalesced item: {0}");
+                CoalescedObject obj = m_inventorySerializer.DeserializeCoalescedObjFromInventoryBytes(asset.Data);
+                List<SceneObjectGroup> items = new List<SceneObjectGroup>();
+                List<ItemPermissionBlock> perms = new List<ItemPermissionBlock>();
+                foreach (SceneObjectGroup inventoryObject in obj.Groups)
+                {
+                    ItemPermissionBlock itemperms = obj.FindPermissions(inventoryObject.UUID);
+                    if ((inventoryObject != null) && FilterObjectByCreators(inventoryObject, ownerID, depth + 1))
+                    {
+                        filtered = true; // ripple effect. this object's Contents changed, new asset ID in items.
+                    }
+                    items.Add(inventoryObject);
+                    perms.Add(itemperms);
+                }
+                if (filtered)
+                {
+                    // ReserializeCoalescedToAsset allocates a new asset ID
+                    asset = ReserializeCoalescedToAsset(items, perms, SerializationFlags.None);
+                    ReserializeAssetIntoItem(item, asset);
+                }
+            }
+            else
+            {
+                SceneObjectGroup inventoryObject = DeserializeObject(item.ItemID, asset.Data);
+                if ((inventoryObject != null) && FilterObjectByCreators(inventoryObject, ownerID, depth + 1))
+                {
+                    // SerializeObjectToAsset allocates a new asset ID
+                    ReserializeAssetIntoItem(item, SerializeObjectToAsset(inventoryObject));
+                    filtered = true; // ripple effect. this object's Contents changed, new asset ID in items.
+                }
+            }
+            return filtered;
         }
 
         // depth==0 when it's the top-level object (no need to reserialize changes as asset)
@@ -652,15 +737,23 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                         m_assetCreators[item.AssetID] = item.CreatorID;
                     }
 
+                    if (m_allowUserReassignment)
+                    {
+                        if (item.OwnerID != ownerID)
+                        {
+                            // we're reassigning ownership, mark as filtered so that changes are saved
+                            item.OwnerID = ownerID;
+                            filtered = true;
+                        }
+                    }
+
+
                     // Now let's check whether the item needs filtering...
                     if (item.InvType == (int)InventoryType.Object)
                     {
-                        SceneObjectGroup inventoryObject = ObjectFromItem(part, item);
-                        if ((inventoryObject != null) && FilterObjectByCreators(inventoryObject, ownerID, depth + 1))
+                        filtered = FilterItem(part, item, ownerID, depth) || filtered;
+                        if (filtered)
                         {
-                            // if (depth > 0)
-                                ReserializeObjectIntoItem(inventoryObject, item);
-                            filtered = true; // ripple effect. this object's Contents changed, new asset ID in items.
                             replacedItems.Add(item);
                             m_replacedItem++;
                         }
@@ -721,111 +814,32 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             return m_scene.CommsManager.AssetCache.GetAsset(assetID, AssetRequestInfo.InternalRequest());
         }
 
-        // returns object on success, or null when objectFixingFailed == true
-        private SceneObjectGroup ObjectFromItem(SceneObjectPart part, TaskInventoryItem item)
-        {
-            AssetBase asset = GetAsset(item.AssetID);
-            if (asset == null)
-                return null;
-
-            if (item.ContainsMultipleItems)
-            {
-                // This should never happen with rezzed Contents but just in case...
-                m_log.ErrorFormat("[ARCHIVER]: Don't know how to handle coalesced objects within an OAR file, for {0} in {1}", item.Name, part.ParentGroup.Name);
-                return null;
-            }
-            else
-            {
-                return DeserializeObject(item.ItemID, asset.Data);
-            }
-        }
-
-        // returns success==true, or false when objectFixingFailed == true
-        private bool DearchiveSceneObject(SceneObjectGroup sceneObject, UUID ownerID, bool checkContents, Dictionary<UUID, UUID> OriginalBackupIDs)
+        private void DearchiveSceneObject(SceneObjectGroup sceneObject, UUID ownerID, bool checkContents, Dictionary<UUID, UUID> OriginalBackupIDs)
         {
             UUID resolveWithUser = UUID.Zero;   // if m_allowUserReassignment, this is who gets it all.
-            bool objectFixingFailed = false;
-
-            bool filtered = FilterObjectByCreators(sceneObject, ownerID, 0);
-
-            // For now, give all incoming scene objects new uuids.  This will allow scenes to be cloned
-            // on the same region server and multiple examples a single object archive to be imported
-            // to the same scene (when this is possible).
-            UUID OldUUID = sceneObject.UUID;
-            sceneObject.ResetIDs();
-            // if sceneObject is no-copy, save the old ID with the new ID.
-            OriginalBackupIDs[sceneObject.UUID] = OldUUID;
-
             if (m_allowUserReassignment)
             {
                 // Try to retain the original creator/owner/lastowner if their uuid is present on this grid
                 // otherwise, use the master avatar uuid instead
-                resolveWithUser = m_scene.RegionInfo.MasterAvatarAssignedUUID;
-
                 if (m_scene.RegionInfo.EstateSettings.EstateOwner != UUID.Zero)
                     resolveWithUser = m_scene.RegionInfo.EstateSettings.EstateOwner;
+                else
+                    resolveWithUser = m_scene.RegionInfo.MasterAvatarAssignedUUID;
             }
 
-            foreach (SceneObjectPart part in sceneObject.GetParts())
+            if (!ResolveUserUuid(ownerID))
             {
-                if (!ResolveUserUuid(part.CreatorID))
+                if (ResolveUserUuid(sceneObject.OwnerID))
                 {
-                    m_log.WarnFormat("[ARCHIVER]: Could not resolve av/group ID {0} for object '{1}' part creator", part.CreatorID, sceneObject.Name);
-                    // Don't fail to load an object owned by a valid user, just because a creator no longer exists in the DB. (We've seen this with some of YadNi's stuff.)
-                    // objectFixingFailed = true;
-                    // part.CreatorID = masterAvatarId;
-                }
-
-                if (ResolveUserUuid(ownerID))
-                {
-                    part.OwnerID = ownerID;
+                    ownerID = sceneObject.OwnerID;
                 } else
-                if (!ResolveUserUuid(part.OwnerID))
                 {
-                    m_log.WarnFormat("[ARCHIVER]: Could not resolve av/group ID {0} for object '{1}' part owner", part.OwnerID, sceneObject.Name);
-                    objectFixingFailed = true;
-                    part.OwnerID = resolveWithUser;
-                }
-
-                if (!ResolveUserUuid(part.LastOwnerID))
-                {
-                    part.LastOwnerID = part.OwnerID;
-                }
-
-                // Fix ownership/creator of inventory items
-                // Not doing so results in inventory items
-                // being no copy/no mod for everyone
-                lock (part.TaskInventory)
-                {
-                    TaskInventoryDictionary inv = part.TaskInventory;
-                    foreach (KeyValuePair<UUID, TaskInventoryItem> kvp in inv)
-                    {
-                        TaskInventoryItem item = kvp.Value;
-                        if (!ResolveUserUuid(ownerID))
-                        {
-                            m_log.WarnFormat("[ARCHIVER]: Could not resolve av/group ID {0} for object '{1}' inventory item owner", item.OwnerID, sceneObject.Name);
-                            objectFixingFailed = true;
-                            item.OwnerID = resolveWithUser;
-                        }
-
-                        if (!ResolveUserUuid(item.CreatorID))
-                        {
-                            m_log.WarnFormat("[ARCHIVER]: Could not resolve av/group ID {0} for object '{1}' inventory item creator", kvp.Value.CreatorID, sceneObject.Name);
-                            // Don't fail to load an object owned by a valid user, just because a creator no longer exists in the DB. (We've seen this with some of YadNi's stuff.)
-                            // objectFixingFailed = true;
-                            // item.CreatorID = resolveWithUser;
-                        }
-
-                        if (item.InvType == (int)InventoryType.Object)
-                        {
-                            SceneObjectGroup inventoryObject = ObjectFromItem(part, item);
-                            if (inventoryObject != null)
-                                FilterObjectByCreators(inventoryObject, ownerID, 1);
-                        }
-                    }
+                    m_log.WarnFormat("[ARCHIVER]: Could not resolve av/group ID {0} for object '{1}' owner", sceneObject.OwnerID, sceneObject.Name);
+                    ownerID = resolveWithUser;
                 }
             }
-            return !objectFixingFailed;
+
+            FilterObjectByCreators(sceneObject, ownerID, 0);
         }
 
         private void DearchiveRegion0DotStar(string optionsTable)
@@ -906,8 +920,6 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             List<SceneObjectGroup> backupObjects = new List<SceneObjectGroup>();
             Dictionary<UUID, UUID> OriginalBackupIDs = new Dictionary<UUID, UUID>();
 
-            bool objectFixingFailed = false;
-
             foreach (string serializedSceneObject in serializedSceneObjects)
             {
                 SceneObjectGroup sceneObject;
@@ -928,16 +940,9 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                     else throw new Exception("Error while deserializing group");
                 }
 
-                if (!DearchiveSceneObject(sceneObject, sceneObject.OwnerID, true, OriginalBackupIDs))
-                    objectFixingFailed = true;
+                DearchiveSceneObject(sceneObject, sceneObject.OwnerID, true, OriginalBackupIDs);
 
                 backupObjects.Add(sceneObject);
-            }
-
-            if (objectFixingFailed && !m_allowUserReassignment)
-            {
-                m_log.Error("[ARCHIVER]: Could not restore scene objects. One or more avatar accounts not found.");
-                return;
             }
 
             Dictionary<UUID, SceneObjectGroup> ExistingNoCopyObjects = new Dictionary<UUID,SceneObjectGroup>();
