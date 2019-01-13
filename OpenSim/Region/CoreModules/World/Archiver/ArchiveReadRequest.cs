@@ -717,6 +717,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                     filtered = true; // ripple effect. this object's Contents changed, new asset ID in items.
                 }
             }
+            item.OwnerID = ownerID; // save the current owner before reserializing item too
             return filtered;
         }
 
