@@ -62,8 +62,15 @@ namespace OpenSim.Region.CoreModules.World.Archiver
         private static readonly UUID DEFAULT_TERRAIN_3 = new UUID("179cdabd-398a-9b6b-1391-4dc333ba321f");  // Terrain Mountain
         private static readonly UUID DEFAULT_TERRAIN_4 = new UUID("beb169c7-11ea-fff2-efe5-0f24dc881df2");  // Terrain Rock
 
+        // Known viewer UUIDs
+        private static readonly UUID TEXTURE_WHITE = new UUID("5748decc-f629-461c-9a36-a35a221fe21f");  // blank / white
+        private static readonly UUID TEXTURE_PLYWOOD = new UUID("89556747-24cb-43ed-920b-47caed15465f");  // plywood
+        private static readonly UUID TEXTURE_BLANK = new UUID("5748decc-f629-461c-9a36-a35a221fe21f");
+        private static readonly UUID TEXTURE_TRANSPARENT = new UUID("8dcd4a48-2d37-4909-9f78-f7a9eb4ef903");
+        private static readonly UUID TEXTURE_MEDIA = new UUID("8b5fec65-8d8d-9dc5-cda8-8fdf2716e361");
+
         // The following could be Primitive.TextureEntry.WHITE_TEXTURE but that hides replacements, so let's use the more obvious.
-        private static readonly UUID DEFAULT_SUBSTITEXTURE = new UUID("89556747-24cb-43ed-920b-47caed15465f");  // plywood
+        private static readonly UUID DEFAULT_SUBSTITEXTURE = TEXTURE_PLYWOOD;  // plywood
 
         private Scene m_scene;
         private Stream m_loadStream;
@@ -171,6 +178,14 @@ namespace OpenSim.Region.CoreModules.World.Archiver
 
             m_libAssets = new Dictionary<UUID, string>();
             WhitelistLibraryFolder(m_scene.CommsManager.LibraryRoot);
+
+            // Add known viewer defaults we want to assume are okay to use.
+            // These may or may not match those in the Library, doesn't matter, let's collect both.
+            m_libAssets[TEXTURE_WHITE] = "TEXTURE_WHITE";
+            m_libAssets[TEXTURE_PLYWOOD] = "TEXTURE_PLYWOOD";
+            m_libAssets[TEXTURE_BLANK] = "TEXTURE_BLANK";
+            m_libAssets[TEXTURE_TRANSPARENT] = "TEXTURE_TRANSPARENT";
+            m_libAssets[TEXTURE_MEDIA] = "TEXTURE_MEDIA";
         }
 
         /// <summary>
@@ -326,7 +341,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                             }
                             else
                             {
-                                SceneObjectGroup inventoryObject = DeserializeObject(item.ItemID, asset.Data);
+                                SceneObjectGroup inventoryObject = DeserializeObject(part.OwnerID, item.ItemID, asset.Data);
                                 if (inventoryObject != null)
                                     ScanObjectForAssetCreatorIDs(inventoryObject);
                             }
@@ -420,17 +435,29 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             }
         }
 
-        private static void ResetGroupAfterDeserialization(UUID itemId, SceneObjectGroup grp)
+        private static void ResetGroupAfterDeserialization(UUID ownerID, UUID itemId, SceneObjectGroup grp)
         {
+            if (grp.OwnerID == UUID.Zero)
+                grp.OwnerID = ownerID;
             grp.ResetInstance(true, false, UUID.Zero);
             foreach (var part in grp.GetParts())
             {
+                if (part.OwnerID == UUID.Zero)
+                    part.OwnerID = ownerID;
+                foreach (var kvp in part.TaskInventory)
+                {
+                    TaskInventoryItem item = kvp.Value;
+                    if (item.OwnerID == UUID.Zero)
+                    {
+                        item.OwnerID = ownerID;
+                    }
+                }
                 part.DoPostDeserializationCleanups(itemId);
                 part.TrimPermissions();
             }
         }
 
-        private SceneObjectGroup DeserializeObject(UUID itemId, byte[] bytes)
+        private SceneObjectGroup DeserializeObject(UUID ownerID, UUID itemId, byte[] bytes)
         {
             SceneObjectGroup grp;
 
@@ -444,7 +471,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                 string xmlData = Utils.BytesToString(bytes);
                 grp = SceneObjectSerializer.FromOriginalXmlFormat(itemId, xmlData);
             }
-            ResetGroupAfterDeserialization(itemId, grp);
+            ResetGroupAfterDeserialization(ownerID, itemId, grp);
 
             return grp;
         }
@@ -498,17 +525,24 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             {
                 case 2: // allow the asset in so everyone can use it
                     m_keptNonCreator++;
+                    m_log.InfoFormat("[ARCHIVER]: Retaining assets for owner {0} by creator {1} due to opt-in ALL.", ownerID, creatorID);
                     return false;
                 case 1: // allow my own copies to be used
                     if (ownerID == creatorID)
                     {
+                        m_log.InfoFormat("[ARCHIVER]: Retaining assets for owner {0} by creator {1} due to opt-in MINE.", ownerID, creatorID);
                         m_keptCreator++;
                         return false;
                     }
+                    m_log.InfoFormat("[ARCHIVER]: Filtering assets for owner {0} by creator {1} due to opt-in MINE for owner {1}.", ownerID, creatorID);
                     m_replacedNonCreator++;
                     return true;
                 case 0:
+                    m_log.InfoFormat("[ARCHIVER]: Filtering assets for owner {0} by creator {1} due to opt-in NONE for owner {1}.", ownerID, creatorID);
+                    m_replacedCreator++;
+                    return true;
                 default: // unknown opt-in status, assume same as 0;
+                    m_log.InfoFormat("[ARCHIVER]: Filtering assets for owner {0} by creator {1} due to opt-in UNKNOWN for owner {1}.", ownerID, creatorID);
                     m_replacedCreator++;
                     return true;
             }
@@ -521,7 +555,10 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                 return false;    // no filtering
 
             if (m_libAssets.ContainsKey(assetID))
+            {
+                m_log.InfoFormat("[ARCHIVER]: Retaining asset {0} due to LIBRARY for owner {1}.", assetID, ownerID);
                 return false;   // it's in the Library
+            }
 
             bool mustReplace = true;
             if (m_assetCreators.ContainsKey(assetID))
@@ -529,7 +566,9 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                 // We have explicit wishes from the creator
                 UUID creatorID = m_assetCreators[assetID];
                 mustReplace = MustReplaceByCreatorOwner(creatorID, ownerID);
-            }
+                m_log.InfoFormat("[ARCHIVER]: {0} asset {1} for owner {2} due to opt-in by creator {3}.", mustReplace ? "Filtering" : "Retaining", assetID, ownerID, creatorID);
+            } else
+                m_log.InfoFormat("[ARCHIVER]: Filtering asset {0} for owner {1} due to creator UNKNOWN.", assetID, ownerID);
 
             // The creator is unknown, assume opt-in denied, replace
             return mustReplace;
@@ -545,6 +584,8 @@ namespace OpenSim.Region.CoreModules.World.Archiver
 
         private void ReplacePartWithDefaultPrim(SceneObjectPart part, UUID ownerID)
         {
+            m_log.InfoFormat("[ARCHIVER]: Substituting part '{0}' for owner {1}.", part.Name, ownerID);
+
             // First, replace the prim with a default prim.
             part.Shape = PrimitiveBaseShape.Default.Copy();
             ReplaceDescription(part, part.CreatorID);
@@ -559,10 +600,29 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             m_replacedPart++;
         }
 
+        private Primitive.TextureEntryFace FilterFaceTexture(SceneObjectPart part, Primitive.TextureEntry te, Primitive.TextureEntryFace face, UUID ownerID)
+        {
+            if (MustReplaceByAsset(face.TextureID, ownerID))
+            {
+                m_log.InfoFormat("[ARCHIVER]: Filtering prim texture {0} in part '{1}' for owner {1}.", face.TextureID, part.Name, ownerID);
+                face.TextureID = DEFAULT_SUBSTITEXTURE;
+                // Shortcut: if we're dropping the face's actual texture, assume we drop the materials too.
+                if (part.Shape.RenderMaterials.ContainsMaterial(face.MaterialID))
+                    part.Shape.RenderMaterials.RemoveMaterial(face.MaterialID);
+                face.MaterialID = UUID.Zero;
+                m_replacedTexture++;
+                return face;
+            }
+            else
+            {
+                m_keptTexture++;
+                return null;
+            }
+        }
+
         private bool FilterPrimTexturesByCreator(SceneObjectPart part, UUID ownerID)
         {
             bool filtered = false;
-            Primitive.TextureEntry te = new Primitive.TextureEntry(part.Shape.TextureEntry, 0, part.Shape.TextureEntry.Length);
 
             int basicSculptType = part.Shape.SculptType & (byte)0x3F;
             if (basicSculptType != (byte)SculptType.None)
@@ -570,34 +630,47 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                 if (basicSculptType == (byte)SculptType.Mesh)
                 {
                     // Assume that mesh textures are created by the prim creator
+                    m_log.InfoFormat("[ARCHIVER]: Retaining MESH textures for part '{0}' for owner {1}.", part.Name, ownerID);
                     return false;
                 }
                 if (MustReplaceByAsset(part.Shape.SculptTexture, ownerID))
                 {
+                    m_log.InfoFormat("[ARCHIVER]: Filtering SCULPT texture {0} in part '{1}' for owner {1}.", part.Shape.SculptTexture, part.Name, ownerID);
                     ReplacePartWithDefaultPrim(part, ownerID);
                     filtered = true;
                 }
             }
 
+            // Now let's filter actual textures on faces.
+            Primitive.TextureEntry te = new Primitive.TextureEntry(part.Shape.TextureEntry, 0, part.Shape.TextureEntry.Length);
+
+            // Start with the default texture
+            Primitive.TextureEntryFace face = te.DefaultTexture;
+            Primitive.TextureEntryFace newFace = FilterFaceTexture(part, te, face, ownerID);
+            if (newFace != null)
+            {
+                te.DefaultTexture = face;
+                filtered = true;
+            }
+
+            // Now filter the textures on any of the faces.
             for (int i = 0; i < Primitive.TextureEntry.MAX_FACES; i++)
             {
                 if (te.FaceTextures[i] != null)
                 {
-                    Primitive.TextureEntryFace face = (Primitive.TextureEntryFace)te.FaceTextures[i].Clone();
-                    if (MustReplaceByAsset(face.TextureID, ownerID))
+                    face = te.FaceTextures[i];
+                    newFace = FilterFaceTexture(part, te, face, ownerID);
+                    if (newFace != null)
                     {
-                        face.TextureID = DEFAULT_SUBSTITEXTURE;
-                        // Shortcut: if we're dropping the face's actual texture, assume we drop the materials too.
-                        if (part.Shape.RenderMaterials.ContainsMaterial(face.MaterialID))
-                            part.Shape.RenderMaterials.RemoveMaterial(face.MaterialID);
-                        face.MaterialID = UUID.Zero;
-                        m_replacedTexture++;
+                        te.FaceTextures[i] = newFace;
                         filtered = true;
                     }
-                    else
-                        m_keptTexture++;
                 }
             }
+
+            // And save the changes
+            if (filtered)
+                part.UpdateTexture(te);
             return filtered;
         }
 
@@ -608,24 +681,32 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             {
                 if (MustReplaceByAsset(part.Sound, ownerID))
                 {
+                    m_log.InfoFormat("[ARCHIVER]: Filtering prim sound {0} in part '{1}' for owner {1}.", part.Sound, part.Name, ownerID);
                     part.Sound = UUID.Zero;
                     m_replacedSound++;
                     filtered = true;
                 }
                 else
+                {
+                    m_log.InfoFormat("[ARCHIVER]: Retaining prim sound {0} in part '{1}' for owner {1}.", part.Sound, part.Name, ownerID);
                     m_keptSound++;
+                }
             }
 
             if (part.CollisionSound != UUID.Zero)
             {
                 if (MustReplaceByAsset(part.CollisionSound, ownerID))
                 {
+                    m_log.InfoFormat("[ARCHIVER]: Filtering prim collision sound {0} in part '{1}' for owner {1}.", part.CollisionSound, part.Name, ownerID);
                     part.CollisionSound = UUID.Zero;
                     m_replacedSound++;
                     filtered = true;
                 }
                 else
+                {
+                    m_log.InfoFormat("[ARCHIVER]: Retaining prim collision sound {0} in part '{1}' for owner {1}.", part.CollisionSound, part.Name, ownerID);
                     m_keptSound++;
+                }
             }
             return filtered;
         }
@@ -639,6 +720,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                 if (part.OwnerID != ownerID)
                 {
                     // we're reassigning ownership, mark as filtered so that changes are saved
+                    m_log.InfoFormat("[ARCHIVER]: Reassigning prim ownership in part '{0}' in '{1}' for owner {2} to {3}.", part.Name, part.ParentGroup.Name, part.OwnerID, ownerID);
                     part.OwnerID = ownerID;
                     filtered = true;
                 }
@@ -655,10 +737,10 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             else
             {
                 m_keptPart++;
-                filtered |= FilterPrimTexturesByCreator(part, ownerID);
+                filtered = FilterPrimTexturesByCreator(part, ownerID) | filtered;
             }
             // Now in both cases filter other prim assets
-            filtered |= FilterOtherPrimAssetsByCreator(part, ownerID);
+            filtered = FilterOtherPrimAssetsByCreator(part, ownerID) | filtered;
 
             return filtered;
         }
@@ -672,6 +754,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             if (newAsset != null)
             {
                 m_scene.CommsManager.AssetCache.AddAsset(newAsset, AssetRequestInfo.InternalRequest());
+                m_log.InfoFormat("[ARCHIVER]: Reserializing new asset {0} in item '{1}'.", newAsset.FullID, item.Name);
                 item.AssetID = newAsset.FullID;
             }
         }
@@ -686,6 +769,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             bool filtered = false;
             if (item.ContainsMultipleItems)
             {
+                m_log.InfoFormat("[ARCHIVER]: Part '{0}' has coalesced item '{1}'.", part.Name, item.Name);
                 // Need to reserialize coalesced item
                 CoalescedObject obj = m_inventorySerializer.DeserializeCoalescedObjFromInventoryBytes(asset.Data);
                 List<SceneObjectGroup> items = new List<SceneObjectGroup>();
@@ -695,23 +779,28 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                     ItemPermissionBlock itemperms = obj.FindPermissions(inventoryObject.UUID);
                     if ((inventoryObject != null) && FilterObjectByCreators(inventoryObject, ownerID, depth + 1))
                     {
+                        m_log.InfoFormat("[ARCHIVER]: Coalesced object '{0}' in item '{1}' needs filtering.", inventoryObject.Name, item.Name);
                         filtered = true; // ripple effect. this object's Contents changed, new asset ID in items.
                     }
+                    inventoryObject.OwnerID = ownerID;  // save the current owner before reserializing object
                     items.Add(inventoryObject);
                     perms.Add(itemperms);
                 }
                 if (filtered)
                 {
                     // ReserializeCoalescedToAsset allocates a new asset ID
+                    m_log.InfoFormat("[ARCHIVER]: Reserializing coalesced item '{0}'.", item.Name);
                     asset = ReserializeCoalescedToAsset(items, perms, SerializationFlags.None);
                     ReserializeAssetIntoItem(item, asset);
                 }
             }
             else
             {
-                SceneObjectGroup inventoryObject = DeserializeObject(item.ItemID, asset.Data);
+                SceneObjectGroup inventoryObject = DeserializeObject(part.OwnerID, item.ItemID, asset.Data);
                 if ((inventoryObject != null) && FilterObjectByCreators(inventoryObject, ownerID, depth + 1))
                 {
+                    m_log.InfoFormat("[ARCHIVER]: Object '{0}' in item '{1}' needs filtering.", inventoryObject.Name, item.Name);
+                    inventoryObject.OwnerID = ownerID;  // save the current owner before reserializing object
                     // SerializeObjectToAsset allocates a new asset ID
                     ReserializeAssetIntoItem(item, SerializeObjectToAsset(inventoryObject));
                     filtered = true; // ripple effect. this object's Contents changed, new asset ID in items.
@@ -765,23 +854,29 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                     else
                     if (item.CreatorID.Equals(ownerID))
                     {
+                        m_log.InfoFormat("[ARCHIVER]: Item '{0}' in part '{1} has owner {2} matching creator.", item.Name, part.Name, item.OwnerID);
                         m_keptItem++;
                     }
                     else
                     if (MustReplaceByAsset(item.AssetID, ownerID))
                     {
+                        m_log.InfoFormat("[ARCHIVER]: Item '{0}' in part '{1} has must zero asset {2}.", item.Name, part.Name, item.AssetID);
                         item.AssetID = UUID.Zero;
                         filtered = true;
                         replacedItems.Add(item);
                         m_replacedItem++;
                     }
                     else
+                    {
+                        m_log.InfoFormat("[ARCHIVER]: Item '{0}' in part '{1} can retain asset {2}.", item.Name, part.Name, item.AssetID);
                         m_keptItem++;
+                    }
                 }
 
                 // Now, while not iterating the dictionary any more, update some of the items with the mods.
                 foreach (var item in replacedItems)
                 {
+                    m_log.InfoFormat("[ARCHIVER]: replacedItems '{0}' in part '{1}' with asset {2}.", item.Name, part.Name, item.AssetID);
                     part.TaskInventory[item.ItemID] = item;
                 }
             }
@@ -800,8 +895,8 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             {
                 try
                 {
-                    filtered |= FilterPart(part, ownerID);
-                    filtered |= FilterContents(part, ownerID, depth);
+                    filtered = FilterPart(part, ownerID) | filtered;
+                    filtered = FilterContents(part, ownerID, depth) | filtered;
                 }
                 catch (Exception e)
                 {
