@@ -274,6 +274,17 @@ namespace OpenSim.Region.Framework.Scenes
         }
 
         /// <summary>
+        /// Sets the debug level on loading or scanning an OpenSim archive.
+        /// </summary>
+        /// <param name="level"></param>
+        public void SetOARDebug(int level)
+        {
+            IRegionArchiverModule archiver = CurrentOrFirstScene.RequestModuleInterface<IRegionArchiverModule>();
+            if (archiver != null)
+                archiver.SetDebug(level);
+        }
+
+        /// <summary>
         /// Load an OpenSim archive into the current scene.  This will load both the shapes of the prims and upload
         /// their assets to the asset service.
         /// </summary>
@@ -550,7 +561,7 @@ namespace OpenSim.Region.Framework.Scenes
                             {
                                 SceneObjectGroup SOG = (SceneObjectGroup)ent;
                                 // Allow UUID.Zero to represent a wildcard for all owners.
-                                if ((OwnerID == UUID.Zero) || (OwnerID == SOG.OwnerID))
+                                if ((OwnerID == SOG.OwnerID) || ((OwnerID == UUID.Zero) && !SOG.IsAttachment))
                                     scene.DeleteSceneObject(SOG, false, false, true);
                             }
                         }
