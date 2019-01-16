@@ -312,7 +312,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             }
         }
 
-        private void ScanPartForAssetCreatorIDs(SceneObjectPart part)
+        private void ScanContentsForAssetCreatorIDs(SceneObjectPart part)
         {
             try
             {
@@ -350,18 +350,6 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                         }
                     }
                 }
-
-                // Check if part is mesh, assume SculptTexture asset is created by part creator.
-                int basicSculptType = part.Shape.SculptType & (byte)0x3F;
-                if (basicSculptType != (byte)SculptType.None)
-                {
-                    if ((basicSculptType == (byte)SculptType.Mesh) && (part.Shape.SculptTexture != UUID.Zero))
-                    {
-                        // Assume that mesh textures are created by the prim creator
-                        m_assetCreators[part.Shape.SculptTexture] = part.CreatorID;
-                        m_scannedMesh++;
-                    }
-                }
             }
             catch (Exception e)
             {
@@ -379,7 +367,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                     m_scannedParts++;
                     if ((m_scannedParts % 1000) == 0)
                         m_log.InfoFormat("[ARCHIVER]: {0} objects, {1} mesh, {2} parts, {3} items scanned.", m_scannedObjects, m_scannedMesh, m_scannedParts, m_scannedItems);
-                    ScanPartForAssetCreatorIDs(part);
+                    ScanContentsForAssetCreatorIDs(part);
                 }
             }
             catch (Exception e)
@@ -616,7 +604,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             if (MustReplaceByAsset(face.TextureID, ownerID))
             {
                 if (m_debugOars >= 1)
-                    m_log.InfoFormat("[ARCHIVER]: Filtering prim texture {0} in part '{1}' for owner {1}.", face.TextureID, part.Name, ownerID);
+                    m_log.InfoFormat("[ARCHIVER]: Filtering prim texture {0} in part '{1}' for owner {2}.", face.TextureID, part.Name, ownerID);
                 face.TextureID = DEFAULT_SUBSTITEXTURE;
                 // Shortcut: if we're dropping the face's actual texture, assume we drop the materials too.
                 if (part.Shape.RenderMaterials.ContainsMaterial(face.MaterialID))
@@ -636,20 +624,12 @@ namespace OpenSim.Region.CoreModules.World.Archiver
         {
             bool filtered = false;
 
-            int basicSculptType = part.Shape.SculptType & (byte)0x3F;
-            if (basicSculptType != (byte)SculptType.None)
+            if (part.Shape.SculptTexture != UUID.Zero)
             {
-                if (basicSculptType == (byte)SculptType.Mesh)
-                {
-                    // Assume that mesh textures are created by the prim creator
-                    if (m_debugOars >= 1)
-                        m_log.InfoFormat("[ARCHIVER]: Retaining MESH textures for part '{0}' for owner {1}.", part.Name, ownerID);
-                    return false;
-                }
                 if (MustReplaceByAsset(part.Shape.SculptTexture, ownerID))
                 {
                     if (m_debugOars >= 1)
-                        m_log.InfoFormat("[ARCHIVER]: Filtering SCULPT texture {0} in part '{1}' for owner {1}.", part.Shape.SculptTexture, part.Name, ownerID);
+                        m_log.InfoFormat("[ARCHIVER]: Filtering SCULPT/MESH texture {0} in part '{1}' for owner {2}.", part.Shape.SculptTexture, part.Name, ownerID);
                     ReplacePartWithDefaultPrim(part, ownerID);
                     filtered = true;
                 }
