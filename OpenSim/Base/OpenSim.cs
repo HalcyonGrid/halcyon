@@ -235,6 +235,10 @@ namespace OpenSim
                                           "debug crossings <level>",
                                           "Turn on crossings debugging (0 or 1)", Debug);
 
+            m_console.Commands.AddCommand("region", false, "debug oars",
+                                          "debug oars <level>",
+                                          "Turn on OAR debugging", Debug);
+
             m_console.Commands.AddCommand("region", false, "change region",
                                           "change region <region name>",
                                           "Change current console region", ChangeSelectedRegion);
@@ -978,6 +982,23 @@ namespace OpenSim
                             }
                         }
                         m_console.Error("crossings debug should be 0 or 1");
+                    }
+
+                    break;
+
+                case "oars":
+                    if (args.Length > 2)
+                    {
+                        int newDebug;
+                        if (int.TryParse(args[2], out newDebug))
+                        {
+                            m_sceneManager.SetOARDebug(newDebug);
+                        }
+                        else
+                        {
+                            m_console.Error("packet debug should be 0..255");
+                        }
+                        m_console.Notice("New OAR debug: " + newDebug.ToString());
                     }
 
                     break;

@@ -109,7 +109,7 @@ namespace OpenSim.Region.Framework.Interfaces
         /// settings in the archive will be ignored.
         /// </param>
         /// <param name="requestId">If supplied, this request Id is later returned in the saved event</param>
-        void DearchiveRegion(string loadPath, bool merge, Guid requestId, bool allowUserReassignment, bool skipErrorGroups, string optionsTable);        
+        void DearchiveRegion(string loadPath, bool merge, Guid requestId, bool allowUserReassignment, bool skipErrorGroups, string optionsTable);
         
         /// <summary>
         /// Dearchive a region from a stream.  This replaces the existing scene. 
@@ -140,5 +140,7 @@ namespace OpenSim.Region.Framework.Interfaces
         /// 
         /// <param name="loadPath">name of the OAR file</param>
         void ScanArchiveForAssetCreatorIDs(string loadPath);
+
+        void SetDebug(int level);
     }
 }

@@ -336,6 +336,9 @@ namespace InWorldz.RemoteAdmin
             String filename = (string)args[2];
             bool allowUserReassignment = Convert.ToBoolean(args[3]);
             bool skipErrorGroups = Convert.ToBoolean(args[4]);
+            bool debug = false;
+            if (args.Count > 5)
+                debug = Convert.ToBoolean(args[5]);
 
             m_log.Info("[RADMIN]: Received Load OAR Administrator Request");
 
@@ -505,6 +508,9 @@ namespace InWorldz.RemoteAdmin
             String filename = (string)args[2];
             bool allowUserReassignment = Convert.ToBoolean(args[3]);
             bool skipErrorGroups = Convert.ToBoolean(args[4]);
+            bool debug = false;
+            if (args.Count > 5)
+                debug = Convert.ToBoolean(args[5]);
 
             m_log.Info("[RADMIN]: Received Region Restore Administrator Request");
 
