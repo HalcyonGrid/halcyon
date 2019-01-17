@@ -42,6 +42,10 @@ using OpenSim.Region.CoreModules.World.Terrain;
 using OpenSim.Region.Framework.Interfaces;
 using OpenSim.Region.Framework.Scenes;
 using OpenSim.Region.Framework;
+using OpenSim.Data.SimpleDB;
+using System.Data;
+using Nini.Config;
+using OpenSim.Region.Framework.Scenes.Serialization;
 
 namespace OpenSim.Region.CoreModules.World.Archiver
 {
@@ -51,12 +55,32 @@ namespace OpenSim.Region.CoreModules.World.Archiver
     public class ArchiveReadRequest
     {
         private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
+        private static readonly String ASSET_CREATORS = "asset_creators";
+
+        private static readonly UUID DEFAULT_TERRAIN_1 = new UUID("b8d3965a-ad78-bf43-699b-bff8eca6c975");  // Terrain Dirt
+        private static readonly UUID DEFAULT_TERRAIN_2 = new UUID("abb783e6-3e93-26c0-248a-247666855da3");  // Terrain Grass
+        private static readonly UUID DEFAULT_TERRAIN_3 = new UUID("179cdabd-398a-9b6b-1391-4dc333ba321f");  // Terrain Mountain
+        private static readonly UUID DEFAULT_TERRAIN_4 = new UUID("beb169c7-11ea-fff2-efe5-0f24dc881df2");  // Terrain Rock
+
+        // Known viewer UUIDs
+        private static readonly UUID TEXTURE_WHITE = new UUID("5748decc-f629-461c-9a36-a35a221fe21f");  // blank / white
+        private static readonly UUID TEXTURE_PLYWOOD = new UUID("89556747-24cb-43ed-920b-47caed15465f");  // plywood
+        private static readonly UUID TEXTURE_BLANK = new UUID("5748decc-f629-461c-9a36-a35a221fe21f");
+        private static readonly UUID TEXTURE_TRANSPARENT = new UUID("8dcd4a48-2d37-4909-9f78-f7a9eb4ef903");
+        private static readonly UUID TEXTURE_MEDIA = new UUID("8b5fec65-8d8d-9dc5-cda8-8fdf2716e361");
+
+        // The following could be Primitive.TextureEntry.WHITE_TEXTURE but that hides replacements, so let's use the more obvious.
+        private static readonly UUID DEFAULT_SUBSTITEXTURE = TEXTURE_PLYWOOD;  // plywood
 
         private Scene m_scene;
         private Stream m_loadStream;
         private Guid m_requestId;
         private string m_errorMessage;
-        private IGroupsModule m_GroupsModule; 
+        private IGroupsModule m_GroupsModule;
+
+        private ConnectionFactory _connFactory;
+        private IConfigSource m_config;
+        private IRegionSerializerModule m_serializer;
 
         /// <value>
         /// Should the archive being loaded be merged with what is already on the region?
@@ -70,6 +94,32 @@ namespace OpenSim.Region.CoreModules.World.Archiver
 
         private bool m_skipErrorGroups = false;
 
+        // Filtered opt-in OAR loading
+        private Dictionary<UUID, int> m_optInTable = null;
+        private Dictionary<UUID, UUID> m_assetCreators = null;
+        private Dictionary<UUID, String> m_libAssets = null;
+        private IInventoryObjectSerializer m_inventorySerializer = null;
+
+        int m_replacedPart = 0;
+        int m_replacedItem = 0;
+        int m_replacedTexture = 0;
+        int m_replacedSound = 0;
+        int m_replacedNonCreator = 0;   // MINE
+        int m_replacedCreator = 0;      // NONE
+
+        int m_keptPart = 0;
+        int m_keptItem = 0;
+        int m_keptTexture = 0;
+        int m_keptSound = 0;
+        int m_keptNonCreator = 0;   // MINE
+        int m_keptCreator = 0;      // NONE
+
+        int m_scannedObjects = 0;
+        int m_scannedMesh = 0;
+        int m_scannedParts = 0;
+        int m_scannedItems = 0;
+        int m_debugOars = 0;
+
         /// <summary>
         /// Used to cache lookups for valid uuids.
         /// </summary>
@@ -80,20 +130,32 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                 {new UUID("11111111-1111-0000-0000-000100bba000"), true} //the "mr opensim" user
             };
 
-        public ArchiveReadRequest(Scene scene, string loadPath, bool merge, Guid requestId, bool allowUserReassignment, bool skipErrorGroups)
+        public ArchiveReadRequest(IConfigSource config, Scene scene, string loadPath, bool merge, Guid requestId, bool allowUserReassignment, bool skipErrorGroups, int debug)
         {
-            m_scene = scene;
-            m_loadStream = new GZipStream(GetStream(loadPath), CompressionMode.Decompress);
-            m_errorMessage = String.Empty;
-            m_merge = merge;
-            m_requestId = requestId;
-            m_allowUserReassignment = allowUserReassignment;
-            m_GroupsModule = scene.RequestModuleInterface<IGroupsModule>();
-            m_skipErrorGroups = skipErrorGroups;
+            Stream loadStream = new GZipStream(GetStream(loadPath), CompressionMode.Decompress);
+            InitArchiveRead(config, scene, loadStream, merge, requestId, allowUserReassignment, skipErrorGroups, debug);
         }
 
-        public ArchiveReadRequest(Scene scene, Stream loadStream, bool merge, Guid requestId, bool allowUserReassignment, bool skipErrorGroups)
+        public ArchiveReadRequest(IConfigSource config, Scene scene, Stream loadStream, bool merge, Guid requestId, bool allowUserReassignment, bool skipErrorGroups, int debug)
         {
+            InitArchiveRead(config, scene, loadStream, merge, requestId, allowUserReassignment, skipErrorGroups, debug);
+        }
+
+        private void WhitelistLibraryFolder(InventoryFolderImpl parentFolder)
+        {
+            foreach (var libItem in parentFolder.RequestListOfItems())
+            {
+                m_libAssets[libItem.AssetID] = libItem.Name;
+            }
+            foreach (var libFolder in parentFolder.RequestListOfFolderImpls())
+            {
+                WhitelistLibraryFolder(libFolder);
+            }
+        }
+
+        private void InitArchiveRead(IConfigSource config, Scene scene, Stream loadStream, bool merge, Guid requestId, bool allowUserReassignment, bool skipErrorGroups, int debug)
+        {
+            m_config = config;
             m_scene = scene;
             m_loadStream = loadStream;
             m_merge = merge;
@@ -101,15 +163,40 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             m_allowUserReassignment = allowUserReassignment;
             m_GroupsModule = scene.RequestModuleInterface<IGroupsModule>();
             m_skipErrorGroups = skipErrorGroups;
+            m_debugOars = debug;
+
+            m_serializer = m_scene.RequestModuleInterface<IRegionSerializerModule>();
+
+            ISerializationEngine engine;
+            if (ProviderRegistry.Instance.TryGet<ISerializationEngine>(out engine))
+            {
+                m_inventorySerializer = engine.InventoryObjectSerializer;
+            }
+
+            m_scannedObjects = 0;
+            m_scannedMesh = 0;
+            m_scannedParts = 0;
+            m_scannedItems = 0;
+
+            m_libAssets = new Dictionary<UUID, string>();
+            WhitelistLibraryFolder(m_scene.CommsManager.LibraryRoot);
+
+            // Add known viewer defaults we want to assume are okay to use.
+            // These may or may not match those in the Library, doesn't matter, let's collect both.
+            m_libAssets[TEXTURE_WHITE] = "TEXTURE_WHITE";
+            m_libAssets[TEXTURE_PLYWOOD] = "TEXTURE_PLYWOOD";
+            m_libAssets[TEXTURE_BLANK] = "TEXTURE_BLANK";
+            m_libAssets[TEXTURE_TRANSPARENT] = "TEXTURE_TRANSPARENT";
+            m_libAssets[TEXTURE_MEDIA] = "TEXTURE_MEDIA";
         }
 
         /// <summary>
         /// Dearchive the region embodied in this request.
         /// </summary>
-        public void DearchiveRegion()
+        public void DearchiveRegion(string optionsTable)
         {
             // The same code can handle dearchiving 0.1 and 0.2 OpenSim Archive versions
-            DearchiveRegion0DotStar();
+            DearchiveRegion0DotStar(optionsTable);
         }
 
         public bool NoCopyObjectOrContents(SceneObjectGroup target)
@@ -121,20 +208,787 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             return ((target.GetEffectivePermissions(true) & (uint)PermissionMask.Copy) != (uint)PermissionMask.Copy);
         }
 
-        private void DearchiveRegion0DotStar()
+        // checks and updates _connFactory member.
+        private void InitConnFactory()
+        {
+            if (_connFactory != null)
+                return;
+
+            string connString = null;
+            IConfig networkConfig = m_config.Configs["Startup"];
+            if (networkConfig != null)
+            {
+                connString = networkConfig.GetString("core_connection_string", String.Empty);
+            }
+
+            if (String.IsNullOrWhiteSpace(connString))
+                return;
+
+            _connFactory = new ConnectionFactory("MySQL", connString);
+        }
+
+        Dictionary<UUID, int> GetUserContentOptions(string optionsTable)
+        {
+            InitConnFactory();
+
+            Dictionary<UUID, int> optInTable = new Dictionary<UUID, int>();
+            try
+            {
+                using (ISimpleDB conn = _connFactory.GetConnection())
+                {
+                    string query = "select UUID,optContent from " + optionsTable + " LIMIT 999999999";
+                    using (IDataReader reader = conn.QueryAndUseReader(query))
+                    {
+                        while (reader.Read())
+                        {
+                            UUID uuid = new UUID(reader["uuid"].ToString());
+                            int optContent = Convert.ToInt32(reader["optContent"]);
+                            optInTable[uuid] = optContent;
+                        }
+                        reader.Close();
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                m_log.Error(e.ToString());
+            }
+            return optInTable;
+        }
+
+        private Dictionary<UUID, UUID> GetAssetCreators()
+        {
+            InitConnFactory();
+
+            Dictionary<UUID, UUID> assetCreatorsTable = new Dictionary<UUID, UUID>();
+            try
+            {
+                using (ISimpleDB conn = _connFactory.GetConnection())
+                {
+                    string query = "select assetId,creatorId from " + ASSET_CREATORS + " LIMIT 999999999";
+                    using (IDataReader reader = conn.QueryAndUseReader(query))
+                    {
+                        while (reader.Read())
+                        {
+                            UUID assetId = new UUID(reader["assetId"].ToString());
+                            UUID creatorId = new UUID(reader["creatorId"].ToString());
+                            assetCreatorsTable[assetId] = creatorId;
+                        }
+                        reader.Close();
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                m_log.Error(e.ToString());
+            }
+            return assetCreatorsTable;
+        }
+
+        private void SaveAssetCreators(Dictionary<UUID,UUID> assetCreatorsTable)
+        {
+            InitConnFactory();
+
+            m_log.InfoFormat("[ARCHIVER]: Saved {0} asset creators referenced from OAR file.", assetCreatorsTable.Count);
+            try
+            {
+                using (ISimpleDB conn = _connFactory.GetConnection())
+                {
+                    string query = "INSERT INTO " + ASSET_CREATORS + 
+                        " (assetId,creatorId) VALUES (?assetId,?creatorId) " +
+                        "ON DUPLICATE KEY UPDATE creatorId = ?creatorId";
+                    foreach (KeyValuePair<UUID,UUID> kvp in assetCreatorsTable)
+                    {
+                        Dictionary<string, object> parameters = new Dictionary<string, object>();
+                        parameters["?assetId"] = kvp.Key.ToString();
+                        parameters["?creatorId"] = kvp.Value.ToString();
+                        conn.QueryNoResults(query, parameters);
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                m_log.Error(e.ToString());
+            }
+        }
+
+        private void ScanContentsForAssetCreatorIDs(SceneObjectPart part)
+        {
+            try
+            {
+                TaskInventoryDictionary inv = part.TaskInventory;
+                foreach (KeyValuePair<UUID, TaskInventoryItem> kvp in inv)
+                {
+                    m_scannedItems++;
+                    if ((m_scannedItems % 1000) == 0)
+                        m_log.InfoFormat("[ARCHIVER]: {0} objects, {1} mesh, {2} parts, {3} items scanned.", m_scannedObjects, m_scannedMesh, m_scannedParts, m_scannedItems);
+
+                    TaskInventoryItem item = kvp.Value;
+                    if (item.AssetID != UUID.Zero)
+                    {
+                        m_assetCreators[item.AssetID] = item.CreatorID;
+                    }
+                    if (item.InvType == (int)InventoryType.Object)
+                    {
+                        AssetBase asset = GetAsset(item.AssetID);
+                        if (asset != null)
+                        {
+                            if (item.ContainsMultipleItems)
+                            {
+                                CoalescedObject obj = m_inventorySerializer.DeserializeCoalescedObjFromInventoryBytes(asset.Data);
+                                foreach (SceneObjectGroup grp in obj.Groups)
+                                {
+                                    ScanObjectForAssetCreatorIDs(grp);
+                                }
+                            }
+                            else
+                            {
+                                SceneObjectGroup inventoryObject = DeserializeObject(part.OwnerID, item.ItemID, asset.Data);
+                                if (inventoryObject != null)
+                                    ScanObjectForAssetCreatorIDs(inventoryObject);
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                m_log.InfoFormat("[ARCHIVER]: Error while deserializing group: {0}", e);
+            }
+        }
+
+        private void ScanObjectForAssetCreatorIDs(SceneObjectGroup sceneObject)
+        {
+            try
+            {
+                m_scannedObjects++;
+                foreach (SceneObjectPart part in sceneObject.GetParts())
+                {
+                    m_scannedParts++;
+                    if ((m_scannedParts % 1000) == 0)
+                        m_log.InfoFormat("[ARCHIVER]: {0} objects, {1} mesh, {2} parts, {3} items scanned.", m_scannedObjects, m_scannedMesh, m_scannedParts, m_scannedItems);
+                    ScanContentsForAssetCreatorIDs(part);
+                }
+            }
+            catch (Exception e)
+            {
+                m_log.InfoFormat("[ARCHIVER]: Error while deserializing group: {0}", e);
+            }
+        }
+
+        private void ScanObjectForAssetCreatorIDs(string serializedSOG)
+        {
+            SceneObjectGroup sceneObject;
+            try
+            {
+                sceneObject = m_serializer.DeserializeGroupFromXml2(serializedSOG);
+                if (sceneObject == null)
+                    return;
+
+                ScanObjectForAssetCreatorIDs(sceneObject);
+            }
+            catch (Exception e)
+            {
+                m_log.InfoFormat("[ARCHIVER]: Error while deserializing group: {0}", e);
+            }
+        }
+
+        public void ScanArchiveForAssetCreatorIDs()
+        {
+            m_assetCreators = new Dictionary<UUID, UUID>();
+            string filePath = "NONE";
+
+            try
+            {
+                TarArchiveReader archive = new TarArchiveReader(m_loadStream);
+                TarArchiveReader.TarEntryType entryType;
+                byte[] data;
+                while ((data = archive.ReadEntry(out filePath, out entryType)) != null)
+                {
+                    if (TarArchiveReader.TarEntryType.TYPE_DIRECTORY == entryType)
+                        continue;
+
+                    if (filePath.StartsWith(ArchiveConstants.OBJECTS_PATH))
+                    {
+                        ScanObjectForAssetCreatorIDs(Encoding.UTF8.GetString(data));
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                m_log.ErrorFormat("[ARCHIVER]: Aborting creator scan with error in archive file {0}.  {1}", filePath, e);
+            }
+            finally
+            {
+                m_log.InfoFormat("[ARCHIVER]: Scan complete: {0} objects, {1} mesh, {2} parts, {3} items.", m_scannedObjects, m_scannedMesh, m_scannedParts, m_scannedItems);
+                SaveAssetCreators(m_assetCreators);
+            }
+        }
+
+        private static void ResetGroupAfterDeserialization(UUID ownerID, UUID itemId, SceneObjectGroup grp)
+        {
+            if (grp.OwnerID == UUID.Zero)
+                grp.OwnerID = ownerID;
+            grp.ResetInstance(true, false, UUID.Zero);
+            foreach (var part in grp.GetParts())
+            {
+                if (part.OwnerID == UUID.Zero)
+                    part.OwnerID = ownerID;
+                foreach (var kvp in part.TaskInventory)
+                {
+                    TaskInventoryItem item = kvp.Value;
+                    if (item.OwnerID == UUID.Zero)
+                    {
+                        item.OwnerID = ownerID;
+                    }
+                }
+                part.DoPostDeserializationCleanups(itemId);
+                part.TrimPermissions();
+            }
+        }
+
+        private SceneObjectGroup DeserializeObject(UUID ownerID, UUID itemId, byte[] bytes)
+        {
+            SceneObjectGroup grp;
+
+            if (m_inventorySerializer == null) return null;
+            if (m_inventorySerializer.CanDeserialize(bytes))
+            {
+                grp = m_inventorySerializer.DeserializeGroupFromInventoryBytes(bytes);
+            }
+            else
+            {
+                string xmlData = Utils.BytesToString(bytes);
+                grp = SceneObjectSerializer.FromOriginalXmlFormat(itemId, xmlData);
+            }
+            ResetGroupAfterDeserialization(ownerID, itemId, grp);
+
+            return grp;
+        }
+
+        private CoalescedObject DeserializeCoalescedObject(byte[] bytes)
+        {
+            if (m_inventorySerializer == null) return null;
+            if (m_inventorySerializer.CanDeserialize(bytes))
+            {
+                return m_inventorySerializer.DeserializeCoalescedObjFromInventoryBytes(bytes);
+            }
+            return null;
+        }
+
+        private AssetBase SerializeObjectToAsset(SceneObjectGroup grp)
+        {
+            if (m_inventorySerializer == null) return null;
+
+            byte[] bytes = m_inventorySerializer.SerializeGroupToInventoryBytes(grp, SerializationFlags.None);
+            AssetBase asset = new AssetBase(UUID.Random(), String.Empty);
+            asset.Type = (int)AssetType.Object;
+            asset.Data = bytes;
+            return asset;
+        }
+
+        private AssetBase ReserializeCoalescedToAsset(IList<SceneObjectGroup> items, List<ItemPermissionBlock> itemPermissions, SerializationFlags flags)
+        {
+            if (m_inventorySerializer == null) return null;
+
+            Dictionary<UUID, ItemPermissionBlock> perms = new Dictionary<UUID, ItemPermissionBlock>();
+            for (int i = 0; i < items.Count; i++)
+            {
+                perms.Add(items[i].UUID, itemPermissions[i]);
+            }
+            CoalescedObject csog = new CoalescedObject(items, perms);
+            byte[] bytes = m_inventorySerializer.SerializeCoalescedObjToInventoryBytes(csog, flags);
+
+            AssetBase asset = new AssetBase(UUID.Random(), String.Empty);
+            asset.Type = (int)AssetType.Object;
+            asset.Data = bytes;
+            return asset;
+        }
+
+        private bool MustReplaceByCreatorOwner(UUID creatorID, UUID ownerID)
+        {
+            int creatorOptIn = 0;
+            if (m_optInTable.ContainsKey(creatorID))
+                creatorOptIn = m_optInTable[creatorID];
+
+            switch (creatorOptIn)
+            {
+                case 2: // allow the asset in so everyone can use it
+                    m_keptNonCreator++;
+                    if (m_debugOars >= 2)
+                        m_log.InfoFormat("[ARCHIVER]: Retaining assets for owner {0} by creator {1} due to opt-in ALL.", ownerID, creatorID);
+                    return false;
+                case 1: // allow my own copies to be used
+                    if (ownerID == creatorID)
+                    {
+                        if (m_debugOars >= 2)
+                            m_log.InfoFormat("[ARCHIVER]: Retaining assets for owner {0} by creator {1} due to opt-in MINE.", ownerID, creatorID);
+                        m_keptCreator++;
+                        return false;
+                    }
+                    if (m_debugOars >= 2)
+                        m_log.InfoFormat("[ARCHIVER]: Filtering assets for owner {0} by creator {1} due to opt-in MINE.", ownerID, creatorID);
+                    m_replacedNonCreator++;
+                    return true;
+                case 0:
+                    if (m_debugOars >= 2)
+                        m_log.InfoFormat("[ARCHIVER]: Filtering assets for owner {0} by creator {1} due to opt-in NONE.", ownerID, creatorID);
+                    m_replacedCreator++;
+                    return true;
+                default: // unknown opt-in status, assume same as 0;
+                    if (m_debugOars >= 2)
+                        m_log.InfoFormat("[ARCHIVER]: Filtering assets for owner {0} by creator {1} due to opt-in UNKNOWN.", ownerID, creatorID);
+                    m_replacedCreator++;
+                    return true;
+            }
+        }
+
+        private bool MustReplaceByAsset(UUID assetID, UUID ownerID)
+        {
+            if (assetID == UUID.Zero) return false;
+            if (m_optInTable == null)
+                return false;    // no filtering
+
+            if (m_libAssets.ContainsKey(assetID))
+            {
+                if (m_debugOars >= 2)
+                    m_log.InfoFormat("[ARCHIVER]: Retaining asset {0} due to LIBRARY for owner {1}.", assetID, ownerID);
+                return false;   // it's in the Library
+            }
+
+            bool mustReplace = true;
+            if (m_assetCreators.ContainsKey(assetID))
+            {
+                // We have explicit wishes from the creator
+                UUID creatorID = m_assetCreators[assetID];
+                mustReplace = MustReplaceByCreatorOwner(creatorID, ownerID);
+                if (m_debugOars >= 2)
+                    m_log.InfoFormat("[ARCHIVER]: {0} asset {1} for owner {2} due to opt-in by creator {3}.", mustReplace ? "Filtering" : "Retaining", assetID, ownerID, creatorID);
+            }
+            else if (m_debugOars >= 2)
+                m_log.InfoFormat("[ARCHIVER]: Filtering asset {0} for owner {1} due to creator UNKNOWN.", assetID, ownerID);
+
+            // The creator is unknown, assume opt-in denied, replace
+            return mustReplace;
+        }
+
+        private void ReplaceDescription(SceneObjectPart part, UUID prevCreatorID)
+        {
+            if (String.IsNullOrWhiteSpace(part.Description) || part.Description.ToLower().Equals("(no description)"))
+            {
+                part.Description = $"(Replaced: Prim created by {prevCreatorID})";
+            }
+        }
+
+        private void ReplacePartWithDefaultPrim(SceneObjectPart part, UUID ownerID)
+        {
+            if (m_debugOars >= 1)
+                m_log.InfoFormat("[ARCHIVER]: Substituting part '{0}' for owner {1}.", part.Name, ownerID);
+
+            // First, replace the prim with a default prim.
+            part.Shape = PrimitiveBaseShape.Default.Copy();
+            ReplaceDescription(part, part.CreatorID);
+
+            // Now the object owner becomes the creator too of the replacement prim.
+            part.CreatorID = ownerID;
+            part.BaseMask = (uint)(PermissionMask.All | PermissionMask.Export);
+            part.OwnerMask = (uint)(PermissionMask.All | PermissionMask.Export);
+            part.NextOwnerMask = (uint)PermissionMask.All;
+            part.EveryoneMask = (uint)PermissionMask.None;
+            // No need to replace textures since the whole prim was replaced.
+            m_replacedPart++;
+        }
+
+        private Primitive.TextureEntryFace FilterFaceTexture(SceneObjectPart part, Primitive.TextureEntry te, Primitive.TextureEntryFace face, UUID ownerID)
+        {
+            if (MustReplaceByAsset(face.TextureID, ownerID))
+            {
+                if (m_debugOars >= 1)
+                    m_log.InfoFormat("[ARCHIVER]: Filtering prim texture {0} in part '{1}' for owner {2}.", face.TextureID, part.Name, ownerID);
+                face.TextureID = DEFAULT_SUBSTITEXTURE;
+                // Shortcut: if we're dropping the face's actual texture, assume we drop the materials too.
+                if (part.Shape.RenderMaterials.ContainsMaterial(face.MaterialID))
+                    part.Shape.RenderMaterials.RemoveMaterial(face.MaterialID);
+                face.MaterialID = UUID.Zero;
+                m_replacedTexture++;
+                return face;
+            }
+            else
+            {
+                m_keptTexture++;
+                return null;
+            }
+        }
+
+        private bool FilterPrimTexturesByCreator(SceneObjectPart part, UUID ownerID)
+        {
+            bool filtered = false;
+
+            if (part.Shape.SculptTexture != UUID.Zero)
+            {
+                if (MustReplaceByAsset(part.Shape.SculptTexture, ownerID))
+                {
+                    if (m_debugOars >= 1)
+                        m_log.InfoFormat("[ARCHIVER]: Filtering SCULPT/MESH texture {0} in part '{1}' for owner {2}.", part.Shape.SculptTexture, part.Name, ownerID);
+                    ReplacePartWithDefaultPrim(part, ownerID);
+                    filtered = true;
+                }
+            }
+
+            // Now let's filter actual textures on faces.
+            Primitive.TextureEntry te = new Primitive.TextureEntry(part.Shape.TextureEntry, 0, part.Shape.TextureEntry.Length);
+
+            // Start with the default texture
+            Primitive.TextureEntryFace face = te.DefaultTexture;
+            Primitive.TextureEntryFace newFace = FilterFaceTexture(part, te, face, ownerID);
+            if (newFace != null)
+            {
+                te.DefaultTexture = face;
+                filtered = true;
+            }
+
+            // Now filter the textures on any of the faces.
+            for (int i = 0; i < Primitive.TextureEntry.MAX_FACES; i++)
+            {
+                if (te.FaceTextures[i] != null)
+                {
+                    face = te.FaceTextures[i];
+                    newFace = FilterFaceTexture(part, te, face, ownerID);
+                    if (newFace != null)
+                    {
+                        te.FaceTextures[i] = newFace;
+                        filtered = true;
+                    }
+                }
+            }
+
+            // And save the changes
+            if (filtered)
+                part.UpdateTexture(te);
+            return filtered;
+        }
+
+        private bool FilterOtherPrimAssetsByCreator(SceneObjectPart part, UUID ownerID)
+        {
+            bool filtered = false;
+            if (part.Sound != UUID.Zero)
+            {
+                if (MustReplaceByAsset(part.Sound, ownerID))
+                {
+                    if (m_debugOars >= 1)
+                        m_log.InfoFormat("[ARCHIVER]: Filtering prim sound {0} in part '{1}' for owner {2}.", part.Sound, part.Name, ownerID);
+                    part.Sound = UUID.Zero;
+                    m_replacedSound++;
+                    filtered = true;
+                }
+                else
+                {
+                    if (m_debugOars >= 1)
+                        m_log.InfoFormat("[ARCHIVER]: Retaining prim sound {0} in part '{1}' for owner {2}.", part.Sound, part.Name, ownerID);
+                    m_keptSound++;
+                }
+            }
+
+            if (part.CollisionSound != UUID.Zero)
+            {
+                if (MustReplaceByAsset(part.CollisionSound, ownerID))
+                {
+                    if (m_debugOars >= 1)
+                        m_log.InfoFormat("[ARCHIVER]: Filtering prim collision sound {0} in part '{1}' for owner {2}.", part.CollisionSound, part.Name, ownerID);
+                    part.CollisionSound = UUID.Zero;
+                    m_replacedSound++;
+                    filtered = true;
+                }
+                else
+                {
+                    if (m_debugOars >= 2)
+                        m_log.InfoFormat("[ARCHIVER]: Retaining prim collision sound {0} in part '{1}' for owner {2}.", part.CollisionSound, part.Name, ownerID);
+                    m_keptSound++;
+                }
+            }
+            return filtered;
+        }
+
+        private bool FilterPart(SceneObjectPart part, UUID ownerID)
+        {
+            bool filtered = false;
+
+            if (m_allowUserReassignment)
+            {
+                if (part.OwnerID != ownerID)
+                {
+                    // we're reassigning ownership, mark as filtered so that changes are saved
+                    if (m_debugOars >= 1)
+                                m_log.InfoFormat("[ARCHIVER]: Reassigning prim ownership in part '{0}' in '{1}' for owner {2} to {3}.", part.Name, part.ParentGroup.Name, part.OwnerID, ownerID);
+                    part.OwnerID = ownerID;
+                    filtered = true;
+                }
+            }
+
+            // Check if object creator has opted in
+            if (MustReplaceByCreatorOwner(part.CreatorID, ownerID))
+            {
+                // Creator of prim has not opted-in for this instance.
+                // First, replace the prim with a default prim.
+                ReplacePartWithDefaultPrim(part, ownerID);
+                filtered = true;
+            }
+            else
+            {
+                m_keptPart++;
+                filtered = FilterPrimTexturesByCreator(part, ownerID) | filtered;
+            }
+            // Now in both cases filter other prim assets
+            filtered = FilterOtherPrimAssetsByCreator(part, ownerID) | filtered;
+
+            return filtered;
+        }
+
+        private void ReserializeAssetIntoItem(TaskInventoryItem item, AssetBase newAsset)
+        {
+            // We're filtering an object inside the Contents, so
+            // replace the asset with a filtered one in this nested object.
+            // Must re-serialize this part and store as an asset for reference 
+            // for when this part's Contents are opened in the future
+            if (newAsset != null)
+            {
+                m_scene.CommsManager.AssetCache.AddAsset(newAsset, AssetRequestInfo.InternalRequest());
+                if (m_debugOars >= 1)
+                    m_log.InfoFormat("[ARCHIVER]: Reserializing new asset {0} in item '{1}'.", newAsset.FullID, item.Name);
+                item.AssetID = newAsset.FullID;
+            }
+        }
+
+        private bool FilterItem(SceneObjectPart part, TaskInventoryItem item, UUID ownerID, int depth)
+        {
+            if (item.AssetID == UUID.Zero)
+            {
+                if (m_debugOars >= 1)
+                    m_log.InfoFormat("[ARCHIVER]: Filtering NULL asset for item '{0}'.", item.Name);
+                return false;
+            }
+
+            AssetBase asset = GetAsset(item.AssetID);
+            if (asset == null)
+            {
+                if (m_debugOars >= 1)
+                    m_log.InfoFormat("[ARCHIVER]: GetAsset returned NULL for asset {0} in item '{1}'.", item.AssetID, item.Name);
+                return false;
+            }
+
+
+            bool filtered = false;
+            if (item.ContainsMultipleItems)
+            {
+                if (m_debugOars >= 2)
+                    m_log.InfoFormat("[ARCHIVER]: Part '{0}' has coalesced item '{1}'.", part.Name, item.Name);
+                // Need to reserialize coalesced item
+                CoalescedObject obj = m_inventorySerializer.DeserializeCoalescedObjFromInventoryBytes(asset.Data);
+                List<SceneObjectGroup> items = new List<SceneObjectGroup>();
+                List<ItemPermissionBlock> perms = new List<ItemPermissionBlock>();
+                foreach (SceneObjectGroup inventoryObject in obj.Groups)
+                {
+                    ItemPermissionBlock itemperms = obj.FindPermissions(inventoryObject.UUID);
+                    if ((inventoryObject != null) && FilterObjectByCreators(inventoryObject, ownerID, depth + 1))
+                    {
+                        if (m_debugOars >= 2)
+                            m_log.InfoFormat("[ARCHIVER]: Coalesced object '{0}' in item '{1}' needs filtering.", inventoryObject.Name, item.Name);
+                        filtered = true; // ripple effect. this object's Contents changed, new asset ID in items.
+                    }
+                    inventoryObject.OwnerID = ownerID;  // save the current owner before reserializing object
+                    items.Add(inventoryObject);
+                    perms.Add(itemperms);
+                }
+                if (filtered)
+                {
+                    // ReserializeCoalescedToAsset allocates a new asset ID
+                    if (m_debugOars >= 1)
+                        m_log.InfoFormat("[ARCHIVER]: Reserializing coalesced item '{0}'.", item.Name);
+                    asset = ReserializeCoalescedToAsset(items, perms, SerializationFlags.None);
+                    ReserializeAssetIntoItem(item, asset);
+                }
+            }
+            else
+            {
+                SceneObjectGroup inventoryObject = DeserializeObject(part.OwnerID, item.ItemID, asset.Data);
+                if ((inventoryObject != null) && FilterObjectByCreators(inventoryObject, ownerID, depth + 1))
+                {
+                    if (m_debugOars >= 1)
+                        m_log.InfoFormat("[ARCHIVER]: Object '{0}' in item '{1}' needs filtering.", inventoryObject.Name, item.Name);
+                    inventoryObject.OwnerID = ownerID;  // save the current owner before reserializing object
+                    // SerializeObjectToAsset allocates a new asset ID
+                    ReserializeAssetIntoItem(item, SerializeObjectToAsset(inventoryObject));
+                    filtered = true; // ripple effect. this object's Contents changed, new asset ID in items.
+                }
+            }
+            item.OwnerID = ownerID; // save the current owner before reserializing item too
+            return filtered;
+        }
+
+        // depth==0 when it's the top-level object (no need to reserialize changes as asset)
+        private bool FilterContents(SceneObjectPart part, UUID ownerID, int depth)
+        {
+            bool filtered = false;
+            // Now let's take a look inside the Contents
+            lock (part.TaskInventory)
+            {
+                TaskInventoryDictionary inv = part.TaskInventory;
+                List<TaskInventoryItem> replacedItems = new List<TaskInventoryItem>();
+                foreach (KeyValuePair<UUID, TaskInventoryItem> kvp in inv)
+                {
+                    TaskInventoryItem item = kvp.Value;
+                    // First, let's cache the creator.
+                    if (item.CreatorID.Equals(ownerID) && (item.AssetID != UUID.Zero))
+                    {
+                        m_assetCreators[item.AssetID] = item.CreatorID;
+                    }
+
+                    if (m_allowUserReassignment)
+                    {
+                        if (item.OwnerID != ownerID)
+                        {
+                            // we're reassigning ownership, mark as filtered so that changes are saved
+                            item.OwnerID = ownerID;
+                            filtered = true;
+                        }
+                    }
+
+
+                    // Now let's check whether the item needs filtering...
+                    if (item.InvType == (int)InventoryType.Object)
+                    {
+                        filtered = FilterItem(part, item, ownerID, depth) || filtered;
+                        if (filtered)
+                        {
+                            replacedItems.Add(item);
+                            m_replacedItem++;
+                        }
+                    }
+                    else
+                    if (item.CreatorID.Equals(ownerID))
+                    {
+                        if (m_debugOars >= 2)
+                            m_log.InfoFormat("[ARCHIVER]: Item '{0}' in part '{1}' has owner {2} matching creator.", item.Name, part.Name, item.OwnerID);
+                        m_keptItem++;
+                    }
+                    else
+                    if (MustReplaceByAsset(item.AssetID, ownerID))
+                    {
+                        if (m_debugOars >= 1)
+                            m_log.InfoFormat("[ARCHIVER]: Item '{0}' in part '{1}' must zero asset {2}.", item.Name, part.Name, item.AssetID);
+                        item.AssetID = UUID.Zero;
+                        filtered = true;
+                        replacedItems.Add(item);
+                        m_replacedItem++;
+                    }
+                    else
+                    {
+                        if (m_debugOars >= 2)
+                            m_log.InfoFormat("[ARCHIVER]: Item '{0}' in part '{1}' can retain asset {2}.", item.Name, part.Name, item.AssetID);
+                        m_keptItem++;
+                    }
+                }
+
+                // Now, while not iterating the dictionary any more, update some of the items with the mods.
+                foreach (var item in replacedItems)
+                {
+                    if (m_debugOars >= 1)
+                        m_log.InfoFormat("[ARCHIVER]: replacedItems '{0}' in part '{1}' with asset {2}.", item.Name, part.Name, item.AssetID);
+                    part.TaskInventory[item.ItemID] = item;
+                }
+            }
+            return filtered;
+        }
+
+        // returns true if anything in the object should be skipped on OAR file restore
+        private bool FilterObjectByCreators(SceneObjectGroup sceneObject, UUID ownerID, int depth)
+        {
+            bool filtered = false;
+            if (m_optInTable == null) return false; // no filtering
+
+            if (sceneObject == null) return true;
+
+            foreach (SceneObjectPart part in sceneObject.GetParts())
+            {
+                try
+                {
+                    filtered = FilterPart(part, ownerID) | filtered;
+                    filtered = FilterContents(part, ownerID, depth) | filtered;
+                }
+                catch (Exception e)
+                {
+                    m_log.InfoFormat("[ARCHIVER]: Error while filtering object: {0}", e);
+                }
+            }
+            return filtered;
+        }
+
+        private AssetBase GetAsset(UUID assetID)
+        {
+            if (assetID == UUID.Zero)
+                return null;
+            return m_scene.CommsManager.AssetCache.GetAsset(assetID, AssetRequestInfo.InternalRequest());
+        }
+
+        private void DearchiveSceneObject(SceneObjectGroup sceneObject, UUID ownerID, bool checkContents, Dictionary<UUID, UUID> OriginalBackupIDs)
+        {
+            UUID resolveWithUser = UUID.Zero;   // if m_allowUserReassignment, this is who gets it all.
+
+            // For now, give all incoming scene objects new uuids.  This will allow scenes to be cloned
+            // on the same region server and multiple examples a single object archive to be imported
+            // to the same scene (when this is possible).
+            UUID OldUUID = sceneObject.UUID;
+            sceneObject.ResetIDs();
+            // if sceneObject is no-copy, save the old ID with the new ID.
+            OriginalBackupIDs[sceneObject.UUID] = OldUUID;
+
+            if (m_allowUserReassignment)
+            {
+                // Try to retain the original creator/owner/lastowner if their uuid is present on this grid
+                // otherwise, use the master avatar uuid instead
+                if (m_scene.RegionInfo.EstateSettings.EstateOwner != UUID.Zero)
+                    resolveWithUser = m_scene.RegionInfo.EstateSettings.EstateOwner;
+                else
+                    resolveWithUser = m_scene.RegionInfo.MasterAvatarAssignedUUID;
+            }
+
+            if (!ResolveUserUuid(ownerID))
+            {
+                if (ResolveUserUuid(sceneObject.OwnerID))
+                {
+                    ownerID = sceneObject.OwnerID;
+                } else
+                {
+                    m_log.WarnFormat("[ARCHIVER]: Could not resolve av/group ID {0} for object '{1}' owner", sceneObject.OwnerID, sceneObject.Name);
+                    ownerID = resolveWithUser;
+                }
+            }
+
+            FilterObjectByCreators(sceneObject, ownerID, 0);
+        }
+
+        private void DearchiveRegion0DotStar(string optionsTable)
         {
             int successfulAssetRestores = 0;
             int failedAssetRestores = 0;
             List<string> serializedSceneObjects = new List<string>();
             string filePath = "NONE";
-            
+
+            if (!String.IsNullOrWhiteSpace(optionsTable))
+            {
+                // This code assumes that a full 'scan iwoar` was done for the specified OAR, to figure out which assets to allow.
+                // ScanArchiveForAssetCreatorIDs(); // done previously, separately
+
+                // Now a normal filtered load.
+                m_optInTable = GetUserContentOptions(optionsTable);
+                m_assetCreators = GetAssetCreators();
+            }
+
             try
             {
                 TarArchiveReader archive = new TarArchiveReader(m_loadStream);
-               
-                byte[] data;
                 TarArchiveReader.TarEntryType entryType;
-
+                byte[] data;
                 while ((data = archive.ReadEntry(out filePath, out entryType)) != null)
                 {                    
                     //m_log.DebugFormat(
@@ -146,6 +1000,8 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                     if (filePath.StartsWith(ArchiveConstants.OBJECTS_PATH))
                     {
                         serializedSceneObjects.Add(Encoding.UTF8.GetString(data));
+                        if ((serializedSceneObjects.Count % 1000) == 0)
+                            m_log.InfoFormat("[ARCHIVER]: Region objects found in OAR: {0}", serializedSceneObjects.Count);
                     }
                     else if (filePath.StartsWith(ArchiveConstants.ASSETS_PATH))
                     {
@@ -153,19 +1009,23 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                             successfulAssetRestores++;
                         else
                             failedAssetRestores++;
+
+                        if (((successfulAssetRestores + failedAssetRestores) % 1000) == 0)
+                            m_log.InfoFormat("[ARCHIVER]: Assets {0} of {1} restored.", successfulAssetRestores, successfulAssetRestores + failedAssetRestores);
                     }
                     else if (!m_merge && filePath.StartsWith(ArchiveConstants.TERRAINS_PATH))
                     {
+                        m_log.InfoFormat("[ARCHIVER]: Terrain loading...");
                         LoadTerrain(filePath, data);
+                        m_log.InfoFormat("[ARCHIVER]: Terrain loaded.");
                     }
                     else if (!m_merge && filePath.StartsWith(ArchiveConstants.SETTINGS_PATH))
                     {
                         LoadRegionSettings(filePath, data);
+                        m_log.InfoFormat("[ARCHIVER]: Region settings loaded.");
                     }
                 }
-
                 //m_log.Debug("[ARCHIVER]: Reached end of archive");
-
                 archive.Close();
             }
             catch (Exception e)
@@ -181,27 +1041,24 @@ namespace OpenSim.Region.CoreModules.World.Archiver
 
             if (failedAssetRestores > 0)
             {
-                m_log.ErrorFormat("[ARCHIVER]: Failed to load {0} assets", failedAssetRestores);
-                m_errorMessage += String.Format("Failed to load {0} assets", failedAssetRestores);
+                m_log.ErrorFormat("[ARCHIVER]: Filtered or failed to load {0} assets", failedAssetRestores);
+                m_errorMessage += String.Format("Filtered or failed to load {0} assets", failedAssetRestores);
             }
 
             // Reload serialized prims
             m_log.InfoFormat("[ARCHIVER]: Preparing {0} scene objects.  Please wait.", serializedSceneObjects.Count);
 
-            IRegionSerializerModule serializer = m_scene.RequestModuleInterface<IRegionSerializerModule>();
             int sceneObjectsLoadedCount = 0;
 
             List<SceneObjectGroup> backupObjects = new List<SceneObjectGroup>();
             Dictionary<UUID, UUID> OriginalBackupIDs = new Dictionary<UUID, UUID>();
-
-            bool objectFixingFailed = false;
 
             foreach (string serializedSceneObject in serializedSceneObjects)
             {
                 SceneObjectGroup sceneObject;
                 try
                 {
-                    sceneObject = serializer.DeserializeGroupFromXml2(serializedSceneObject);
+                    sceneObject = m_serializer.DeserializeGroupFromXml2(serializedSceneObject);
                 }
                 catch (Exception e)
                 {
@@ -216,79 +1073,12 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                     else throw new Exception("Error while deserializing group");
                 }
 
-                // For now, give all incoming scene objects new uuids.  This will allow scenes to be cloned
-                // on the same region server and multiple examples a single object archive to be imported
-                // to the same scene (when this is possible).
-                UUID OldUUID = sceneObject.UUID;
-                sceneObject.ResetIDs();
-                // if sceneObject is no-copy, save the old ID with the new ID.
-                OriginalBackupIDs[sceneObject.UUID] = OldUUID;
-
-                // Try to retain the original creator/owner/lastowner if their uuid is present on this grid
-                // otherwise, use the master avatar uuid instead
-                UUID masterAvatarId = m_scene.RegionInfo.MasterAvatarAssignedUUID;
-
-                if (m_scene.RegionInfo.EstateSettings.EstateOwner != UUID.Zero)
-                    masterAvatarId = m_scene.RegionInfo.EstateSettings.EstateOwner;
-
-                foreach (SceneObjectPart part in sceneObject.GetParts())
-                {
-                    if (!ResolveUserUuid(part.CreatorID))
-                    {
-                        m_log.WarnFormat("[ARCHIVER]: Could not resolve av/group ID {0} for object '{1}' part creator", part.CreatorID, sceneObject.Name);
-                        // Don't fail to load an object owned by a valid user, just because a creator no longer exists in the DB. (We've seen this with some of YadNi's stuff.)
-                        // objectFixingFailed = true;
-                        // part.CreatorID = masterAvatarId;
-                    }
-
-                    if (!ResolveUserUuid(part.OwnerID))
-                    {
-                        m_log.WarnFormat("[ARCHIVER]: Could not resolve av/group ID {0} for object '{1}' part owner", part.OwnerID, sceneObject.Name);
-                        objectFixingFailed = true;
-                        part.OwnerID = masterAvatarId;
-                    }
-
-                    if (!ResolveUserUuid(part.LastOwnerID))
-                    {
-                        m_log.WarnFormat("[ARCHIVER]: Could not resolve av/group ID {0} for object '{1}' part last owner", part.LastOwnerID, sceneObject.Name);
-                        objectFixingFailed = true;
-                        part.LastOwnerID = masterAvatarId;
-                    }
-
-
-                    // Fix ownership/creator of inventory items
-                    // Not doing so results in inventory items
-                    // being no copy/no mod for everyone
-                    lock (part.TaskInventory)
-                    {
-                        TaskInventoryDictionary inv = part.TaskInventory;
-                        foreach (KeyValuePair<UUID, TaskInventoryItem> kvp in inv)
-                        {
-                            if (!ResolveUserUuid(kvp.Value.OwnerID))
-                            {
-                                m_log.WarnFormat("[ARCHIVER]: Could not resolve av/group ID {0} for object '{1}' inventory item owner", kvp.Value.OwnerID, sceneObject.Name);
-                                objectFixingFailed = true;
-                                kvp.Value.OwnerID = masterAvatarId;
-                            }
-
-                            if (!ResolveUserUuid(kvp.Value.CreatorID))
-                            {
-                                m_log.WarnFormat("[ARCHIVER]: Could not resolve av/group ID {0} for object '{1}' inventory item creator", kvp.Value.CreatorID, sceneObject.Name);
-                                // Don't fail to load an object owned by a valid user, just because a creator no longer exists in the DB. (We've seen this with some of YadNi's stuff.)
-                                // objectFixingFailed = true;
-                                // kvp.Value.CreatorID = masterAvatarId;
-                            }
-                        }
-                    }
-                }
+                DearchiveSceneObject(sceneObject, sceneObject.OwnerID, true, OriginalBackupIDs);
 
                 backupObjects.Add(sceneObject);
-            }
+                if ((backupObjects.Count % 500) == 0)
+                    m_log.InfoFormat("[ARCHIVER]: Prepared {0} of {1} scene objects...", backupObjects.Count, serializedSceneObjects.Count);
 
-            if (objectFixingFailed && !m_allowUserReassignment)
-            {
-                m_log.Error("[ARCHIVER]: Could not restore scene objects. One or more avatar accounts not found.");
-                return;
             }
 
             Dictionary<UUID, SceneObjectGroup> ExistingNoCopyObjects = new Dictionary<UUID,SceneObjectGroup>();
@@ -308,7 +1098,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                                 });
             }
 
-            m_log.InfoFormat("[ARCHIVER]: Loading {0} scene objects.  Please wait.", serializedSceneObjects.Count);
+            m_log.InfoFormat("[ARCHIVER]: Loading {0} scene objects.  Please wait.", backupObjects.Count);
 
             // sceneObject is the one from backup to restore to the scene
             foreach (SceneObjectGroup backupObject in backupObjects)
@@ -320,7 +1110,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                     existingObject = ExistingNoCopyObjects[originalUUID];
                 // existingSOG here means existing NO-COPY object, not deleted from scene above
 
-                if (NoCopyObjectOrContents(backupObject))
+                if ((m_optInTable == null) && NoCopyObjectOrContents(backupObject))
                 {
                     if ((existingObject != null) && !existingObject.IsAttachment)
                     {
@@ -337,6 +1127,8 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                     sceneObjectsLoadedCount++;
                     backupObject.CreateScriptInstances(0, ScriptStartFlags.PostOnRez, m_scene.DefaultScriptEngine, 0, null);
                 }
+                if ((sceneObjectsLoadedCount % 1000) == 0)
+                    m_log.InfoFormat("[ARCHIVER]: Loaded {0} of {1} scene objects...", sceneObjectsLoadedCount, backupObjects.Count);
             }
 
             m_log.InfoFormat("[ARCHIVER]: Restored {0} scene objects to the scene", sceneObjectsLoadedCount);
@@ -346,8 +1138,17 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             if (ignoredObjects > 0)
                 m_log.WarnFormat("[ARCHIVER]: Ignored {0} scene objects that already existed in the scene", ignoredObjects);
 
-            m_log.InfoFormat("[ARCHIVER]: Successfully loaded archive");
+            if (m_optInTable != null)
+            {
+                m_log.WarnFormat("[ARCHIVER]: Prim shapes replaced={0} restored={1}", m_replacedPart, m_keptPart);
+                m_log.WarnFormat("[ARCHIVER]: Item assets replaced={0} restored={1}", m_replacedItem, m_keptItem);
+                m_log.WarnFormat("[ARCHIVER]: Non-creator assets replaced={0} restored={1}", m_replacedNonCreator, m_keptNonCreator);
+                m_log.WarnFormat("[ARCHIVER]: Creator assets replaced={0} restored={1}", m_replacedCreator, m_keptCreator);
+                m_log.WarnFormat("[ARCHIVER]: Texture assets replaced={0} restored={1}", m_replacedTexture, m_keptTexture);
+                m_log.WarnFormat("[ARCHIVER]: Sound assets replaced={0} restored={1}", m_replacedSound, m_keptSound);
+            }
 
+            m_log.InfoFormat("[ARCHIVER]: Successfully loaded archive");
             m_scene.EventManager.TriggerOarFileLoaded(m_requestId, m_errorMessage);
         }
 
@@ -358,6 +1159,9 @@ namespace OpenSim.Region.CoreModules.World.Archiver
         /// <returns></returns>
         private bool ResolveUserUuid(UUID uuid)
         {
+            if (!m_allowUserReassignment)
+                return true;
+
             if (!m_validUserUuids.ContainsKey(uuid))
             {
                 try
@@ -431,33 +1235,57 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             if (ArchiveConstants.EXTENSION_TO_ASSET_TYPE.ContainsKey(extension))
             {
                 sbyte assetType = ArchiveConstants.EXTENSION_TO_ASSET_TYPE[extension];
+                UUID assetID = new UUID(uuid);
+                if (m_optInTable != null)
+                {
+                    // First check if it's a known Library asset.
+                    if (m_libAssets.ContainsKey(assetID))
+                    {
+                        if (m_debugOars >= 1)
+                            m_log.InfoFormat("[ARCHIVER]: Skipping load of asset {0} due to LIBRARY.", assetID);
+                        return false;   // it's in the Library
+                    }
 
-                //m_log.DebugFormat("[ARCHIVER]: Importing asset {0}, type {1}", uuid, assetType);
-
-                AssetBase asset = new AssetBase(new UUID(uuid), String.Empty);
-                asset.Type = assetType;
-                asset.Data = data;
+                    // this is a `load iwoar` command and we need to filter based on opt-in status
+                    if (!m_assetCreators.ContainsKey(assetID))
+                    {
+                        if (m_debugOars >= 1)
+                            m_log.ErrorFormat("[ARCHIVER]: LoadAsset filtering asset {0} with unknown creator.", assetID);
+                        return false;
+                    }
+                    UUID creatorId = m_assetCreators[assetID];
+                    if (!m_optInTable.ContainsKey(creatorId))
+                    {
+                        if (m_debugOars >= 1)
+                            m_log.ErrorFormat("[ARCHIVER]: LoadAsset filtering asset {0} with unrecognized creator {1}", assetID, creatorId);
+                        return false;
+                    }
+                    int optIn = m_optInTable[creatorId];
+                    switch (optIn)
+                    {
+                        case 2: break; // allow the asset in so everyone can use it
+                        case 1: break; // allow the asset in so creator can use it
+                        case 0:   // asset is not allowed in
+                        default:  // unknown status, cannot assume opt-in
+                            if (m_debugOars >= 1)
+                                m_log.WarnFormat("[ARCHIVER]: LoadAsset filtering asset {0} per creator {1} wishes: {2}", assetID, creatorId, optIn);
+                            return false;
+                    }
+                }
 
                 try
                 {
+                    if (m_debugOars >= 1)
+                        m_log.DebugFormat("[ARCHIVER]: Importing asset {0}, type {1}", uuid, assetType);
+                    AssetBase asset = new AssetBase(assetID, String.Empty);
+                    asset.Type = assetType;
+                    asset.Data = data;
                     m_scene.CommsManager.AssetCache.AddAsset(asset, AssetRequestInfo.InternalRequest());
                 }
                 catch (AssetServerException e)
                 {
-                    m_log.ErrorFormat("[ARCHIVER] Uploading asset {0} failed: {1}", uuid, e);
+                    m_log.ErrorFormat("[ARCHIVER]: Uploading asset {0} failed: {1}", assetID, e);
                 }
-
-                /**
-                 * Create layers on decode for image assets.  This is likely to significantly increase the time to load archives so
-                 * it might be best done when dearchive takes place on a separate thread
-                if (asset.Type=AssetType.Texture)
-                {
-                    IJ2KDecoder cacheLayerDecode = scene.RequestModuleInterface<IJ2KDecoder>();
-                    if (cacheLayerDecode != null)
-                        cacheLayerDecode.syncdecode(asset.FullID, asset.Data);
-                }
-                */
-
                 return true;
             }
             else
@@ -519,10 +1347,34 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             currentRegionSettings.RestrictPushing = loadedRegionSettings.RestrictPushing;
             currentRegionSettings.TerrainLowerLimit = loadedRegionSettings.TerrainLowerLimit;
             currentRegionSettings.TerrainRaiseLimit = loadedRegionSettings.TerrainRaiseLimit;
-            currentRegionSettings.TerrainTexture1 = loadedRegionSettings.TerrainTexture1;
-            currentRegionSettings.TerrainTexture2 = loadedRegionSettings.TerrainTexture2;
-            currentRegionSettings.TerrainTexture3 = loadedRegionSettings.TerrainTexture3;
-            currentRegionSettings.TerrainTexture4 = loadedRegionSettings.TerrainTexture4;
+            if (m_optInTable != null)
+            {
+                // this is a `load iwoar` command and we need to filter based on opt-in status
+                UUID ownerID = m_scene.RegionInfo.EstateSettings.EstateOwner;
+                if (MustReplaceByAsset(loadedRegionSettings.TerrainTexture1, ownerID))
+                    currentRegionSettings.TerrainTexture1 = DEFAULT_TERRAIN_1;
+                else
+                    currentRegionSettings.TerrainTexture1 = loadedRegionSettings.TerrainTexture1;
+                if (MustReplaceByAsset(loadedRegionSettings.TerrainTexture2, ownerID))
+                    currentRegionSettings.TerrainTexture2 = DEFAULT_TERRAIN_2;
+                else
+                    currentRegionSettings.TerrainTexture2 = loadedRegionSettings.TerrainTexture2;
+                if (MustReplaceByAsset(loadedRegionSettings.TerrainTexture3, ownerID))
+                    currentRegionSettings.TerrainTexture3 = DEFAULT_TERRAIN_3;
+                else
+                    currentRegionSettings.TerrainTexture3 = loadedRegionSettings.TerrainTexture3;
+                if (MustReplaceByAsset(loadedRegionSettings.TerrainTexture4, ownerID))
+                    currentRegionSettings.TerrainTexture4 = DEFAULT_TERRAIN_4;
+                else
+                    currentRegionSettings.TerrainTexture4 = loadedRegionSettings.TerrainTexture4;
+            }
+            else
+            {
+                currentRegionSettings.TerrainTexture1 = loadedRegionSettings.TerrainTexture1;
+                currentRegionSettings.TerrainTexture2 = loadedRegionSettings.TerrainTexture2;
+                currentRegionSettings.TerrainTexture3 = loadedRegionSettings.TerrainTexture3;
+                currentRegionSettings.TerrainTexture4 = loadedRegionSettings.TerrainTexture4;
+            }
             currentRegionSettings.UseEstateSun = loadedRegionSettings.UseEstateSun;
             currentRegionSettings.WaterHeight = loadedRegionSettings.WaterHeight;
 

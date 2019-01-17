@@ -460,7 +460,7 @@ namespace InWorldz.PhysxPhysics
             //Console.WriteLine("FPS: {0}", _currFps);
 
             //const float LOW_FPS_THRESHOLD = 54.0f;
-            const float LOW_FPS_THRESHOLD = 45.0f;
+            const float LOW_FPS_THRESHOLD = 25.0f;
             if (_currFps < LOW_FPS_THRESHOLD)
             {
                 m_log.WarnFormat("[InWorldz.PhysxPhysics] Low physics FPS {0}", _currFps);

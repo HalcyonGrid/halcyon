@@ -387,6 +387,8 @@ namespace OpenSim.Region.Framework.Scenes
 
         public void ServerWeightDelta(float delta)
         {
+            if (delta == 0.0f) return;    // no change, let's avoid the silly message below which fills consoles
+
             m_serverWeight += delta;
             if (m_serverWeight < 0.0f)
                 m_log.Warn("[SCENE OBJECT GROUP]: ServerWeight is " + m_serverWeight.ToString() + " after delta of " + delta.ToString() + " for "+this.LocalId.ToString());
@@ -410,6 +412,8 @@ namespace OpenSim.Region.Framework.Scenes
 
         public void StreamingCostDelta(float delta)
         {
+            if (delta == 0.0f) return;    // no change, let's avoid the silly message below which fills consoles
+
             m_streamingCost += delta;
             if (m_streamingCost < 0.0f)
                 m_log.Warn("[SCENE OBJECT GROUP]: StreamingCost is " + m_streamingCost.ToString() + " after delta of " + delta.ToString() + " for " + this.LocalId.ToString());

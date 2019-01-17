@@ -235,6 +235,10 @@ namespace OpenSim
                                           "debug crossings <level>",
                                           "Turn on crossings debugging (0 or 1)", Debug);
 
+            m_console.Commands.AddCommand("region", false, "debug oars",
+                                          "debug oars <level>",
+                                          "Turn on OAR debugging", Debug);
+
             m_console.Commands.AddCommand("region", false, "change region",
                                           "change region <region name>",
                                           "Change current console region", ChangeSelectedRegion);
@@ -260,8 +264,16 @@ namespace OpenSim
                                           "Save named prim to XML2", SavePrimsXml2);
 
             m_console.Commands.AddCommand("region", false, "load oar",
-                                          "load oar [--ignore-errors] <oar name>",
+                                          "load oar [--allow-reassign] [--ignore-errors] <oar name>",
                                           "Load a region's data from OAR archive", LoadOar);
+
+            m_console.Commands.AddCommand("region", false, "scan iwoar",
+                                          "scan iwoar <oar name>",
+                                          "Scan's a region's data for creator IDs of assets from an InWorldz OAR backup", ScanIWOar);
+
+            m_console.Commands.AddCommand("region", false, "load iwoar",
+                                          "load iwoar <oar name>",
+                                          "Load a region's data from an InWorldz OAR backup, filtering based on opt-in database", LoadIWOar);
 
             m_console.Commands.AddCommand("region", false, "save oar",
                                           "save oar <oar name> <store_assets>",
@@ -341,8 +353,8 @@ namespace OpenSim
                                           "Collects information about objects posting updates", HandleShow);
 
             m_console.Commands.AddCommand("region", false, "nuke",
-                                          "nuke",
-                                          "Delete all objects owned by the specified UUID", HandleNuke);
+                                          "nuke ownerUUID | all",
+                                          "Delete all objects owned by the specified UUID or all users", HandleNuke);
 
             m_console.Commands.AddCommand("region", false, "blacklist object owner",
                                           "blacklist object owner",
@@ -974,6 +986,23 @@ namespace OpenSim
 
                     break;
 
+                case "oars":
+                    if (args.Length > 2)
+                    {
+                        int newDebug;
+                        if (int.TryParse(args[2], out newDebug))
+                        {
+                            m_sceneManager.SetOARDebug(newDebug);
+                        }
+                        else
+                        {
+                            m_console.Error("packet debug should be 0..255");
+                        }
+                        m_console.Notice("New OAR debug: " + newDebug.ToString());
+                    }
+
+                    break;
+
                 default:
                     m_console.Error("Unknown debug");
                     break;
@@ -1218,19 +1247,24 @@ namespace OpenSim
             if (showParams.Length > 0)
             {
                 UUID OwnerID;
-                if (UUID.TryParse(showParams[0], out OwnerID))
+                if (showParams[0] == "all")
                 {
-                    m_console.Notice("Deploying nuke...");
+                    m_sceneManager.NukeObjectsOwnedBy(UUID.Zero);
+                }
+                else
+                if (UUID.TryParse(showParams[0], out OwnerID) && (OwnerID != UUID.Zero))
+                {
                     m_sceneManager.NukeObjectsOwnedBy(OwnerID);
-                    m_console.Notice("Nuke complete.");
                 } else
                 {
-                    m_console.Notice("That does not look like a UUID.");
+                    m_console.Notice("That does not look like a valid UUID.");
+                    return;
                 }
+                m_console.Notice("Nuke complete.");
             }
             else
             {
-                m_console.Notice("You must specify the UUID of the owner.");
+                m_console.Notice("You must specify the UUID of the owner, or 'all'.");
             }
         }
 
@@ -1567,46 +1601,82 @@ namespace OpenSim
         }
 
         /// <summary>
+        /// Scan's a region's data for creator IDs of assets from an InWorldz OAR backup
+        /// scan iwoar [--save] oarname
+        /// </summary>
+        /// <param name="cmdparams"></param>
+        protected void ScanIWOar(string module, string[] cmdparams)
+        {
+            string fileName;
+            bool saveCreators;
+            if (cmdparams.Length > 3 && cmdparams[2] == "--save")
+            {
+                saveCreators = true;
+                fileName = cmdparams[3];
+            }
+            else
+            {
+                saveCreators = false;
+                fileName = cmdparams[2];
+            }
+
+            try
+            {
+                m_sceneManager.ScanSceneForCreators(fileName);
+            }
+            catch (FileNotFoundException)
+            {
+                m_console.Error("Specified oar not found. Usage: load oar <filename>");
+            }
+        }
+
+        /// <summary>
+        /// Load a whole region from an opensim archive with optional table name.
+        /// </summary>
+        /// <param name="cmdparams"></param>
+        protected void LoadOarWithOptions(string module, string[] cmdparams, string optionsTable)
+        {
+            string fileName = DEFAULT_OAR_BACKUP_FILENAME;
+            bool allowReassign = false; // should UUIDs for missing users get reassigned to master avatar
+            bool ignoreErrors = false;
+
+            // Skip "load oar" and "load iwoar" in cmdparams (start at 2).
+            for (int param = 2; param < cmdparams.Length; param++)
+            {
+                switch (cmdparams[param])
+                {
+                    case "--ignore-errors": ignoreErrors = true; break;
+                    case "--allow-reassign": allowReassign = true; break;
+                    default: fileName = cmdparams[param]; break;
+                }
+            }
+
+            try
+            {
+                m_sceneManager.LoadArchiveToCurrentScene(fileName, allowReassign, ignoreErrors, optionsTable);
+            }
+            catch (FileNotFoundException)
+            {
+                m_console.Error("OAR file not found. Usage: load oar <filename>");
+            }
+        }
+
+        /// <summary>
         /// Load a whole region from an opensim archive.
         /// </summary>
         /// <param name="cmdparams"></param>
         protected void LoadOar(string module, string[] cmdparams)
         {
-            if (cmdparams.Length > 2)
-            {
-                string fileName;
-                bool ignoreErrors = false;
-                if (cmdparams.Length > 3 && cmdparams[2] == "--ignore-errors")
-                {
-                    ignoreErrors = true;
-                    fileName = cmdparams[3];
-                }
-                else
-                {
-                    ignoreErrors = false;
-                    fileName = cmdparams[2];
-                }
+            LoadOarWithOptions(module, cmdparams, null);
+        }
 
-                try
-                {
-                    m_sceneManager.LoadArchiveToCurrentScene(fileName, true, ignoreErrors);
-                }
-                catch (FileNotFoundException)
-                {
-                    m_console.Error("Specified oar not found. Usage: load oar <filename>");
-                }
-            }
-            else
-            {
-                try
-                {
-                    m_sceneManager.LoadArchiveToCurrentScene(DEFAULT_OAR_BACKUP_FILENAME, true, false);
-                }
-                catch (FileNotFoundException)
-                {
-                    m_console.Error("Default oar not found. Usage: load oar <filename>");
-                }
-            }
+        /// <summary>
+        /// Load a region from an opensim archive with filtering based on opt-in status in a database table.
+        /// </summary>
+        /// <param name="cmdparams"></param>
+        protected void LoadIWOar(string module, string[] cmdparams)
+        {
+            LoadOarWithOptions(module, cmdparams, "iwopt");
         }
 
         /// <summary>
@@ -1658,7 +1728,7 @@ namespace OpenSim
 
                 IRegionArchiverModule archiver = targetScene.RequestModuleInterface<IRegionArchiverModule>();
                 if (archiver != null)
-                    archiver.DearchiveRegion(cmdparams[3], false, false);
+                    archiver.DearchiveRegion(cmdparams[3], false, false, null);
             }
             catch (FileNotFoundException)
             {

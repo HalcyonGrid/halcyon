@@ -45,14 +45,18 @@ namespace OpenSim.Region.CoreModules.World.Archiver
         private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
 
         private Scene m_scene;
+        private IConfigSource m_config;
 
         public string Name { get { return "Region Archiver Module"; } }
 
         public bool IsSharedModule { get { return false; } }
 
+        static int m_debug = 0; // singleton, affects all existing and subsequent instances
+
         public void Initialize(Scene scene, IConfigSource source)
         {
             m_scene = scene;
+            m_config = source;
             m_scene.RegisterModuleInterface<IRegionArchiverModule>(this);
         }
 
@@ -63,6 +67,11 @@ namespace OpenSim.Region.CoreModules.World.Archiver
         public void Close()
         {
         }                
+
+        public void SetDebug(int level)
+        {
+            m_debug = level;
+        }
 
         public void ArchiveRegion(string savePath)
         {
@@ -100,26 +109,31 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             new ArchiveWriteRequestPreparation(m_scene, saveStream, requestId).ArchiveRegion();
         }
 
-        public void DearchiveRegion(string loadPath, bool allowUserReassignment, bool skipErrorGroups)
+        public void ScanArchiveForAssetCreatorIDs(string loadPath)
         {
-            DearchiveRegion(loadPath, false, Guid.Empty, allowUserReassignment, skipErrorGroups);
+            new ArchiveReadRequest(m_config, m_scene, loadPath, false, Guid.Empty, false, true, m_debug).ScanArchiveForAssetCreatorIDs();
         }
 
-        public void DearchiveRegion(string loadPath, bool merge, Guid requestId, bool allowUserReassignment, bool skipErrorGroups)
+        public void DearchiveRegion(string loadPath, bool allowUserReassignment, bool skipErrorGroups, string optionsTable)
+        {
+            DearchiveRegion(loadPath, false, Guid.Empty, allowUserReassignment, skipErrorGroups, optionsTable);
+        }
+
+        public void DearchiveRegion(string loadPath, bool merge, Guid requestId, bool allowUserReassignment, bool skipErrorGroups, string optionsTable)
         {
             m_log.InfoFormat("[ARCHIVER]: Loading archive to region {0} from {1}", m_scene.RegionInfo.RegionName, loadPath);
 
-            new ArchiveReadRequest(m_scene, loadPath, merge, requestId, allowUserReassignment, skipErrorGroups).DearchiveRegion();
+            new ArchiveReadRequest(m_config, m_scene, loadPath, merge, requestId, allowUserReassignment, skipErrorGroups, m_debug).DearchiveRegion(optionsTable);
         }
 
-        public void DearchiveRegion(Stream loadStream, bool allowUserReassignment, bool skipErrorGroups)
+        public void DearchiveRegion(Stream loadStream, bool allowUserReassignment, bool skipErrorGroups, string optionsTable)
         {
-            DearchiveRegion(loadStream, false, Guid.Empty, allowUserReassignment, skipErrorGroups);
+            DearchiveRegion(loadStream, false, Guid.Empty, allowUserReassignment, skipErrorGroups, optionsTable);
         }
 
-        public void DearchiveRegion(Stream loadStream, bool merge, Guid requestId, bool allowUserReassignment, bool skipErrorGroups)
+        public void DearchiveRegion(Stream loadStream, bool merge, Guid requestId, bool allowUserReassignment, bool skipErrorGroups, string optionsTable)
         {
-            new ArchiveReadRequest(m_scene, loadStream, merge, requestId, allowUserReassignment, skipErrorGroups).DearchiveRegion();
+            new ArchiveReadRequest(m_config, m_scene, loadStream, merge, requestId, allowUserReassignment, skipErrorGroups, m_debug).DearchiveRegion(optionsTable);
         }        
     }
 }

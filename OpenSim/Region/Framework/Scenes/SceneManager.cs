@@ -247,6 +247,21 @@ namespace OpenSim.Region.Framework.Scenes
         }
 
         /// <summary>
+        /// Load an xml file of prims in OpenSimulator's current 'xml2' file format to the current scene
+        /// </summary>
+        /// <summary>
+        /// Scans objects in an OAR file for creator IDs to save for assets.
+        /// </summary>
+        /// <param name="fileName"></param>
+        /// <param name="saveCreators">true to save in database</param>
+        public void ScanSceneForCreators(string filename)
+        {
+            IRegionArchiverModule archiver = CurrentOrFirstScene.RequestModuleInterface<IRegionArchiverModule>();
+            if (archiver != null)
+                archiver.ScanArchiveForAssetCreatorIDs(filename);
+        }
+
+        /// <summary>
         /// Save the current scene to an OpenSimulator archive.  This archive will eventually include the prim's assets
         /// as well as the details of the prims themselves.
         /// </summary>
@@ -259,15 +274,26 @@ namespace OpenSim.Region.Framework.Scenes
         }
 
         /// <summary>
+        /// Sets the debug level on loading or scanning an OpenSim archive.
+        /// </summary>
+        /// <param name="level"></param>
+        public void SetOARDebug(int level)
+        {
+            IRegionArchiverModule archiver = CurrentOrFirstScene.RequestModuleInterface<IRegionArchiverModule>();
+            if (archiver != null)
+                archiver.SetDebug(level);
+        }
+
+        /// <summary>
         /// Load an OpenSim archive into the current scene.  This will load both the shapes of the prims and upload
         /// their assets to the asset service.
         /// </summary>
         /// <param name="filename"></param>
-        public void LoadArchiveToCurrentScene(string filename, bool allowUserReassignment, bool ignoreErorrs)
+        public void LoadArchiveToCurrentScene(string filename, bool allowUserReassignment, bool ignoreErrors, string optionsTable)
         {
             IRegionArchiverModule archiver = CurrentOrFirstScene.RequestModuleInterface<IRegionArchiverModule>();
             if (archiver != null)            
-                archiver.DearchiveRegion(filename, allowUserReassignment, ignoreErorrs);
+                archiver.DearchiveRegion(filename, allowUserReassignment, ignoreErrors, optionsTable);
         }
 
         public string SaveCurrentSceneMapToXmlString()
@@ -534,7 +560,8 @@ namespace OpenSim.Region.Framework.Scenes
                             if (ent is SceneObjectGroup)
                             {
                                 SceneObjectGroup SOG = (SceneObjectGroup)ent;
-                                if (OwnerID == SOG.OwnerID)
+                                // Allow UUID.Zero to represent a wildcard for all owners.
+                                if ((OwnerID == SOG.OwnerID) || ((OwnerID == UUID.Zero) && !SOG.IsAttachment))
                                     scene.DeleteSceneObject(SOG, false, false, true);
                             }
                         }
