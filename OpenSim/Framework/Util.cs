@@ -436,27 +436,27 @@ namespace OpenSim.Framework
 
         public static bool IsEnvironmentSupported(ref string reason)
         {
-            // Must have .NET 2.0 (Generics / libsl)
-            if (Environment.Version.Major < 2)
+            // Must have .NET CLR 4 or more recent. Note this is NOT the .NET Framework version as that information is only available via the registry.
+            if (Environment.Version.Major < 4)
             {
-                reason = ".NET 1.0/1.1 lacks components that is used by Halcyon";
+                reason = "Your .NET install is out of date. Please install .NET Framework 4.7 or newer.";
                 return false;
             }
 
-            // Windows 95/98/ME are unsupported
+            // Pre Win7 / Server 2008 R2 are unsupported.
             if (Environment.OSVersion.Platform == PlatformID.Win32Windows &&
                 Environment.OSVersion.Platform != PlatformID.Win32NT)
             {
-                reason = "Windows 95/98/ME will not run Halcyon";
+                reason = "Windows editions before Windows 7 or Windows Server 2008 R2 will not run Halcyon.";
                 return false;
             }
 
-            // Windows 2000 / Pre-SP2 XP
+            // Windows 7 and Windows Server 2008 R2 is the oldest supported by MS for .NET Framework 4.7.1: https://docs.microsoft.com/en-us/dotnet/framework/get-started/system-requirements
             if (Environment.OSVersion.Platform == PlatformID.Win32NT &&
-                Environment.OSVersion.Version.Major == 5 &&
-                Environment.OSVersion.Version.Minor == 0)
+                Environment.OSVersion.Version.Major <= 6 &&
+                Environment.OSVersion.Version.Minor <= 1)
             {
-                reason = "Please update to Windows XP Service Pack 2 or newer OS";
+                reason = "Please update to Windows 7 Service Pack 1 or newer operating system.";
                 return false;
             }
 
