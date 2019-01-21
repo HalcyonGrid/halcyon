@@ -600,13 +600,6 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             // First, replace the prim with a default prim.
             part.Shape = PrimitiveBaseShape.Default.Copy();
             ReplaceDescription(part, part.CreatorID);
-
-            // Now the object owner becomes the creator too of the replacement prim.
-            part.CreatorID = ownerID;
-            part.BaseMask = (uint)(PermissionMask.All | PermissionMask.Export);
-            part.OwnerMask = (uint)(PermissionMask.All | PermissionMask.Export);
-            part.NextOwnerMask = (uint)PermissionMask.All;
-            part.EveryoneMask = (uint)PermissionMask.None;
             // No need to replace textures since the whole prim was replaced.
             m_replacedPart++;
         }
