@@ -57,6 +57,8 @@ namespace OpenSim.Region.CoreModules.World.Archiver
         private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
         private static readonly String ASSET_CREATORS = "asset_creators";
 
+        private static readonly UUID LIBRARY_USER = new UUID("11111111-1111-0000-0000-000100bba000");
+
         private static readonly UUID DEFAULT_TERRAIN_1 = new UUID("b8d3965a-ad78-bf43-699b-bff8eca6c975");  // Terrain Dirt
         private static readonly UUID DEFAULT_TERRAIN_2 = new UUID("abb783e6-3e93-26c0-248a-247666855da3");  // Terrain Grass
         private static readonly UUID DEFAULT_TERRAIN_3 = new UUID("179cdabd-398a-9b6b-1391-4dc333ba321f");  // Terrain Mountain
@@ -127,7 +129,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             new Dictionary<UUID, bool>
             {
                 {UUID.Zero, true},
-                {new UUID("11111111-1111-0000-0000-000100bba000"), true} //the "mr opensim" user
+                {LIBRARY_USER, true} //the "Mr Halcyon" user
             };
 
         public ArchiveReadRequest(IConfigSource config, Scene scene, string loadPath, bool merge, Guid requestId, bool allowUserReassignment, bool skipErrorGroups, int debug)
@@ -246,6 +248,8 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                             optInTable[uuid] = optContent;
                         }
                         reader.Close();
+                        // Add an exception for the standard Library "user".
+                        optInTable[LIBRARY_USER] = 2; // Library user opts-in FULL.
                     }
                 }
             }
