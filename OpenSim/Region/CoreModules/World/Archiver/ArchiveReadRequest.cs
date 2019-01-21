@@ -350,6 +350,18 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                         }
                     }
                 }
+
+                // Check if part is mesh, assume SculptTexture asset is created by part creator.
+                int basicSculptType = part.Shape.SculptType & (byte)0x3F;
+                if (basicSculptType != (byte)SculptType.None)
+                {
+                    if ((basicSculptType == (byte)SculptType.Mesh) && (part.Shape.SculptTexture != UUID.Zero))
+                    {
+                        // Assume that mesh textures are created by the prim creator
+                        m_assetCreators[part.Shape.SculptTexture] = part.CreatorID;
+                        m_scannedMesh++;
+                    }
+                }
             }
             catch (Exception e)
             {
@@ -624,12 +636,21 @@ namespace OpenSim.Region.CoreModules.World.Archiver
         {
             bool filtered = false;
 
-            if (part.Shape.SculptTexture != UUID.Zero)
+            int basicSculptType = part.Shape.SculptType & (byte)0x3F;
+            if (basicSculptType != (byte)SculptType.None)
             {
+                if (basicSculptType == (byte)SculptType.Mesh)
+                {
+                    // Assume that mesh textures are created by the prim creator
+                    if (m_debugOars >= 1)
+                        m_log.InfoFormat("[ARCHIVER]: Retaining MESH shape {0} in part '{1}' for owner {2}.", part.Shape.SculptTexture, part.Name, ownerID);
+                    return false;
+                }
+
                 if (MustReplaceByAsset(part.Shape.SculptTexture, ownerID))
                 {
                     if (m_debugOars >= 1)
-                        m_log.InfoFormat("[ARCHIVER]: Filtering SCULPT/MESH texture {0} in part '{1}' for owner {2}.", part.Shape.SculptTexture, part.Name, ownerID);
+                        m_log.InfoFormat("[ARCHIVER]: Filtering SCULPT shape {0} in part '{1}' for owner {2}.", part.Shape.SculptTexture, part.Name, ownerID);
                     ReplacePartWithDefaultPrim(part, ownerID);
                     filtered = true;
                 }
