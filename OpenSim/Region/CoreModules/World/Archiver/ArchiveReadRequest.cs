@@ -122,6 +122,9 @@ namespace OpenSim.Region.CoreModules.World.Archiver
         int m_scannedItems = 0;
         int m_debugOars = 0;
 
+        // false if we assume prim creator is creator of assets on prims, or has license to use, or will filter.
+        bool m_filterPrimAssets = false;    // false==include prim assets like textures
+
         /// <summary>
         /// Used to cache lookups for valid uuids.
         /// </summary>
@@ -631,6 +634,8 @@ namespace OpenSim.Region.CoreModules.World.Archiver
 
         private bool FilterPrimTexturesByCreator(SceneObjectPart part, UUID ownerID)
         {
+            if (!m_filterPrimAssets) return false;
+
             bool filtered = false;
 
             int basicSculptType = part.Shape.SculptType & (byte)0x3F;
@@ -688,6 +693,8 @@ namespace OpenSim.Region.CoreModules.World.Archiver
 
         private bool FilterOtherPrimAssetsByCreator(SceneObjectPart part, UUID ownerID)
         {
+            if (!m_filterPrimAssets) return false;
+
             bool filtered = false;
             if (part.Sound != UUID.Zero)
             {
