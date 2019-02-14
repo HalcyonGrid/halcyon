@@ -30,13 +30,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Reflection;
-using System.Text.RegularExpressions;
-using System.Threading;
+using System.Xml;
 using log4net;
 using OpenMetaverse;
 using OpenSim.Framework;
 using OpenSim.Framework.Serialization;
-using OpenSim.Region.CoreModules.World.Terrain;
 using OpenSim.Region.Framework.Interfaces;
 using OpenSim.Region.Framework.Scenes;
 using OpenSim.Data;
@@ -220,8 +218,12 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                     m_scene.RequestModuleInterface<IRegionSerializerModule>(),
                     m_scene,
                     archiveWriter,
-                    m_requestId);           
-            
+                    m_requestId);
+
+            // Write out control file first
+            archiveWriter.WriteFile(ArchiveConstants.CONTROL_FILE_PATH, awre.CreateControlFile(assetUuids.Count > 0));
+            m_log.InfoFormat("[ARCHIVER]: Added control file to archive.");
+
             new AssetsRequest(
                 new AssetsArchiver(archiveWriter), assetUuids.Keys, 
                 m_scene.CommsManager.AssetCache, awre.ReceivedAllAssets).Execute();
