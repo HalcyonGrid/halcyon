@@ -267,9 +267,9 @@ namespace OpenSim
                                           "load oar [--allow-reassign] [--ignore-errors] <oar name>",
                                           "Load a region's data from OAR archive", LoadOar);
 
-            m_console.Commands.AddCommand("region", false, "scan iwoar",
-                                          "scan iwoar <oar name>",
-                                          "Scan's a region's data for creator IDs of assets from an InWorldz OAR backup", ScanIWOar);
+            m_console.Commands.AddCommand("region", false, "scan oar",
+                                          "scan oar <oar name>",
+                                          "Scan's a region's data from an oar file, looking for the creator IDs of assets", ScanOarForCreators);
 
             m_console.Commands.AddCommand("region", false, "load filtered",
                                           "load filtered <oar name> allowed_uuid [allowed_uuid ...]",
@@ -286,7 +286,7 @@ namespace OpenSim
 
             m_console.Commands.AddCommand("region", false, "saveportable oar",
                                           "saveportable oar <oar filename> [allowed_uuid allowed_uuid ...]",
-                                          "Save a region's data to an OAR archive with assets suitable for export from inworldz",
+                                          "Save a region's data to an OAR archive with assets suitable for export from the grid",
                                           "Store an archive [<store assets> 1 to save assets in the file or 0 to omit]", SavePortableOar);
 
             m_console.Commands.AddCommand("region", false, "saveexplicit oar",
@@ -1601,32 +1601,25 @@ namespace OpenSim
         }
 
         /// <summary>
-        /// Scan's a region's data for creator IDs of assets from an InWorldz OAR backup
-        /// scan iwoar [--save] oarname
+        /// Scan's a region's data from an oar file, looking for the creator IDs of assets
+        /// scan oar [--save] oarname
         /// </summary>
         /// <param name="cmdparams"></param>
-        protected void ScanIWOar(string module, string[] cmdparams)
+        protected void ScanOarForCreators(string module, string[] cmdparams)
         {
-            string fileName;
-            bool saveCreators;
-            if (cmdparams.Length > 3 && cmdparams[2] == "--save")
+            if (cmdparams.Length != 3)
             {
-                saveCreators = true;
-                fileName = cmdparams[3];
-            }
-            else
-            {
-                saveCreators = false;
-                fileName = cmdparams[2];
+                m_console.Error("Usage: scan oar <filename>");
+                return;
             }
 
             try
             {
-                m_sceneManager.ScanSceneForCreators(fileName);
+                m_sceneManager.ScanSceneForCreators(cmdparams[2]);
             }
             catch (FileNotFoundException)
             {
-                m_console.Error("Specified oar not found. Usage: load oar <filename>");
+                m_console.Error("Specified oar not found. Usage: scan oar <filename>");
             }
         }
 
