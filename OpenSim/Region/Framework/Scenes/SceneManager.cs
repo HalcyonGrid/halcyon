@@ -289,11 +289,11 @@ namespace OpenSim.Region.Framework.Scenes
         /// their assets to the asset service.
         /// </summary>
         /// <param name="filename"></param>
-        public void LoadArchiveToCurrentScene(string filename, bool allowUserReassignment, bool ignoreErrors, string optionsTable)
+        public void LoadArchiveToCurrentScene(string filename, bool allowUserReassignment, bool ignoreErrors, HashSet<UUID> allowedUUIDs)
         {
             IRegionArchiverModule archiver = CurrentOrFirstScene.RequestModuleInterface<IRegionArchiverModule>();
             if (archiver != null)            
-                archiver.DearchiveRegion(filename, allowUserReassignment, ignoreErrors, optionsTable);
+                archiver.DearchiveRegion(filename, allowUserReassignment, ignoreErrors, allowedUUIDs);
         }
 
         public string SaveCurrentSceneMapToXmlString()

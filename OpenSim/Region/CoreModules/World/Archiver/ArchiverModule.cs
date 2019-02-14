@@ -114,26 +114,26 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             new ArchiveReadRequest(m_config, m_scene, loadPath, false, Guid.Empty, false, true, m_debug).ScanArchiveForAssetCreatorIDs();
         }
 
-        public void DearchiveRegion(string loadPath, bool allowUserReassignment, bool skipErrorGroups, string optionsTable)
+        public void DearchiveRegion(string loadPath, bool allowUserReassignment, bool skipErrorGroups, HashSet<UUID> allowedUUIDs)
         {
-            DearchiveRegion(loadPath, false, Guid.Empty, allowUserReassignment, skipErrorGroups, optionsTable);
+            DearchiveRegion(loadPath, false, Guid.Empty, allowUserReassignment, skipErrorGroups, allowedUUIDs);
         }
 
-        public void DearchiveRegion(string loadPath, bool merge, Guid requestId, bool allowUserReassignment, bool skipErrorGroups, string optionsTable)
+        public void DearchiveRegion(string loadPath, bool merge, Guid requestId, bool allowUserReassignment, bool skipErrorGroups, HashSet<UUID> allowedUUIDs)
         {
             m_log.InfoFormat("[ARCHIVER]: Loading archive to region {0} from {1}", m_scene.RegionInfo.RegionName, loadPath);
 
-            new ArchiveReadRequest(m_config, m_scene, loadPath, merge, requestId, allowUserReassignment, skipErrorGroups, m_debug).DearchiveRegion(optionsTable);
+            new ArchiveReadRequest(m_config, m_scene, loadPath, merge, requestId, allowUserReassignment, skipErrorGroups, m_debug).DearchiveRegion(allowedUUIDs);
         }
 
-        public void DearchiveRegion(Stream loadStream, bool allowUserReassignment, bool skipErrorGroups, string optionsTable)
+        public void DearchiveRegion(Stream loadStream, bool allowUserReassignment, bool skipErrorGroups, HashSet<UUID> allowedUUIDs)
         {
-            DearchiveRegion(loadStream, false, Guid.Empty, allowUserReassignment, skipErrorGroups, optionsTable);
+            DearchiveRegion(loadStream, false, Guid.Empty, allowUserReassignment, skipErrorGroups, allowedUUIDs);
         }
 
-        public void DearchiveRegion(Stream loadStream, bool merge, Guid requestId, bool allowUserReassignment, bool skipErrorGroups, string optionsTable)
+        public void DearchiveRegion(Stream loadStream, bool merge, Guid requestId, bool allowUserReassignment, bool skipErrorGroups, HashSet<UUID> allowedUUIDs)
         {
-            new ArchiveReadRequest(m_config, m_scene, loadStream, merge, requestId, allowUserReassignment, skipErrorGroups, m_debug).DearchiveRegion(optionsTable);
+            new ArchiveReadRequest(m_config, m_scene, loadStream, merge, requestId, allowUserReassignment, skipErrorGroups, m_debug).DearchiveRegion(allowedUUIDs);
         }        
     }
 }

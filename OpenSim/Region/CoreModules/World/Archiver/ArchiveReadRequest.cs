@@ -96,8 +96,9 @@ namespace OpenSim.Region.CoreModules.World.Archiver
 
         private bool m_skipErrorGroups = false;
 
-        // Filtered opt-in OAR loading
-        private Dictionary<UUID, int> m_optInTable = null;
+        // Filtered OAR loading
+        private HashSet<UUID> m_allowedUUIDs = null;
+
         private Dictionary<UUID, UUID> m_assetCreators = null;
         private Dictionary<UUID, String> m_libAssets = null;
         private IInventoryObjectSerializer m_inventorySerializer = null;
@@ -106,15 +107,11 @@ namespace OpenSim.Region.CoreModules.World.Archiver
         int m_replacedItem = 0;
         int m_replacedTexture = 0;
         int m_replacedSound = 0;
-        int m_replacedNonCreator = 0;   // MINE
-        int m_replacedCreator = 0;      // NONE
 
         int m_keptPart = 0;
         int m_keptItem = 0;
         int m_keptTexture = 0;
         int m_keptSound = 0;
-        int m_keptNonCreator = 0;   // MINE
-        int m_keptCreator = 0;      // NONE
 
         int m_scannedObjects = 0;
         int m_scannedMesh = 0;
@@ -193,15 +190,6 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             m_libAssets[TEXTURE_BLANK] = "TEXTURE_BLANK";
             m_libAssets[TEXTURE_TRANSPARENT] = "TEXTURE_TRANSPARENT";
             m_libAssets[TEXTURE_MEDIA] = "TEXTURE_MEDIA";
-        }
-
-        /// <summary>
-        /// Dearchive the region embodied in this request.
-        /// </summary>
-        public void DearchiveRegion(string optionsTable)
-        {
-            // The same code can handle dearchiving 0.1 and 0.2 OpenSim Archive versions
-            DearchiveRegion0DotStar(optionsTable);
         }
 
         public bool NoCopyObjectOrContents(SceneObjectGroup target)
@@ -526,69 +514,39 @@ namespace OpenSim.Region.CoreModules.World.Archiver
 
         private bool MustReplaceByCreatorOwner(UUID creatorID, UUID ownerID)
         {
-            int creatorOptIn = 0;
-            if (m_optInTable.ContainsKey(creatorID))
-                creatorOptIn = m_optInTable[creatorID];
-
-            switch (creatorOptIn)
-            {
-                case 2: // allow the asset in so everyone can use it
-                    m_keptNonCreator++;
-                    if (m_debugOars >= 2)
-                        m_log.InfoFormat("[ARCHIVER]: Retaining assets for owner {0} by creator {1} due to opt-in ALL.", ownerID, creatorID);
-                    return false;
-                case 1: // allow my own copies to be used
-                    if (ownerID == creatorID)
-                    {
-                        if (m_debugOars >= 2)
-                            m_log.InfoFormat("[ARCHIVER]: Retaining assets for owner {0} by creator {1} due to opt-in MINE.", ownerID, creatorID);
-                        m_keptCreator++;
-                        return false;
-                    }
-                    if (m_debugOars >= 2)
-                        m_log.InfoFormat("[ARCHIVER]: Filtering assets for owner {0} by creator {1} due to opt-in MINE.", ownerID, creatorID);
-                    m_replacedNonCreator++;
-                    return true;
-                case 0:
-                    if (m_debugOars >= 2)
-                        m_log.InfoFormat("[ARCHIVER]: Filtering assets for owner {0} by creator {1} due to opt-in NONE.", ownerID, creatorID);
-                    m_replacedCreator++;
-                    return true;
-                default: // unknown opt-in status, assume same as 0;
-                    if (m_debugOars >= 2)
-                        m_log.InfoFormat("[ARCHIVER]: Filtering assets for owner {0} by creator {1} due to opt-in UNKNOWN.", ownerID, creatorID);
-                    m_replacedCreator++;
-                    return true;
-            }
+            if (!m_allowedUUIDs.Contains(ownerID))
+                return true;
+            if (!m_allowedUUIDs.Contains(creatorID))
+                return true;
+            return false;
         }
 
-        private bool MustReplaceByAsset(UUID assetID, UUID ownerID)
+        private bool MustReplaceByAsset(UUID assetID, UUID ownerID, UUID creatorID)
         {
             if (assetID == UUID.Zero) return false;
-            if (m_optInTable == null)
-                return false;    // no filtering
 
             if (m_libAssets.ContainsKey(assetID))
-            {
-                if (m_debugOars >= 2)
-                    m_log.InfoFormat("[ARCHIVER]: Retaining asset {0} due to LIBRARY for owner {1}.", assetID, ownerID);
                 return false;   // it's in the Library
+
+            // Filter out owners who aren't in the allowed list.
+            if (!m_allowedUUIDs.Contains(ownerID))
+                return true;    // filter out this user
+
+            if (creatorID == UUID.Zero) {
+                // See if we can figure out who the asset creator is.
+                if (m_assetCreators.ContainsKey(assetID))
+                {
+                    // We have explicit wishes from the creator
+                    creatorID = m_assetCreators[assetID];
+                }
             }
 
-            bool mustReplace = true;
-            if (m_assetCreators.ContainsKey(assetID))
-            {
-                // We have explicit wishes from the creator
-                UUID creatorID = m_assetCreators[assetID];
-                mustReplace = MustReplaceByCreatorOwner(creatorID, ownerID);
-                if (m_debugOars >= 2)
-                    m_log.InfoFormat("[ARCHIVER]: {0} asset {1} for owner {2} due to opt-in by creator {3}.", mustReplace ? "Filtering" : "Retaining", assetID, ownerID, creatorID);
-            }
-            else if (m_debugOars >= 2)
-                m_log.InfoFormat("[ARCHIVER]: Filtering asset {0} for owner {1} due to creator UNKNOWN.", assetID, ownerID);
+            // Don't filter if we can't identify a creator ID and the owner is allowed.
+            if (creatorID == UUID.Zero)
+                return false;
 
-            // The creator is unknown, assume opt-in denied, replace
-            return mustReplace;
+            // Filter out creators who aren't in the allowed list.
+            return !m_allowedUUIDs.Contains(creatorID);
         }
 
         private void ReplaceDescription(SceneObjectPart part, UUID prevCreatorID)
@@ -613,7 +571,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
 
         private Primitive.TextureEntryFace FilterFaceTexture(SceneObjectPart part, Primitive.TextureEntry te, Primitive.TextureEntryFace face, UUID ownerID)
         {
-            if (MustReplaceByAsset(face.TextureID, ownerID))
+            if (MustReplaceByAsset(face.TextureID, ownerID, UUID.Zero))
             {
                 if (m_debugOars >= 1)
                     m_log.InfoFormat("[ARCHIVER]: Filtering prim texture {0} in part '{1}' for owner {2}.", face.TextureID, part.Name, ownerID);
@@ -649,7 +607,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                     return false;
                 }
 
-                if (MustReplaceByAsset(part.Shape.SculptTexture, ownerID))
+                if (MustReplaceByAsset(part.Shape.SculptTexture, ownerID, UUID.Zero))
                 {
                     if (m_debugOars >= 1)
                         m_log.InfoFormat("[ARCHIVER]: Filtering SCULPT shape {0} in part '{1}' for owner {2}.", part.Shape.SculptTexture, part.Name, ownerID);
@@ -698,7 +656,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             bool filtered = false;
             if (part.Sound != UUID.Zero)
             {
-                if (MustReplaceByAsset(part.Sound, ownerID))
+                if (MustReplaceByAsset(part.Sound, ownerID, UUID.Zero))
                 {
                     if (m_debugOars >= 1)
                         m_log.InfoFormat("[ARCHIVER]: Filtering prim sound {0} in part '{1}' for owner {2}.", part.Sound, part.Name, ownerID);
@@ -716,7 +674,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
 
             if (part.CollisionSound != UUID.Zero)
             {
-                if (MustReplaceByAsset(part.CollisionSound, ownerID))
+                if (MustReplaceByAsset(part.CollisionSound, ownerID, UUID.Zero))
                 {
                     if (m_debugOars >= 1)
                         m_log.InfoFormat("[ARCHIVER]: Filtering prim collision sound {0} in part '{1}' for owner {2}.", part.CollisionSound, part.Name, ownerID);
@@ -897,7 +855,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                         m_keptItem++;
                     }
                     else
-                    if (MustReplaceByAsset(item.AssetID, ownerID))
+                    if (MustReplaceByAsset(item.AssetID, ownerID, item.CreatorID))
                     {
                         if (m_debugOars >= 1)
                             m_log.InfoFormat("[ARCHIVER]: Item '{0}' in part '{1}' must zero asset {2}.", item.Name, part.Name, item.AssetID);
@@ -919,6 +877,8 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                 {
                     if (m_debugOars >= 1)
                         m_log.InfoFormat("[ARCHIVER]: replacedItems '{0}' in part '{1}' with asset {2}.", item.Name, part.Name, item.AssetID);
+                    part.TaskInventory.Remove(item.ItemID);
+                    item.ItemID = UUID.Random();
                     part.TaskInventory[item.ItemID] = item;
                 }
             }
@@ -929,7 +889,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
         private bool FilterObjectByCreators(SceneObjectGroup sceneObject, UUID ownerID, int depth)
         {
             bool filtered = false;
-            if (m_optInTable == null) return false; // no filtering
+            if (m_allowedUUIDs == null) return false; // no filtering
 
             if (sceneObject == null) return true;
 
@@ -992,20 +952,20 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             FilterObjectByCreators(sceneObject, ownerID, 0);
         }
 
-        private void DearchiveRegion0DotStar(string optionsTable)
+        /// <summary>
+        /// Dearchive the region embodied in this request.
+        /// </summary>
+        public void DearchiveRegion(HashSet<UUID> allowedUUIDs)
         {
             int successfulAssetRestores = 0;
             int failedAssetRestores = 0;
             List<string> serializedSceneObjects = new List<string>();
             string filePath = "NONE";
 
-            if (!String.IsNullOrWhiteSpace(optionsTable))
+            if (allowedUUIDs != null)
             {
-                // This code assumes that a full 'scan iwoar` was done for the specified OAR, to figure out which assets to allow.
-                // ScanArchiveForAssetCreatorIDs(); // done previously, separately
-
+                m_allowedUUIDs = allowedUUIDs;
                 // Now a normal filtered load.
-                m_optInTable = GetUserContentOptions(optionsTable);
                 m_assetCreators = GetAssetCreators();
             }
 
@@ -1135,7 +1095,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                     existingObject = ExistingNoCopyObjects[originalUUID];
                 // existingSOG here means existing NO-COPY object, not deleted from scene above
 
-                if ((m_optInTable == null) && NoCopyObjectOrContents(backupObject))
+                if ((m_allowedUUIDs == null) && NoCopyObjectOrContents(backupObject))
                 {
                     if ((existingObject != null) && !existingObject.IsAttachment)
                     {
@@ -1163,12 +1123,10 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             if (ignoredObjects > 0)
                 m_log.WarnFormat("[ARCHIVER]: Ignored {0} scene objects that already existed in the scene", ignoredObjects);
 
-            if (m_optInTable != null)
+            if (m_allowedUUIDs != null)
             {
                 m_log.WarnFormat("[ARCHIVER]: Prim shapes replaced={0} restored={1}", m_replacedPart, m_keptPart);
                 m_log.WarnFormat("[ARCHIVER]: Item assets replaced={0} restored={1}", m_replacedItem, m_keptItem);
-                m_log.WarnFormat("[ARCHIVER]: Non-creator assets replaced={0} restored={1}", m_replacedNonCreator, m_keptNonCreator);
-                m_log.WarnFormat("[ARCHIVER]: Creator assets replaced={0} restored={1}", m_replacedCreator, m_keptCreator);
                 m_log.WarnFormat("[ARCHIVER]: Texture assets replaced={0} restored={1}", m_replacedTexture, m_keptTexture);
                 m_log.WarnFormat("[ARCHIVER]: Sound assets replaced={0} restored={1}", m_replacedSound, m_keptSound);
             }
@@ -1261,42 +1219,6 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             {
                 sbyte assetType = ArchiveConstants.EXTENSION_TO_ASSET_TYPE[extension];
                 UUID assetID = new UUID(uuid);
-                if (m_optInTable != null)
-                {
-                    // First check if it's a known Library asset.
-                    if (m_libAssets.ContainsKey(assetID))
-                    {
-                        if (m_debugOars >= 1)
-                            m_log.InfoFormat("[ARCHIVER]: Skipping load of asset {0} due to LIBRARY.", assetID);
-                        return false;   // it's in the Library
-                    }
-
-                    // this is a `load iwoar` command and we need to filter based on opt-in status
-                    if (!m_assetCreators.ContainsKey(assetID))
-                    {
-                        if (m_debugOars >= 1)
-                            m_log.ErrorFormat("[ARCHIVER]: LoadAsset filtering asset {0} with unknown creator.", assetID);
-                        return false;
-                    }
-                    UUID creatorId = m_assetCreators[assetID];
-                    if (!m_optInTable.ContainsKey(creatorId))
-                    {
-                        if (m_debugOars >= 1)
-                            m_log.ErrorFormat("[ARCHIVER]: LoadAsset filtering asset {0} with unrecognized creator {1}", assetID, creatorId);
-                        return false;
-                    }
-                    int optIn = m_optInTable[creatorId];
-                    switch (optIn)
-                    {
-                        case 2: break; // allow the asset in so everyone can use it
-                        case 1: break; // allow the asset in so creator can use it
-                        case 0:   // asset is not allowed in
-                        default:  // unknown status, cannot assume opt-in
-                            if (m_debugOars >= 1)
-                                m_log.WarnFormat("[ARCHIVER]: LoadAsset filtering asset {0} per creator {1} wishes: {2}", assetID, creatorId, optIn);
-                            return false;
-                    }
-                }
 
                 try
                 {
@@ -1372,23 +1294,23 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             currentRegionSettings.RestrictPushing = loadedRegionSettings.RestrictPushing;
             currentRegionSettings.TerrainLowerLimit = loadedRegionSettings.TerrainLowerLimit;
             currentRegionSettings.TerrainRaiseLimit = loadedRegionSettings.TerrainRaiseLimit;
-            if (m_optInTable != null)
+            if (m_allowedUUIDs != null)
             {
-                // this is a `load iwoar` command and we need to filter based on opt-in status
+                // this is a `load filtered` command, we need to filter based on the allowed whitelist
                 UUID ownerID = m_scene.RegionInfo.EstateSettings.EstateOwner;
-                if (MustReplaceByAsset(loadedRegionSettings.TerrainTexture1, ownerID))
+                if (MustReplaceByAsset(loadedRegionSettings.TerrainTexture1, ownerID, UUID.Zero))
                     currentRegionSettings.TerrainTexture1 = DEFAULT_TERRAIN_1;
                 else
                     currentRegionSettings.TerrainTexture1 = loadedRegionSettings.TerrainTexture1;
-                if (MustReplaceByAsset(loadedRegionSettings.TerrainTexture2, ownerID))
+                if (MustReplaceByAsset(loadedRegionSettings.TerrainTexture2, ownerID, UUID.Zero))
                     currentRegionSettings.TerrainTexture2 = DEFAULT_TERRAIN_2;
                 else
                     currentRegionSettings.TerrainTexture2 = loadedRegionSettings.TerrainTexture2;
-                if (MustReplaceByAsset(loadedRegionSettings.TerrainTexture3, ownerID))
+                if (MustReplaceByAsset(loadedRegionSettings.TerrainTexture3, ownerID, UUID.Zero))
                     currentRegionSettings.TerrainTexture3 = DEFAULT_TERRAIN_3;
                 else
                     currentRegionSettings.TerrainTexture3 = loadedRegionSettings.TerrainTexture3;
-                if (MustReplaceByAsset(loadedRegionSettings.TerrainTexture4, ownerID))
+                if (MustReplaceByAsset(loadedRegionSettings.TerrainTexture4, ownerID, UUID.Zero))
                     currentRegionSettings.TerrainTexture4 = DEFAULT_TERRAIN_4;
                 else
                     currentRegionSettings.TerrainTexture4 = loadedRegionSettings.TerrainTexture4;
