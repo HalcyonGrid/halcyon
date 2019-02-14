@@ -89,13 +89,6 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                 "[ARCHIVER]: Received {0} of {1} assets requested",
                 assetsFoundUuids.Count, assetsFoundUuids.Count + assetsNotFoundUuids.Count);
 
-            m_log.InfoFormat("[ARCHIVER]: Creating archive file.  This may take some time.");
-
-            // Write out control file
-            m_archiveWriter.WriteFile(ArchiveConstants.CONTROL_FILE_PATH, Create0p2ControlFile());
-
-            m_log.InfoFormat("[ARCHIVER]: Added control file to archive.");
-
             // Write out region settings
             string settingsPath
                 = String.Format("{0}{1}.xml", ArchiveConstants.SETTINGS_PATH, m_scene.RegionInfo.RegionName);
@@ -142,27 +135,48 @@ namespace OpenSim.Region.CoreModules.World.Archiver
         }
 
         /// <summary>
-        /// Create the control file for a 0.2 version archive
+        /// Create the control file.
         /// </summary>
         /// <returns></returns>
-        public static string Create0p2ControlFile()
+        public string CreateControlFile(bool assetsIncluded)
         {
-            StringWriter sw = new StringWriter();
-            XmlTextWriter xtw = new XmlTextWriter(sw);
-            xtw.Formatting = Formatting.Indented;
-            xtw.WriteStartDocument();
-            xtw.WriteStartElement("archive");
-            xtw.WriteAttributeString("major_version", "0");
-            xtw.WriteAttributeString("minor_version", "2");
-            xtw.WriteEndElement();
+            int majorVersion = 0;
+            int minorVersion = 8;
+            m_log.InfoFormat("[ARCHIVER]: Creating version {0}.{1} OAR", majorVersion, minorVersion);
 
-            xtw.Flush();
-            xtw.Close();
+            String result;
+            using (StringWriter sw = new StringWriter())
+            {
+                using (XmlTextWriter xtw = new XmlTextWriter(sw))
+                {
+                    xtw.Formatting = Formatting.Indented;
+                    xtw.WriteStartDocument();
+                    xtw.WriteStartElement("archive");
+                        xtw.WriteAttributeString("major_version", majorVersion.ToString());
+                        xtw.WriteAttributeString("minor_version", minorVersion.ToString());
 
-            String s = sw.ToString();
-            sw.Close();
+                        xtw.WriteStartElement("creation_info");
+                            DateTime now = DateTime.UtcNow;
+                            TimeSpan t = now - new DateTime(1970, 1, 1);
+                            xtw.WriteElementString("datetime", ((int)t.TotalSeconds).ToString());
+                            xtw.WriteElementString("id", m_scene.RegionInfo.RegionID.ToString());
+                        xtw.WriteEndElement();
 
-            return s;
+                        xtw.WriteElementString("assets_included", assetsIncluded ? "True" : "False");
+
+                        xtw.WriteStartElement("region_info");
+                            xtw.WriteElementString("is_megaregion", "False");
+                            xtw.WriteElementString("size_in_meters", string.Format("{0},{1}", Constants.RegionSize, Constants.RegionSize));
+                        xtw.WriteEndElement();
+                    xtw.WriteEndElement();
+                    xtw.Flush();
+                }
+
+                result = sw.ToString();
+            }
+
+            return result;
         }
+
     }
 }
