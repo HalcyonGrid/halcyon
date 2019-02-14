@@ -271,9 +271,9 @@ namespace OpenSim
                                           "scan iwoar <oar name>",
                                           "Scan's a region's data for creator IDs of assets from an InWorldz OAR backup", ScanIWOar);
 
-            m_console.Commands.AddCommand("region", false, "load iwoar",
-                                          "load iwoar <oar name>",
-                                          "Load a region's data from an InWorldz OAR backup, filtering based on opt-in database", LoadIWOar);
+            m_console.Commands.AddCommand("region", false, "load filtered",
+                                          "load filtered <oar name> allowed_uuid [allowed_uuid ...]",
+                                          "Load a region's data from an OAR backup, filtering to owners/creators specifed", LoadFilteredOar);
 
             m_console.Commands.AddCommand("region", false, "save oar",
                                           "save oar <oar name> <store_assets>",
@@ -1634,26 +1634,34 @@ namespace OpenSim
         /// Load a whole region from an opensim archive with optional table name.
         /// </summary>
         /// <param name="cmdparams"></param>
-        protected void LoadOarWithOptions(string module, string[] cmdparams, string optionsTable)
+        protected void LoadOarWithOptions(string module, string[] cmdparams, HashSet<UUID> allowedUUIDs)
         {
             string fileName = DEFAULT_OAR_BACKUP_FILENAME;
             bool allowReassign = false; // should UUIDs for missing users get reassigned to master avatar
             bool ignoreErrors = false;
 
-            // Skip "load oar" and "load iwoar" in cmdparams (start at 2).
-            for (int param = 2; param < cmdparams.Length; param++)
+            if (allowedUUIDs != null)
             {
-                switch (cmdparams[param])
+                fileName = cmdparams[2];
+                ignoreErrors = true;
+            }
+            else
+            {
+                // Skip "load oar" in cmdparams (start at 2).
+                for (int param = 2; param < cmdparams.Length; param++)
                 {
-                    case "--ignore-errors": ignoreErrors = true; break;
-                    case "--allow-reassign": allowReassign = true; break;
-                    default: fileName = cmdparams[param]; break;
+                    switch (cmdparams[param])
+                    {
+                        case "--ignore-errors": ignoreErrors = true; break;
+                        case "--allow-reassign": allowReassign = true; break;
+                        default: fileName = cmdparams[param]; break;
+                    }
                 }
             }
 
             try
             {
-                m_sceneManager.LoadArchiveToCurrentScene(fileName, allowReassign, ignoreErrors, optionsTable);
+                m_sceneManager.LoadArchiveToCurrentScene(fileName, allowReassign, ignoreErrors, allowedUUIDs);
             }
             catch (FileNotFoundException)
             {
@@ -1671,12 +1679,31 @@ namespace OpenSim
         }
 
         /// <summary>
-        /// Load a region from an opensim archive with filtering based on opt-in status in a database table.
+        /// Load a region's data from an OAR backup, filtering to owners/creators specifed
         /// </summary>
         /// <param name="cmdparams"></param>
-        protected void LoadIWOar(string module, string[] cmdparams)
+        protected void LoadFilteredOar(string module, string[] cmdparams)
         {
-            LoadOarWithOptions(module, cmdparams, "iwopt");
+            if (cmdparams.Length < 4) {
+                m_console.Error("Usage: load filtered <oar name> allowed_uuid [allowed_uuid ...]");
+                return;
+            }
+
+            HashSet<UUID> allowedUUIDs = new HashSet<UUID>();
+            for (int x = 3; x < cmdparams.Length; x++)
+            {
+                UUID uuid = UUID.Zero;
+                if (UUID.TryParse(cmdparams[x], out uuid))
+                    allowedUUIDs.Add(uuid);
+                else
+                {
+                    m_console.Error($"Invalid UUID '{cmdparams[x]}'.");
+                    return;
+                }
+            }
+
+            if (allowedUUIDs.Count > 0)
+                LoadOarWithOptions(module, cmdparams, allowedUUIDs);
         }
 
         /// <summary>
