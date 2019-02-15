@@ -512,24 +512,38 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             return asset;
         }
 
-        private bool MustReplaceByCreatorOwner(UUID creatorID, UUID ownerID)
+        private bool MustFilterByOwner(UUID ownerID)
         {
-            if (!m_allowedUUIDs.Contains(ownerID))
-                return true;
-            if (!m_allowedUUIDs.Contains(creatorID))
-                return true;
-            return false;
+            if (m_allowedUUIDs == null)
+                return false;   // filter disabled
+
+            return !m_allowedUUIDs.Contains(ownerID);
+        }
+
+        private bool MustReplaceByCreator(UUID creatorID)
+        {
+            if (m_allowedUUIDs == null)
+                return false;   // filter disabled
+
+            // Also include the LIBRARY_USER in the creator whitelist.
+            if (creatorID == LIBRARY_USER)
+                return false;
+
+            return !m_allowedUUIDs.Contains(creatorID);
         }
 
         private bool MustReplaceByAsset(UUID assetID, UUID ownerID, UUID creatorID)
         {
             if (assetID == UUID.Zero) return false;
 
+            if (m_allowedUUIDs == null)
+                return false;   // filter disabled
+
             if (m_libAssets.ContainsKey(assetID))
                 return false;   // it's in the Library
 
             // Filter out owners who aren't in the allowed list.
-            if (!m_allowedUUIDs.Contains(ownerID))
+            if (MustFilterByOwner(ownerID))
                 return true;    // filter out this user
 
             if (creatorID == UUID.Zero) {
@@ -546,7 +560,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                 return false;
 
             // Filter out creators who aren't in the allowed list.
-            return !m_allowedUUIDs.Contains(creatorID);
+            return MustReplaceByCreator(creatorID);
         }
 
         private void ReplaceDescription(SceneObjectPart part, UUID prevCreatorID)
@@ -709,7 +723,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             }
 
             // Check if object creator has opted in
-            if (MustReplaceByCreatorOwner(part.CreatorID, ownerID))
+            if (MustReplaceByCreator(part.CreatorID))
             {
                 // Creator of prim has not opted-in for this instance.
                 // First, replace the prim with a default prim.
@@ -966,8 +980,6 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             {
                 // Adopt this whitelist for filtering a load.
                 m_allowedUUIDs = allowedUUIDs;
-                // Also include the LIBRARY_USER in the whitelist.
-                m_allowedUUIDs.Add(LIBRARY_USER);
                 // Now a normal filtered load.
                 m_assetCreators = GetAssetCreators();
             }
@@ -999,7 +1011,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                             failedAssetRestores++;
 
                         if (((successfulAssetRestores + failedAssetRestores) % 1000) == 0)
-                            m_log.InfoFormat("[ARCHIVER]: Assets {0} of {1} restored.", successfulAssetRestores, successfulAssetRestores + failedAssetRestores);
+                            m_log.InfoFormat("[ARCHIVER]: Assets {0} of {1} restored (so far)...", successfulAssetRestores, successfulAssetRestores + failedAssetRestores);
                     }
                     else if (!m_merge && filePath.StartsWith(ArchiveConstants.TERRAINS_PATH))
                     {
@@ -1060,6 +1072,9 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                     if (m_skipErrorGroups) continue;
                     else throw new Exception("Error while deserializing group");
                 }
+
+                if (MustFilterByOwner(sceneObject.OwnerID))
+                    continue;
 
                 DearchiveSceneObject(sceneObject, sceneObject.OwnerID, true, OriginalBackupIDs);
 
