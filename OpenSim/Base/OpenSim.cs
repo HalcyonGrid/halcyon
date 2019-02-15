@@ -1671,6 +1671,30 @@ namespace OpenSim
             LoadOarWithOptions(module, cmdparams, null);
         }
 
+        // Allows loading of whitelist UUIDs from a text file, one per line.
+        // First argument on the line should be a UUID to add, rest of line is ignored,
+        // but can include the name of the avatar as a comment for reference later.
+        // Typical line format:  7b772b49-0dde-4e08-a8d7-6c26e09a6842 Zauber Paracelsus
+        protected bool LoadWhitelistFromFile(String fn, HashSet<UUID> allowedUUIDs)
+        {
+            StreamReader file = new StreamReader(fn);
+            String line;
+            while ((line = file.ReadLine()) != null)
+            {
+                String[] args = line.Trim().Split(new Char[] { ' ', ',', '\t' });
+                if (args.Length < 1)
+                    continue;
+
+                UUID uuid = UUID.Zero;
+                if (!UUID.TryParse(args[0], out uuid))
+                    return false;
+
+                allowedUUIDs.Add(uuid);
+            }
+            file.Close();
+            return true;
+        }
+
         /// <summary>
         /// Load a region's data from an OAR backup, filtering to owners/creators specifed
         /// </summary>
@@ -1689,8 +1713,9 @@ namespace OpenSim
                 if (UUID.TryParse(cmdparams[x], out uuid))
                     allowedUUIDs.Add(uuid);
                 else
+                if (!LoadWhitelistFromFile(cmdparams[x], allowedUUIDs))
                 {
-                    m_console.Error($"Invalid UUID '{cmdparams[x]}'.");
+                    m_console.Error($"Invalid UUID or whitelist filename '{cmdparams[x]}'.");
                     return;
                 }
             }
