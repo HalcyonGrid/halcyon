@@ -964,7 +964,10 @@ namespace OpenSim.Region.CoreModules.World.Archiver
 
             if (allowedUUIDs != null)
             {
+                // Adopt this whitelist for filtering a load.
                 m_allowedUUIDs = allowedUUIDs;
+                // Also include the LIBRARY_USER in the whitelist.
+                m_allowedUUIDs.Add(LIBRARY_USER);
                 // Now a normal filtered load.
                 m_assetCreators = GetAssetCreators();
             }
