@@ -272,8 +272,9 @@ namespace OpenSim
                                           "Scan's a region's data from an oar file, looking for the creator IDs of assets", ScanOarForCreators);
 
             m_console.Commands.AddCommand("region", false, "load filtered",
-                                          "load filtered <oar name> allowed_uuid [allowed_uuid ...]",
-                                          "Load a region's data from an OAR backup, filtering to owners/creators specifed", LoadFilteredOar);
+                                          "load filtered <oar_name> <allowed_uuid>|<allowed_uuid_filename> [...]",
+                                          "Load a region's data from an OAR file, filtering to owner/creator UUIDs specifed or in text file(s).", 
+                                          "If a filename is specified, it is one UUID with optional name per line. Can specify UUID or files in any mix.", LoadFilteredOar);
 
             m_console.Commands.AddCommand("region", false, "save oar",
                                           "save oar <oar name> <store_assets>",
@@ -1702,7 +1703,7 @@ namespace OpenSim
         protected void LoadFilteredOar(string module, string[] cmdparams)
         {
             if (cmdparams.Length < 4) {
-                m_console.Error("Usage: load filtered <oar name> allowed_uuid [allowed_uuid ...]");
+                m_console.Error("Usage: load filtered <oar_name> <allowed_uuid>|<allowed_uuid_file> [...]");
                 return;
             }
 
