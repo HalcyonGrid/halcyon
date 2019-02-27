@@ -27,13 +27,16 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Reflection;
-using System.Xml;
 using log4net;
 using OpenMetaverse;
 using OpenSim.Framework;
 using OpenSim.Framework.Serialization;
+
+// We need to include these because Tranq stored inventory assets in an alternative binary "Thoosa" format which need to be XML.
+using OpenSim.Region.Framework.Interfaces;
+using OpenSim.Region.Framework.Scenes;
+using OpenSim.Region.Framework.Scenes.Serialization;
 
 namespace OpenSim.Region.CoreModules.World.Archiver
 {
@@ -55,10 +58,22 @@ namespace OpenSim.Region.CoreModules.World.Archiver
         protected int m_assetsWritten; 
         
         protected TarArchiveWriter m_archiveWriter;
+        protected Scene m_scene;
+        protected IRegionSerializerModule m_serializer;
+        private IInventoryObjectSerializer m_inventorySerializer;
 
-        public AssetsArchiver(TarArchiveWriter archiveWriter)
+        public AssetsArchiver(TarArchiveWriter archiveWriter, Scene scene)
         {
             m_archiveWriter = archiveWriter;
+            ISerializationEngine engine;
+
+            m_scene = scene;
+            if (ProviderRegistry.Instance.TryGet<ISerializationEngine>(out engine))
+            {
+                // This is the Thoosa inventory format serializer/deserializer.
+                m_inventorySerializer = engine.InventoryObjectSerializer;
+            }
+            m_serializer = m_scene.RequestModuleInterface<IRegionSerializerModule>();
         }
 
         /// <summary>
@@ -139,9 +154,36 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                     asset.Type, asset.ID);
             }
 
+            // Check for Thoosa Inventory object and decode to XML if necessary for Archive.
+            string xmlData;
+            if ((m_inventorySerializer != null) && (m_inventorySerializer.CanDeserialize(asset.Data)))
+            {
+                if (m_inventorySerializer.IsValidCoalesced(asset.Data))
+                {
+                    CoalescedObject obj = m_inventorySerializer.DeserializeCoalescedObjFromInventoryBytes(asset.Data);
+                    List<ItemPermissionBlock> perms = new List<ItemPermissionBlock>();
+                    foreach (var grp in obj.Groups)
+                    {
+                        perms.Add(obj.FindPermissions(grp.UUID));
+                    }
+                    xmlData = CoalescedSceneObjectSerializer.ToXmlFormat(obj.Groups, perms, StopScriptReason.None);
+                }
+                else
+                if (m_inventorySerializer.IsValidGroup(asset.Data))
+                {
+                    SceneObjectGroup grp = m_inventorySerializer.DeserializeGroupFromInventoryBytes(asset.Data);
+                    xmlData = m_serializer.SaveGroupToOriginalXml(grp);
+                }
+                else return;
+            }
+            else
+            {
+                xmlData = Utils.BytesToString(asset.Data);
+            }
+
             m_archiveWriter.WriteFile(
                 ArchiveConstants.ASSETS_PATH + asset.FullID.ToString() + extension,
-                asset.Data);
+                xmlData);
 
             m_assetsWritten++;
 

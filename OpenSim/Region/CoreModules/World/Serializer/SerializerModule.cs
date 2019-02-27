@@ -133,6 +133,11 @@ namespace OpenSim.Region.CoreModules.World.Serializer
             return SceneXmlLoader.SaveGroupToXml2(grp);
         }
 
+        public string SaveGroupToOriginalXml(SceneObjectGroup grp)
+        {
+            return SceneXmlLoader.SaveGroupToOriginalXml(grp);
+        }
+        
         public void SavePrimListToXml2(List<EntityBase> entityList, string fileName)
         {
             SceneXmlLoader.SavePrimListToXml2(entityList, fileName);

@@ -118,5 +118,12 @@ namespace OpenSim.Region.Framework.Interfaces
         /// <param name="grp"></param>
         /// <returns></returns>
         string SaveGroupToXml2(SceneObjectGroup grp);
+
+        /// <summary>
+        /// Serialize an individual scene object into the original xml (xml1) format
+        /// </summary>
+        /// <param name="grp"></param>
+        /// <returns></returns>
+        string SaveGroupToOriginalXml(SceneObjectGroup grp);        
     }
 }
