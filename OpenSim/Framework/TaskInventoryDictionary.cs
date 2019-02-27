@@ -118,11 +118,14 @@ namespace OpenSim.Framework
         // see IXmlSerializable
         public void WriteXml(XmlWriter writer)
         {
+            XmlSerializerNamespaces ns = new XmlSerializerNamespaces();
+            ns.Add("", "");
+
             lock (this)
             {
                 foreach (TaskInventoryItem item in Values)
                 {
-                    tiiSerializer.Serialize(writer, item);
+                    tiiSerializer.Serialize(writer, item, ns);
                 }
             }
 
