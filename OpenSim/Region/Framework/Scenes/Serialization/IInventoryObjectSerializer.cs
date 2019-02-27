@@ -48,6 +48,20 @@ namespace OpenSim.Region.Framework.Scenes.Serialization
         bool CanDeserialize(byte[] bytes);
 
         /// <summary>
+        /// Returns whether or not this asset data represents a coalesced object
+        /// </summary>
+        /// <param name="bytes">A serialized object stream</param>
+        /// <returns></returns>
+        bool IsValidCoalesced(byte[] bytes);
+
+        /// <summary>
+        /// Returns whether or not this asset data represents a single scene object group
+        /// </summary>
+        /// <param name="bytes">A serialized object stream</param>
+        /// <returns></returns>
+        bool IsValidGroup(byte[] bytes);
+
+        /// <summary>
         /// Serializes a SOG to bytes that can then be deserialized and restored later
         /// </summary>
         /// <param name="group"></param>

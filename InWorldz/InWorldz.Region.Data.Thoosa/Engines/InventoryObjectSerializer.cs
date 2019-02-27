@@ -136,6 +136,26 @@ namespace InWorldz.Region.Data.Thoosa.Engines
         }
 
         /// <summary>
+        /// Returns whether or not this asset data represents a coalesced object
+        /// </summary>
+        /// <param name="bytes">A serialized object stream</param>
+        /// <returns></returns>
+        public bool IsValidCoalesced(byte[] bytes)
+        {
+            return CheckHeader(bytes, HeaderTestFlag.CheckValidCoalesced);
+        }
+
+        /// <summary>
+        /// Returns whether or not this asset data represents a single scene object group
+        /// </summary>
+        /// <param name="bytes">A serialized object stream</param>
+        /// <returns></returns>
+        public bool IsValidGroup(byte[] bytes)
+        {
+            return CheckHeader(bytes, HeaderTestFlag.CheckValidGroup);
+        }
+
+        /// <summary>
         /// Checks the given bytes to make sure the header is valid
         /// </summary>
         /// <param name="bytes"></param>
