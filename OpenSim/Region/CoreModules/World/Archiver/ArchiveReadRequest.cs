@@ -459,7 +459,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             SceneObjectGroup grp;
 
             if (m_inventorySerializer == null) return null;
-            if (m_inventorySerializer.CanDeserialize(bytes))
+            if (m_inventorySerializer.IsValidGroup(bytes))
             {
                 grp = m_inventorySerializer.DeserializeGroupFromInventoryBytes(bytes);
             }
