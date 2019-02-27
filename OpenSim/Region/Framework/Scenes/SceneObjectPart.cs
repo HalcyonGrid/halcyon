@@ -4252,7 +4252,10 @@ namespace OpenSim.Region.Framework.Scenes
         /// <param name="xmlWriter"></param>
         public void ToXml(XmlWriter xmlWriter)
         {
-            serializer.Serialize(xmlWriter, this);
+            //Create our own namespaces for the output and add an empty namespace
+            XmlSerializerNamespaces ns = new XmlSerializerNamespaces();
+            ns.Add("", "");
+            serializer.Serialize(xmlWriter, this, ns);
         }
 
         public void TriggerScriptChangedEvent(Changed val)
