@@ -5556,7 +5556,7 @@ namespace InWorldz.Phlox.Engine
                     if (SP != null) // user is here, always allow this
                         reply = "1";
                     else
-                    if ((userProfile == null) || (!userProfile.CurrentAgent.AgentOnline))
+                    if ((userProfile == null) || (userProfile.CurrentAgent == null) || (!userProfile.CurrentAgent.AgentOnline))
                     {
                         reply = "0";
                     }
