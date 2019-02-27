@@ -64,12 +64,21 @@ namespace OpenSim.Region.Framework.Scenes
         /// Signal whether we are currently waiting for the asset service to deliver an asset.
         /// </summary>
         protected bool m_waitingForObjectAsset;
-                
+
+        // Needed for decoding Thoosa-serialized scene objects.
+        private IInventoryObjectSerializer m_inventorySerializer = null;
+
         public UuidGatherer(IAssetCache assetCache)
         {
             m_assetCache = assetCache;
+
+            ISerializationEngine engine;
+            if (ProviderRegistry.Instance.TryGet<ISerializationEngine>(out engine))
+            {
+                m_inventorySerializer = engine.InventoryObjectSerializer;
+            }
         }
-                
+
         /// <summary>
         /// Gather all the asset uuids associated with the asset referenced by a given uuid
         /// </summary>
@@ -282,8 +291,30 @@ namespace OpenSim.Region.Framework.Scenes
 
             if (null != objectAsset)
             {
-                string xml = Utils.BytesToString(objectAsset.Data);
-                SceneObjectGroup sog = SceneObjectSerializer.FromOriginalXmlFormat(xml);
+                SceneObjectGroup sog;
+                if (m_inventorySerializer.IsValidCoalesced(objectAsset.Data))
+                {
+                    m_log.WarnFormat("[ARCHIVER]: UUID gatherer encountered a coalesced object, asset ID {0} - skipped.", objectAsset.FullID);
+                    return;
+                }
+
+                if (m_inventorySerializer.IsValidGroup(objectAsset.Data))
+                {
+                    sog = m_inventorySerializer.DeserializeGroupFromInventoryBytes(objectAsset.Data);
+                }
+                else
+                {
+                    string xml = Utils.BytesToString(objectAsset.Data);
+                    sog = SceneObjectSerializer.FromOriginalXmlFormat(xml);
+                    if (sog == null)
+                    {
+                        // in some case it may have been saved as XML2
+                        sog = SceneObjectSerializer.FromXml2Format(xml);
+                        if (sog != null)
+                            m_log.InfoFormat("[ARCHIVER]: Was able to recover asset {0} as XML2 format.", objectAsset.FullID);
+                    }
+                }
+
                 if (sog != null)
                     GatherAssetUuids(sog, assetUuids);
             }
