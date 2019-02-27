@@ -178,7 +178,7 @@ namespace OpenSim.Region.Framework.Scenes.Serialization
             catch (Exception e)
             {
                 m_log.ErrorFormat(
-                    "[SERIALIZER]: Deserialization of xml failed with {0}.", e);
+                    "[SERIALIZER]: Deserialization of xml1 failed with {0}.", e);
             }
             return null;
         }      
@@ -199,7 +199,18 @@ namespace OpenSim.Region.Framework.Scenes.Serialization
 
                 return sw.ToString();
             }
-        }                
+        }
+
+        /// <summary>
+        /// Serialize a scene object to the 'xml2' format.
+        /// </summary>
+        /// <param name="sceneObject"></param>
+        /// <returns></returns>               
+        public static string ToOriginalXmlFormat(SceneObjectGroup sceneObject, bool stopScripts)
+        {
+            StopScriptReason reason = stopScripts ? StopScriptReason.Derez : StopScriptReason.None;
+            return ToOriginalXmlFormat(sceneObject, reason);
+        }
 
         /// <summary>
         /// Serialize a scene object to the original xml format
@@ -228,7 +239,7 @@ namespace OpenSim.Region.Framework.Scenes.Serialization
             }
 
             writer.WriteEndElement(); // OtherParts
-            sceneObject.SaveScriptedState(writer, stopScriptReason);
+            // sceneObject.SaveScriptedState(writer, stopScriptReason);
             writer.WriteEndElement(); // SceneObjectGroup
 
             //m_log.DebugFormat("[SERIALIZER]: Finished serialization of SOG {0}, {1}ms", Name, System.Environment.TickCount - time);
@@ -294,7 +305,7 @@ namespace OpenSim.Region.Framework.Scenes.Serialization
             }
             catch (Exception e)
             {
-                m_log.ErrorFormat("[SERIALIZER]: Deserialization of xml failed with {0}.", e);
+                m_log.ErrorFormat("[SERIALIZER]: Deserialization of xml2 failed with {0}.", e);
             }
             return null;
         }         

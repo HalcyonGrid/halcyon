@@ -114,7 +114,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
 
                 Vector3 position = sceneObject.AbsolutePosition;
 
-                string serializedObject = m_serializer.SaveGroupToXml2(sceneObject);
+                string serializedObject = m_serializer.SaveGroupToOriginalXml(sceneObject);
                 string filename
                     = string.Format(
                         "{0}{1}_{2:000}-{3:000}-{4:000}__{5}.xml",

@@ -41,7 +41,7 @@ using System.Collections.Generic;
 
 namespace OpenSim.Region.Framework.Scenes.Serialization
 {
-    class CoalescedSceneObjectSerializer
+    public class CoalescedSceneObjectSerializer
     {
         private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
 

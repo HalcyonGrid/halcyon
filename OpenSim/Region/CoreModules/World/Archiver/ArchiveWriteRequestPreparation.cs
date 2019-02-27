@@ -225,7 +225,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             m_log.InfoFormat("[ARCHIVER]: Added control file to archive.");
 
             new AssetsRequest(
-                new AssetsArchiver(archiveWriter), assetUuids.Keys, 
+                new AssetsArchiver(archiveWriter, m_scene), assetUuids.Keys, 
                 m_scene.CommsManager.AssetCache, awre.ReceivedAllAssets).Execute();
         }
 
