@@ -156,7 +156,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
 
             // Check for Thoosa Inventory object and decode to XML if necessary for Archive.
             string xmlData;
-            if ((m_inventorySerializer != null) && (m_inventorySerializer.CanDeserialize(asset.Data)))
+            if ((asset.Type == (sbyte)AssetType.Object) && (m_inventorySerializer != null) && (m_inventorySerializer.CanDeserialize(asset.Data)))
             {
                 if (m_inventorySerializer.IsValidCoalesced(asset.Data))
                 {
@@ -174,17 +174,19 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                     SceneObjectGroup grp = m_inventorySerializer.DeserializeGroupFromInventoryBytes(asset.Data);
                     xmlData = m_serializer.SaveGroupToOriginalXml(grp);
                 }
-                else return;
+                else return;    // can't pass the CanDeserialize test above, but makes the compiler happy
+                // Now write out the XML format asset
+                m_archiveWriter.WriteFile(
+                    ArchiveConstants.ASSETS_PATH + asset.FullID.ToString() + extension,
+                    xmlData);
             }
             else
             {
-                xmlData = Utils.BytesToString(asset.Data);
+                // Now write out the same (raw) asset unchanged.
+                m_archiveWriter.WriteFile(
+                    ArchiveConstants.ASSETS_PATH + asset.FullID.ToString() + extension,
+                    asset.Data);
             }
-
-            m_archiveWriter.WriteFile(
-                ArchiveConstants.ASSETS_PATH + asset.FullID.ToString() + extension,
-                xmlData);
-
             m_assetsWritten++;
 
             if (m_assetsWritten % LOG_ASSET_LOAD_NOTIFICATION_INTERVAL == 0)
