@@ -41,6 +41,12 @@ namespace OpenSim.Framework.Serialization
         public const string CONTROL_FILE_PATH = "archive.xml";
 
         /// <value>
+        /// The location of the user list file.
+        /// This file identifies all owner and creator IDs referenced in a region.
+        /// </value>
+        public const string USERLIST_FILE_PATH = "userlist.txt";
+
+        /// <value>
         /// Path for the assets held in an archive
         /// </value>
         public const string ASSETS_PATH = "assets/";

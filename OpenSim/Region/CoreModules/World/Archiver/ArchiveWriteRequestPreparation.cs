@@ -30,6 +30,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Reflection;
+using System.Text;
 using System.Xml;
 using log4net;
 using OpenMetaverse;
@@ -107,6 +108,22 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             }
         }
 
+        protected void AddObjectUsersToList(List<UUID> userlist, SceneObjectGroup grp)
+        {
+            foreach (SceneObjectPart part in grp.GetParts())
+            {
+                if (!userlist.Contains(part.OwnerID))
+                    userlist.Add(part.OwnerID);
+                if (!userlist.Contains(part.CreatorID))
+                    userlist.Add(part.CreatorID);
+                foreach (TaskInventoryItem item in part.TaskInventory.Values)
+                {
+                    if (!userlist.Contains(item.CreatorID))
+                        userlist.Add(item.CreatorID);
+                }
+            }
+        }
+
         /// <summary>
         /// Archive the region requested.
         /// </summary>
@@ -117,6 +134,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
 
             List<EntityBase> entities = m_scene.GetEntities();
             List<SceneObjectGroup> sceneObjects = new List<SceneObjectGroup>();
+            List<UUID> userlist = new List<UUID>();
 
             // Filter entities so that we only have scene objects.
             // FIXME: Would be nicer to have this as a proper list in SceneGraph, since lots of methods
@@ -127,6 +145,11 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                 {
                     SceneObjectGroup sceneObject = (SceneObjectGroup)entity;
 
+                    // If storing assets, assume cross-grid and include the user list file
+                    if (m_storeAssets)
+                    {
+                        AddObjectUsersToList(userlist, sceneObject);
+                    }
                     if (MustCheckCreatorIds)
                     {
                         bool failedCreatorCheck = false;
@@ -220,9 +243,27 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                     archiveWriter,
                     m_requestId);
 
-            // Write out control file first
+            // Write out archive.xml control file first
             archiveWriter.WriteFile(ArchiveConstants.CONTROL_FILE_PATH, awre.CreateControlFile(assetUuids.Count > 0));
-            m_log.InfoFormat("[ARCHIVER]: Added control file to archive.");
+            m_log.InfoFormat("[ARCHIVER]: Added {0} control file to archive.", ArchiveConstants.CONTROL_FILE_PATH);
+
+            // Now include the user list file (only if assets are being saved and it produced a list).
+            if (userlist.Count > 0)
+            {
+                StringBuilder sb = new StringBuilder();
+                foreach (UUID id in userlist)
+                {
+                    String name = m_scene.CommsManager.UserService.Key2Name(id, false);
+                    if (!String.IsNullOrWhiteSpace(name))
+                        sb.AppendFormat("{0} {1}{2}", id, name, Environment.NewLine);
+                }
+                String userlistContents = sb.ToString();
+                if (!String.IsNullOrWhiteSpace(userlistContents))
+                {
+                    archiveWriter.WriteFile(ArchiveConstants.USERLIST_FILE_PATH, userlistContents);
+                    m_log.InfoFormat("[ARCHIVER]: Added {0} file to archive.", ArchiveConstants.USERLIST_FILE_PATH);
+                }
+            }
 
             new AssetsRequest(
                 new AssetsArchiver(archiveWriter, m_scene), assetUuids.Keys, 
