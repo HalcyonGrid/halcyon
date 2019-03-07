@@ -175,14 +175,13 @@ namespace OpenSim.Region.Framework.Scenes
                     {
                         //m_log.DebugFormat("[ARCHIVER]: Analysing item asset type {0}", tii.Type);
 
-                        if (!assetUuids.ContainsKey(tii.AssetID))
+                        if ((tii.AssetID != UUID.Zero) && (!assetUuids.ContainsKey(tii.AssetID)))
                             GatherAssetUuids(tii.AssetID, (AssetType)tii.Type, assetUuids);
                     }
                 }
                 catch (Exception e)
                 {
                     m_log.ErrorFormat("[ASSET GATHERER]: Failed to get part - {0}", e);
-                    m_log.DebugFormat("[ASSET GATHERER]: Texture entry length for prim was {0} (min is 46)", part.Shape.TextureEntryBytes.Length);
                 }
             }
         }
