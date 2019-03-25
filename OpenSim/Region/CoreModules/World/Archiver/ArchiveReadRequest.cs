@@ -822,6 +822,16 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             return filtered;
         }
 
+        // Special-case overrides for common items that should be allowed but are not normally allowed by creator or owner
+        private bool isWhitelistedItem(TaskInventoryItem item)
+        {
+            if (item.Name.StartsWith("LiteRezzer", StringComparison.InvariantCultureIgnoreCase))
+                return true;
+
+            // No other special cases.
+            return false;
+        }
+
         // depth==0 when it's the top-level object (no need to reserialize changes as asset)
         private bool FilterContents(SceneObjectPart part, UUID ownerID, int depth)
         {
@@ -866,6 +876,13 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                     {
                         if (m_debugOars >= 2)
                             m_log.InfoFormat("[ARCHIVER]: Item '{0}' in part '{1}' has owner {2} matching creator.", item.Name, part.Name, item.OwnerID);
+                        m_keptItem++;
+                    }
+                    else
+                    if (isWhitelistedItem(item))
+                    {
+                        if (m_debugOars >= 2)
+                            m_log.InfoFormat("[ARCHIVER]: Item '{0}' in part '{1}' by creator {2} is a whitelisted item.", item.Name, part.Name, item.CreatorID);
                         m_keptItem++;
                     }
                     else
