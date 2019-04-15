@@ -253,6 +253,9 @@ bin2
 bin3
 bin4
 
+#Generated documentation files
+doc/html/
+
 #Other ignores
 *.oar
 bin/blacklist.old

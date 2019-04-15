@@ -367,41 +367,95 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
         public const int PRIM_SIT_TARGET = 41;
 
         // large out of normal range value unlikely to conflict with future LL values
-        /// \xrefitem lslconst "IW_PRIM_ALPHA" ""
-        /// <tt>[ IW_PRIM_ALPHA, integer face, float alpha ]</tt>\n\n
-        /// The alpha (opacity) of the specifed face.
+        
+        /// @page IW_PRIM_ALPHA Constant: IW_PRIM_ALPHA
+        /// @brief The alpha (opacity) of the specifed face.
+        /// @par "Constant: integer IW_PRIM_ALPHA = 11001;"
+        /// @parblock
+        /// <tt>[ IW_PRIM_ALPHA, integer face, float alpha ]</tt>
+        /// @endparblock
+        /// @par Caveats
+        /// @parblock
+        /// @endparblock
+        /// @includedoc lslconst.xhtml
+        /** @ref IW_PRIM_ALPHA */
         public const int IW_PRIM_ALPHA = 11001;
-        /// \xrefitem lslconst "IW_PRIM_PROJECTOR" ""
-        /// <tt>[ IW_PRIM_PROJECTOR, integer enabled, string texture, float field_of_view, float focus_dist, float ambience ]</tt> \n\n
-        /// Get or set all the projector properties in one shot.\n
-        /// See the following:
-        /// \li \ref IW_PRIM_PROJECTOR_ENABLED
-        /// \li \ref IW_PRIM_PROJECTOR_TEXTURE
-        /// \li \ref IW_PRIM_PROJECTOR_FOV
-        /// \li \ref IW_PRIM_PROJECTOR_FOCUS
-        /// \li \ref IW_PRIM_PROJECTOR_AMBIENCE
+        /// @page IW_PRIM_PROJECTOR Constant: IW_PRIM_PROJECTOR
+        /// @brief Get or set all the projector properties in one shot.
+        /// @par "Constant: integer IW_PRIM_PROJECTOR = 11100;"
+        /// @parblock
+        /// <tt>[ IW_PRIM_PROJECTOR, integer enabled, string texture, float field_of_view, float focus_dist, float ambience ]</tt>
+        /// @endparblock
+        /// @par Caveats
+        /// @parblock
+        /// @endparblock
+        /// @sa IW_PRIM_PROJECTOR_ENABLED IW_PRIM_PROJECTOR_TEXTURE IW_PRIM_PROJECTOR_FOV IW_PRIM_PROJECTOR_FOCUS IW_PRIM_PROJECTOR_AMBIENCE
+        /// @includedoc lslconst.xhtml
+        /** @ref IW_PRIM_PROJECTOR */
         public const int IW_PRIM_PROJECTOR          = 11100;
-        /// \xrefitem lslconst "IW_PRIM_PROJECTOR_ENABLED" ""
-        /// <tt>[ IW_PRIM_PROJECTOR_ENABLED, integer enabled ]</tt>\n\n
-        /// Whether or not the projector portion of the light source is active.
+        ///
+        /// @page IW_PRIM_PROJECTOR_ENABLED Constant: IW_PRIM_PROJECTOR_ENABLED
+        /// @brief Whether or not the projector portion of the light source is active.
+        /// @par "Constant: integer IW_PRIM_PROJECTOR_ENABLED = 11101;"
+        /// @parblock
+        /// <tt>[ IW_PRIM_PROJECTOR_ENABLED, integer enabled ]</tt>
+        /// @endparblock
+        /// @par Caveats
+        /// @parblock
+        /// @endparblock
+        /// @includedoc lslconst.xhtml
+        /** @ref IW_PRIM_PROJECTOR_ENABLED */
         public const int IW_PRIM_PROJECTOR_ENABLED  = 11101;
-        /// \lslconstant{IW_PRIM_PROJECTOR_TEXTURE}
-        /// <tt>[ IW_PRIM_PROJECTOR_TEXTURE, string texture ]</tt>\n\n
-        /// The texture the projector emits.\n
-        /// \n
+        /// @page IW_PRIM_PROJECTOR_TEXTURE Constant: IW_PRIM_PROJECTOR_TEXTURE
+        /// @brief The texture the projector emits.
+        /// @par "Constant: integer IW_PRIM_PROJECTOR_TEXTURE = 11102;"
+        /// @parblock
+        /// <tt>[ IW_PRIM_PROJECTOR_TEXTURE, string texture ]</tt>
         /// You can use either the UUID of a texture or the name of a texture that is in the inventory of the same prim as the script.
+        /// @endparblock
+        /// @par Caveats
+        /// @parblock
+        /// @endparblock
+        /// @includedoc lslconst.xhtml
+        /** @ref IW_PRIM_PROJECTOR_TEXTURE */
         public const int IW_PRIM_PROJECTOR_TEXTURE  = 11102;
-        /// \xrefitem lslconst "IW_PRIM_PROJECTOR_FOV" ""
-        /// <tt>[ IW_PRIM_PROJECTOR_FOV, float field_of_view ]</tt>\n\n
-        /// The field of view, in radians, the projector emits. Must be between 0.0 and 3.0 inclusive.
+        /// @page IW_PRIM_PROJECTOR_FOV Constant: IW_PRIM_PROJECTOR_FOV
+        /// @brief The field of view, in radians, the projector emits.
+        /// @par "Constant: integer IW_PRIM_PROJECTOR_FOV = 11103;"
+        /// @parblock
+        /// <tt>[ IW_PRIM_PROJECTOR_FOV, float field_of_view ]</tt>
+        /// Must be between 0.0 and 3.0 inclusive.
+        /// @endparblock
+        /// @par Caveats
+        /// @parblock
+        /// @endparblock
+        /// @includedoc lslconst.xhtml
+        /** @ref IW_PRIM_PROJECTOR_FOV */
         public const int IW_PRIM_PROJECTOR_FOV      = 11103;
-        /// \xrefitem lslconst "IW_PRIM_PROJECTOR_FOCUS" ""
-        /// <tt>[ IW_PRIM_PROJECTOR_FOCUS, float focus_dist ]</tt>\n\n
-        /// The distance, in meters, at which the projected texture starts to blur.
+        /// @page IW_PRIM_PROJECTOR_FOCUS Constant: IW_PRIM_PROJECTOR_FOCUS
+        /// @brief The distance, in meters, at which the projected texture starts to blur.
+        /// @par "Constant: integer IW_PRIM_PROJECTOR_FOCUS = 11104;"
+        /// @parblock
+        /// <tt>[ IW_PRIM_PROJECTOR_FOCUS, float focus_dist ]</tt>
+        /// @endparblock
+        /// @par Caveats
+        /// @parblock
+        /// @endparblock
+        /// @includedoc lslconst.xhtml
+        /** @ref IW_PRIM_PROJECTOR_FOCUS */
         public const int IW_PRIM_PROJECTOR_FOCUS    = 11104;
-        /// \xrefitem lslconst "IW_PRIM_PROJECTOR_AMBIENCE" ""
-        /// <tt>[ IW_PRIM_PROJECTOR_AMBIENCE, float ambience ]</tt>\n\n
-        /// The amount of testure-controlled light to put on all faces with the FOV and range of the light. Cannot be negative.
+        /// @page IW_PRIM_PROJECTOR_AMBIENCE Constant: IW_PRIM_PROJECTOR_AMBIENCE
+        /// @brief The amount of texture-controlled light to put on all faces with the FOV and range of the light.
+        /// @par "Constant: integer IW_PRIM_PROJECTOR_AMBIENCE = 11001;"
+        /// @parblock
+        /// <tt>[ IW_PRIM_PROJECTOR_AMBIENCE, float ambience ]</tt>
+        /// Cannot be negative.
+        /// @endparblock
+        /// @par Caveats
+        /// @parblock
+        /// @endparblock
+        /// @includedoc lslconst.xhtml
+        /** @ref IW_PRIM_PROJECTOR_AMBIENCE */
         public const int IW_PRIM_PROJECTOR_AMBIENCE = 11105;
 
         public const int PRIM_TEXGEN_DEFAULT = 0;
@@ -526,7 +580,10 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
         public static readonly LSLInteger PAY_DEFAULT = new LSLInteger(-2);
 
         public const string NULL_KEY = "00000000-0000-0000-0000-000000000000";
-        public const string EOF = "\n\n\n";
+        public const string EOF = "
+        ///
+        ///
+        ///";
         public const double PI = 3.14159274f;
         public const double TWO_PI = 6.28318548f;
         public const double PI_BY_TWO = 1.57079637f;
@@ -709,17 +766,49 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
         public const int ESTATE_ACCESS_ALLOWED_GROUP_REMOVE = 3;
         public const int ESTATE_ACCESS_BANNED_AGENT_ADD = 4;
         public const int ESTATE_ACCESS_BANNED_AGENT_REMOVE = 5;
-        /// \xrefitem lslconst "ESTATE_ACCESS_QUERY_CAN_MANAGE" ""
-        /// Whether the script can manage the estate.
+        /// @page ESTATE_ACCESS_QUERY_CAN_MANAGE Constant: ESTATE_ACCESS_QUERY_CAN_MANAGE
+        /// @brief Whether the script can manage the estate.
+        /// @par "Constant: integer ESTATE_ACCESS_QUERY_CAN_MANAGE = 11000;"
+        /// @parblock
+        /// @endparblock
+        /// @par Caveats
+        /// @parblock
+        /// @endparblock
+        /// @includedoc lslconst.xhtml
+        /** @ref ESTATE_ACCESS_QUERY_CAN_MANAGE */
         public const int ESTATE_ACCESS_QUERY_CAN_MANAGE = 11000;
-        /// \xrefitem lslconst "ESTATE_ACCESS_QUERY_ALLOWED_AGENT" ""
-        /// Whether the script can ...
+        /// @page ESTATE_ACCESS_QUERY_ALLOWED_AGENT Constant: ESTATE_ACCESS_QUERY_ALLOWED_AGENT
+        /// @brief TODO: Short description
+        /// @par "Constant: integer ESTATE_ACCESS_QUERY_ALLOWED_AGENT = 11001;"
+        /// @parblock
+        /// @endparblock
+        /// @par Caveats
+        /// @parblock
+        /// @endparblock
+        /// @includedoc lslconst.xhtml
+        /** @ref ESTATE_ACCESS_QUERY_ALLOWED_AGENT */
         public const int ESTATE_ACCESS_QUERY_ALLOWED_AGENT = 11001;
-        /// \xrefitem lslconst "ESTATE_ACCESS_QUERY_ALLOWED_GROUP" ""
-        /// Whether the script can ...
+        /// @page ESTATE_ACCESS_QUERY_ALLOWED_GROUP Constant: ESTATE_ACCESS_QUERY_ALLOWED_GROUP
+        /// @brief TODO: Short description
+        /// @par "Constant: integer ESTATE_ACCESS_QUERY_ALLOWED_GROUP = 11002;"
+        /// @parblock
+        /// @endparblock
+        /// @par Caveats
+        /// @parblock
+        /// @endparblock
+        /// @includedoc lslconst.xhtml
+        /** @ref ESTATE_ACCESS_QUERY_ALLOWED_GROUP */
         public const int ESTATE_ACCESS_QUERY_ALLOWED_GROUP = 11002;
-        /// \xrefitem lslconst "ESTATE_ACCESS_QUERY_BANNED_AGENT" ""
-        /// Whether the script can ban agents.
+        /// @page ESTATE_ACCESS_QUERY_BANNED_AGENT Constant: ESTATE_ACCESS_QUERY_BANNED_AGENT
+        /// @brief Whether the script can ban agents.
+        /// @par "Constant: integer ESTATE_ACCESS_QUERY_BANNED_AGENT = 11003;"
+        /// @parblock
+        /// @endparblock
+        /// @par Caveats
+        /// @parblock
+        /// @endparblock
+        /// @includedoc lslconst.xhtml
+        /** @ref ESTATE_ACCESS_QUERY_BANNED_AGENT */
         public const int ESTATE_ACCESS_QUERY_BANNED_AGENT = 11003;
 
         // llJsonXXX
@@ -847,15 +936,5 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
         public const int ERR_MALFORMED_PARAMS = -3;
         public const int ERR_RUNTIME_PERMISSIONS = -4;
         public const int ERR_THROTTLED = -5;
-    }
+   }
 }
-
-/** @page lslconst LSL Constants
- * @brief A listing of most, if not all, constants available in Halcyon.
- * 
- * Please note that this is a work in progress, and not every constant may be listed,
- * nor is it likely that each has a solid description.
- * In fact it's likely that most of what you'll find here are Halcyon-specific extentions to what LL has defined.
- * 
- * Please reference the <a href="http://wiki.secondlife.com/wiki/Category:LSL_Constants">SecondLife® Wiki's Constants listing</a> for the details on constants that may not be defined here.
- */

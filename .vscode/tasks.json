@@ -24,6 +24,15 @@
                 "reveal": "silent"
             },
             "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "generate docs",
+            "type": "shell",
+            "command": "doxygen doxygen.conf",
+            "options": {
+                "cwd": "${workspaceFolder}/doc/"
+            },
+            "problemMatcher": []
         }
     ]
 }
