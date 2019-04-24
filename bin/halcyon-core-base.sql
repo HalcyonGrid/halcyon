@@ -335,7 +335,7 @@ CREATE TABLE `economy_transaction` (
 /*!50003 SET @saved_sql_mode       = @@sql_mode */ ;
 /*!50003 SET sql_mode              = '' */ ;
 DELIMITER ;;
-/*!50003 CREATE*/ /*!50003 TRIGGER `upd_total_on_new_trans`
+CREATE TRIGGER `upd_total_on_new_trans`
 AFTER INSERT ON `economy_transaction`
 FOR EACH ROW
 BEGIN
@@ -344,7 +344,7 @@ BEGIN
   ELSE
 		UPDATE economy_totals SET total = total + NEW.transactionAmount WHERE user_id = NEW.destAvatarId;
   END IF;
-END */;;
+END;;
 DELIMITER ;
 /*!50003 SET sql_mode              = @saved_sql_mode */ ;
 /*!50003 SET character_set_client  = @saved_cs_client */ ;
