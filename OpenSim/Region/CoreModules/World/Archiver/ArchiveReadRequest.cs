@@ -710,6 +710,9 @@ namespace OpenSim.Region.CoreModules.World.Archiver
         {
             bool filtered = false;
 
+            if (isWhitelistedObject(part))
+                return false;
+
             if (m_allowUserReassignment)
             {
                 if (part.OwnerID != ownerID)
@@ -823,10 +826,45 @@ namespace OpenSim.Region.CoreModules.World.Archiver
         }
 
         // Special-case overrides for common items that should be allowed but are not normally allowed by creator or owner
+        private UUID ZAUBER = new UUID("7b772b49-0dde-4e08-a8d7-6c26e09a6842");
+        const uint FULL_PERM = (uint)(PermissionMask.Copy | PermissionMask.Transfer | PermissionMask.Modify);
+        private bool isFullPerm(uint perms)
+        {
+            return ((perms & FULL_PERM) == FULL_PERM);
+        }
         private bool isWhitelistedItem(TaskInventoryItem item)
         {
             if (item.Name.StartsWith("LiteRezzer", StringComparison.InvariantCultureIgnoreCase))
                 return true;
+
+            if (item.CreatorID == ZAUBER)
+            {
+                if (item.Name.ToUpper().Contains("OPTI"))
+                    return true;
+                if (item.Description.ToUpper().Contains("OPTI"))
+                    return true;
+                if (item.Name.ToUpper().Contains("SORTER") && isFullPerm(item.CurrentPermissions))
+                    return true;
+            }
+
+            // No other special cases.
+            return false;
+        }
+
+        private bool isWhitelistedObject(SceneObjectPart part)
+        {
+            if (part.Name.StartsWith("LiteRezzer", StringComparison.InvariantCultureIgnoreCase))
+                return true;
+
+            if (part.CreatorID == ZAUBER)
+            {
+                if (part.Name.ToUpper().Contains("OPTI"))
+                    return true;
+                if (part.Description.ToUpper().Contains("OPTI"))
+                    return true;
+                if (part.ParentGroup.Name.ToUpper().Contains("SORTER") && isFullPerm(part.ParentGroup.GetEffectivePermissions(false)))
+                    return true;
+            }
 
             // No other special cases.
             return false;
