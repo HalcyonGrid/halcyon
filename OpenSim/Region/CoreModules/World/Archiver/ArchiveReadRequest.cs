@@ -841,6 +841,8 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             {
                 if (item.Name.ToUpper().Contains("OPTI"))
                     return true;
+                if (item.Name.ToLower().Trim().Equals("window beam"))
+                    return true;
                 if (item.Description.ToUpper().Contains("OPTI"))
                     return true;
                 if (item.Name.ToUpper().Contains("SORTER") && isFullPerm(item.CurrentPermissions))
