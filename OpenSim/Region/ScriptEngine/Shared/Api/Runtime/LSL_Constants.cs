@@ -580,10 +580,7 @@ namespace OpenSim.Region.ScriptEngine.Shared.ScriptBase
         public static readonly LSLInteger PAY_DEFAULT = new LSLInteger(-2);
 
         public const string NULL_KEY = "00000000-0000-0000-0000-000000000000";
-        public const string EOF = "
-        ///
-        ///
-        ///";
+        public const string EOF = "\n\n\n";
         public const double PI = 3.14159274f;
         public const double TWO_PI = 6.28318548f;
         public const double PI_BY_TWO = 1.57079637f;
