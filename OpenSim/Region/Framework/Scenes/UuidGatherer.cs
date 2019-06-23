@@ -174,9 +174,15 @@ namespace OpenSim.Region.Framework.Scenes
                     foreach (TaskInventoryItem tii in taskDictionary.Values)
                     {
                         //m_log.DebugFormat("[ARCHIVER]: Analysing item asset type {0}", tii.Type);
-
-                        if ((tii.AssetID != UUID.Zero) && (!assetUuids.ContainsKey(tii.AssetID)))
-                            GatherAssetUuids(tii.AssetID, (AssetType)tii.Type, assetUuids);
+                        try
+                        {
+                            if ((tii.AssetID != UUID.Zero) && (!assetUuids.ContainsKey(tii.AssetID)))
+                                GatherAssetUuids(tii.AssetID, (AssetType)tii.Type, assetUuids);
+                        }
+                        catch (Exception e)
+                        {
+                            // can't fetch UUIDs from this item, catch the error and move on to the next.
+                        }
                     }
                 }
                 catch (Exception e)
@@ -263,6 +269,8 @@ namespace OpenSim.Region.Framework.Scenes
         {
             AssetBase assetBase = GetAsset(wearableAssetUuid);
             //m_log.Debug(new System.Text.ASCIIEncoding().GetString(bodypartAsset.Data));
+            if (assetBase == null) return;  // there are no UUIDs in this to find.
+
             OpenMetaverse.Assets.AssetWearable wearableAsset 
                 = new OpenMetaverse.Assets.AssetBodypart(wearableAssetUuid, assetBase.Data);
             wearableAsset.Decode();
