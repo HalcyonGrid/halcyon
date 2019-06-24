@@ -839,9 +839,11 @@ namespace OpenSim.Region.CoreModules.World.Archiver
 
             if (item.CreatorID == ZAUBER)
             {
-                if (item.Name.ToUpper().Contains("OPTI"))
-                    return true;
                 if (item.Name.ToLower().Trim().Equals("window beam"))
+                    return true;
+                if (item.Name.ToLower().Trim().Equals("shutter"))
+                    return true;
+                if (item.Name.ToUpper().Contains("OPTI"))
                     return true;
                 if (item.Description.ToUpper().Contains("OPTI"))
                     return true;
@@ -860,6 +862,10 @@ namespace OpenSim.Region.CoreModules.World.Archiver
 
             if (part.CreatorID == ZAUBER)
             {
+                if (part.Name.ToLower().Equals("window beam"))
+                    return true;
+                if (part.Name.ToLower().Equals("shutter"))
+                    return true;
                 if (part.Name.ToUpper().Contains("OPTI"))
                     return true;
                 if (part.Description.ToUpper().Contains("OPTI"))
