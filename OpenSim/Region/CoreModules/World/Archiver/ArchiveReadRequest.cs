@@ -71,6 +71,9 @@ namespace OpenSim.Region.CoreModules.World.Archiver
         private static readonly UUID TEXTURE_TRANSPARENT = new UUID("8dcd4a48-2d37-4909-9f78-f7a9eb4ef903");
         private static readonly UUID TEXTURE_MEDIA = new UUID("8b5fec65-8d8d-9dc5-cda8-8fdf2716e361");
 
+        // Array of known accounts to filter top-level objects by if they are the creator.
+        private static readonly string[] FILTER_UUIDS = {"fd708bdd-17e8-41cb-8538-ff6ff4201bf6" };   // Julia Hathor
+
         // The following could be Primitive.TextureEntry.WHITE_TEXTURE but that hides replacements, so let's use the more obvious.
         private static readonly UUID DEFAULT_SUBSTITEXTURE = TEXTURE_PLYWOOD;  // plywood
 
@@ -98,6 +101,7 @@ namespace OpenSim.Region.CoreModules.World.Archiver
 
         // Filtered OAR loading
         private HashSet<UUID> m_allowedUUIDs = null;
+        private HashSet<UUID> m_filteredUUIDs = null;
 
         private Dictionary<UUID, UUID> m_assetCreators = null;
         private Dictionary<UUID, String> m_libAssets = null;
@@ -518,6 +522,14 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                 return false;   // filter disabled
 
             return !m_allowedUUIDs.Contains(ownerID);
+        }
+
+        private bool MustFilterByCreator(UUID creatorID)
+        {
+            if (m_filteredUUIDs == null)
+                return false;   // filter disabled
+
+            return m_filteredUUIDs.Contains(creatorID);
         }
 
         private bool MustReplaceByCreator(UUID creatorID)
@@ -1043,6 +1055,11 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             {
                 // Adopt this whitelist for filtering a load.
                 m_allowedUUIDs = allowedUUIDs;
+
+                m_filteredUUIDs = new HashSet<UUID>();
+                foreach (var uuid in FILTER_UUIDS)
+                    m_filteredUUIDs.Add(new UUID(uuid));  // Julia Hathor
+
                 // Now a normal filtered load.
                 m_assetCreators = GetAssetCreators();
             }
@@ -1136,8 +1153,12 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                     else throw new Exception("Error while deserializing group");
                 }
 
+                // Hard filtering by non-whitelist
                 if (MustFilterByOwner(sceneObject.OwnerID))
                     continue;
+                // Hard filtering by object (root prim) creator, i.e. no prim substitution (e.g. Julia Hathor)
+                if (MustFilterByCreator(sceneObject.RootPart.CreatorID))
+                    continue;    // filter out this creator                                
 
                 DearchiveSceneObject(sceneObject, sceneObject.OwnerID, true, OriginalBackupIDs);
 
