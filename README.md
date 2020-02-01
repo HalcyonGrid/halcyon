@@ -11,7 +11,7 @@ Latest release: [https://github.com/HalcyonGrid/halcyon/releases](https://github
 
 For building and installation instructions, please see the [Halcyon wiki](https://github.com/HalcyonGrid/halcyon/wiki).
 
-Halycon Wiki: [https://github.com/HalcyonGrid/halcyon/wiki](https://github.com/InWorldz/halcyon/wiki)
+Halycon Wiki: [https://github.com/HalcyonGrid/halcyon/wiki](https://github.com/HalcyonGrid/halcyon/wiki)
 
 ## Tested operating systems
 At this time, only the following 64 bit operating systems are being tested against:
