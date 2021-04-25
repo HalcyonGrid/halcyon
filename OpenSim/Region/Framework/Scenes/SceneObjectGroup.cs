@@ -4780,6 +4780,13 @@ namespace OpenSim.Region.Framework.Scenes
             if (AttachmentPt == 0)
                 AttachmentPt = restored;    // wear on previous att point
 
+            if (this.RootPart.IsLindenPlant())
+            {
+                m_log.WarnFormat("[SCENE]: Refusing attempt to wear Linden plant '{0}' owned by {1}.", this.Name, this.OwnerID);
+                shouldTaint = false;
+                return false;
+            }
+
             if (AttachmentPt > SceneObjectPart.MAX_ATTACHMENT)
             {
                 m_log.WarnFormat("[SCENE] Invalid attachment point ({0}) for '{1}'.", AttachmentPt, this.Name);
