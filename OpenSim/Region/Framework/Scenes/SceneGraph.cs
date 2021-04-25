@@ -913,11 +913,12 @@ namespace OpenSim.Region.Framework.Scenes
             if (AttachmentPt == 0)
             {
                 m_log.WarnFormat("[SCENE]: AttachmentPoint still ZERO and about to attach! PrepareForRezAsAttachment not called?");
-                group.RootPart.Shape.State = (byte)AttachmentPoint.LeftHand;
+                // In some cases, it's very bad to continue. Something completely invalid has happened, fundamental assumptions are wrong. This should have been taken care of by the callers, so fail attach.
+                return;
             }
 
             // Now that we know which AttachmentPt, free up all objects on that attachment point except 'group'.
-            if (appendMode == false)
+            if (!appendMode)
                 DetachSingleAttachmentPointToInv(AttachmentPt, remoteClient, group);
 
             // Saves and gets assetID
@@ -935,7 +936,6 @@ namespace OpenSim.Region.Framework.Scenes
             {
                 group.IsTempAttachment = false;
             }
-
 
             group.AttachToAgent(remoteClient.AgentId, AttachmentPt, silent);
 
