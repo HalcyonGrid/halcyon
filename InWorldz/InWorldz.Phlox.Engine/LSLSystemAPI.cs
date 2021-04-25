@@ -14321,7 +14321,10 @@ namespace InWorldz.Phlox.Engine
                                 ret.Add(part.AttachmentPoint);
                                 break;
                             case ScriptBaseClass.OBJECT_PATHFINDING_TYPE:
-                                ret.Add(ScriptBaseClass.OPT_LEGACY_LINKSET);
+                                if (part.IsLindenPlant())
+                                    ret.Add(ScriptBaseClass.OPT_OTHER);
+                                else
+                                    ret.Add(ScriptBaseClass.OPT_LEGACY_LINKSET);
                                 break;
                             case ScriptBaseClass.OBJECT_PHYSICS:
                                 if ((part.GetEffectiveObjectFlags() & PrimFlags.Physics) == PrimFlags.Physics)
