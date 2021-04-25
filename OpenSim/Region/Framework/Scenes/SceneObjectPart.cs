@@ -317,6 +317,12 @@ namespace OpenSim.Region.Framework.Scenes
                 return (att >= MIN_HUD) && (att <= MAX_HUD);
             }
         }
+        public bool IsLindenPlant()
+        {
+            return (m_shape.PCode == (byte)PCode.Grass)
+                || (m_shape.PCode == (byte)PCode.Tree)
+                || (m_shape.PCode == (byte)PCode.NewTree);
+        }
 
         [XmlIgnore]
         public UUID AttachedAvatar
