@@ -10,7 +10,14 @@
                 "command": "./build.sh"
             },
             "windows": {
-                "command": "./build.ps1"
+                "command": "powershell",
+                "args": [
+                    "-ExecutionPolicy",
+                    "Unrestricted",
+                    "-NoProfile",
+                    "-File",
+                    "./build.ps1"
+                ], // The ps1 executes, but the system doesn't know where nuget or msbuild are located.
             },
             "args": [
                 "/property:GenerateFullPaths=true",
