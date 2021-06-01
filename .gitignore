@@ -204,6 +204,9 @@ FakesAssemblies/
 nunit.framework.*
 bin/cache/*/*.asset
 
+# Build results
+.build
+
 # Bin stuff that we don't want to commit that gets created when you run the server
 *.nxs
 *.maddin

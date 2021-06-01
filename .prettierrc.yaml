@@ -1,0 +1,20 @@
+# See https://prettier.io/docs/en/options.html
+overrides:
+  - files:
+      - ".lintstagedrc"
+    options:
+      parser: "yaml"
+  - files:
+      - "*.md"
+    options:
+      tabWidth: 2
+  - files:
+      - ".sequelizerc"
+    options:
+      parser: "babel"
+  - files:
+      - "*.yaml"
+      - "*.yml"
+    options:
+      tabWidth: 2
+tabWidth: 4

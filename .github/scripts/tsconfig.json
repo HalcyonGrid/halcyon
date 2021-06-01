@@ -1,0 +1,13 @@
+{
+    "extends": "../../tsconfig.base.json",
+    "compilerOptions": {
+        "target": "ES2019", // Required by the github-script action due to locking into node 12: see https://github.com/actions/github-script/issues/76 and https://github.com/actions/runner/issues/772
+        "baseUrl": ".",
+        "noEmit": false,
+        "outDir": ".build",
+        "rootDir": "."
+    },
+    "ts-node": {
+        // "transpileOnly": true
+    }
+}
