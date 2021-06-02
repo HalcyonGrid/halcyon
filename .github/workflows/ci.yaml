@@ -1,0 +1,106 @@
+name: CI
+
+env:
+  NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+
+on:
+  pull_request:
+
+jobs:
+  build-and-test:
+    name: Building and testing
+
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-20.04
+          - windows-2019
+        
+    steps:
+      - name: Setup NuGet.exe for use with actions
+        uses: NuGet/setup-nuget@v1.0.5
+
+      - name: Add msbuild to PATH
+        if: success() && runner.os == 'Windows'
+        uses: microsoft/setup-msbuild@v1.0.2
+
+      - uses: actions/checkout@v2.3.4
+
+      - uses: actions/cache@v2.1.5
+        id: cache
+        with:
+          path: |
+            ${{ env.NUGET_PACKAGES }}
+          key: ${{ matrix.os }}-nuget-${{ hashFiles('**/packages.config', '**/packages.lock.json') }}
+          restore-keys: |
+            ${{ matrix.os }}-nuget-
+
+      - name: Prepare env vars
+        run: |
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            COMPILED_BY="Mono"
+            EDITION="Mono"
+          elif [[ "$RUNNER_OS" == "Windows" ]]; then
+            COMPILED_BY="VS2019"
+            EDITION="dotnet"
+          else
+            echo "$RUNNER_OS not supported"
+            exit 1
+          fi
+
+          echo "COMPILED_BY=$COMPILED_BY"; echo "COMPILED_BY=$COMPILED_BY" >> $GITHUB_ENV
+          echo "EDITION=$EDITION"; echo "EDITION=$EDITION" >> $GITHUB_ENV
+        shell: bash
+
+      - name: Run prebuild (Linux)
+        if: success() && runner.os == 'Linux'
+        run: |
+          ./runprebuild.sh
+        shell: bash
+
+      - name: Run prebuild (Windows)
+        if: success() && runner.os == 'Windows'
+        run: |
+          ./runprebuild.bat
+        shell: cmd
+
+      - name: NuGet restore
+        # if: success() && steps.cache.outputs.cache-hit != 'true' # Enabling this causes the build to fail when the cache is filled.
+        run: nuget restore Halcyon.sln
+
+      - name: Build (Mono)
+        if: success() && runner.os == 'Linux'
+        run: msbuild /p:DefineConstants="_MONO_CLI_FLAG_" Halcyon.sln
+
+      - name: Build (Visual Studio)
+        if: success() && runner.os == 'Windows'
+        run: msbuild Halcyon.sln
+
+      - name: Install test runner
+        run: |
+          mkdir -p nunit
+          cd nunit
+          nuget install NUnit.Console -Version 3.12.0
+        shell: bash
+
+      - name: Run tests
+        run: |
+          ./nunit/NUnit.ConsoleRunner*/tools/nunit3-console.exe \
+            bin/InWorldz.Data.Assets.Stratus.dll \
+            bin/InWorldz.Phlox.Engine.dll \
+            bin/InWorldz.Region.Data.Thoosa.dll \
+            bin/OpenSim.Framework.Tests.dll \
+            bin/OpenSim.Region.FrameworkTests.dll \
+          ;
+        shell: bash
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v2.2.3
+        if: success() || failure()
+        with:
+          name: test-results_${{ matrix.os }}
+          path: TestResult.xml
+          retention-days: 5

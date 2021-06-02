@@ -1,0 +1,14 @@
+{
+    "bumpFiles": [
+        {
+            "filename": "OpenSim/Framework/Servers/VersionInfo.tt",
+            "updater": ".scripts/.build/versioninfo_t4.js"
+        }
+    ],
+    "packageFiles": [
+        {
+            "filename": "OpenSim/Framework/Servers/VersionInfo.tt",
+            "updater": ".scripts/.build/versioninfo_t4.js"
+        }
+    ]
+}

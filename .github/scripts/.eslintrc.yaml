@@ -1,0 +1,5 @@
+overrides:
+  - files:
+      - "**/*.ts"
+    rules:
+      no-process-env: 0

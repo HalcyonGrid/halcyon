@@ -1,0 +1,293 @@
+name: CD
+
+concurrency:
+  cancel-in-progress: true
+  group: HalcyonCD-${{ github.sha }}
+
+env:
+  NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - actions # HACK for development purposes.
+
+jobs:
+  prepare:
+    name: Setting up
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2.3.4
+        with:
+          fetch-depth: 0 # Blunt hammer that pulls in all the branches, but is the only current way to fetch all the tags in the current branch. See https://github.com/actions/checkout/issues/338
+
+      - name: Get npm cache directory
+        id: npmCacheDir
+        run: |
+          echo "::set-output name=dir::$(npm config get cache)"
+
+      - uses: actions/cache@v2
+        id: npmCache
+        with:
+          path: ${{ steps.npmCacheDir.outputs.dir }}
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - uses: actions/setup-node@v2.1.5
+        with:
+          node-version: 14 # TODO: pull from package.json or something.
+
+      - name: Fetch NPM dependencies
+        # Skip scripts here, as a malicious script could steal NODE_AUTH_TOKEN.
+        run: |
+          npm ci --no-fund
+        env:
+          NODE_ENV: cd # Override so that we get the dev dependencies.
+
+      - name: Prepare scripts
+        run: |
+          # Needed by standard-version's .versionrc.json
+          npm run build:scripts 
+
+          # Needed by the draft step due to github-script being JS-only.
+          npm run build:workflow-scripts
+        shell: bash
+
+      - name: Update version data
+        id: info
+        run: |
+          # Fetch all tags in all branches in the order they appear by creation date.
+          git for-each-ref --format="%(refname)" --sort=-creatordate refs/tags | sed 's;refs/tags/;;' > allTagsInOrder.txt
+
+          # Fetch the tags that are in the current commit's parent graph and order them by the creation date.
+          git tag --merged | awk 'FNR == NR { lineno[$1] = NR; next} {print lineno[$1], $0;}' allTagsInOrder.txt - | sort -k 1,1n | cut -d' ' -f2- > prevVersions.txt
+          echo "v0.0.0" >> prevVersions.txt # Make sure there's at least one version in there.
+
+          # Choose only main release version tags.
+          previousVersion="$( grep -E '^v[0-9]+(\.[0-9]+){2}$' prevVersions.txt | head -n 1 | cut -c2- )"
+          echo "previousVersion=$previousVersion"; echo "::set-output name=previousVersion::$previousVersion"
+
+          # Set the base version so that the next tool will know where to start.
+          "$(npm bin)/ts-node-script" .scripts/versioninfo_t4.ts OpenSim/Framework/Servers/VersionInfo.tt "${previousVersion}" || exit 1
+
+          # Update from base version to new version using commit messages to flesh things out.
+          # HACK: Using kf6kjg/standard-version#ricky_release until https://github.com/conventional-changelog/standard-version/pull/728 or similar is merged.
+          npx kf6kjg/standard-version#ricky_release \
+            --skip.commit \
+            --skip.tag \
+            --header "# Changelog
+          " \
+            || exit 1 \
+          ;
+
+          changelogPath="CHANGELOG.md"
+
+          echo "
+          ## Unfiltered commits
+          " \
+            >> "$changelogPath" \
+          ;
+
+          git log "v${previousVersion}..HEAD" --pretty="format:- %s ([%h](https://github.com/HalcyonGrid/halcyon/commit/%H))" \
+            >> "$changelogPath" \
+          ;
+
+          version="$( "$(npm bin)/ts-node-script" .scripts/versioninfo_t4.ts OpenSim/Framework/Servers/VersionInfo.tt )"
+          echo "version=$version"; echo "::set-output name=version::$version"
+
+          "$(npm bin)/prettier" --write CHANGELOG.md
+
+          # changelog="$( sed -ze 's/%/%25/g' -e 's/\n/%0A/g' -e 's/\r/%0D/g' "$changelogPath" )"
+          # echo "changelog=$changelog"; echo "::set-output name=changelog::$changelog"
+          echo "changelogPath=$changelogPath"; echo "::set-output name=changelogPath::$changelogPath"
+        shell: bash
+
+      # Creating a PR causes recursion: when you merge the PR this whole action will execute again.
+      # So instead just tag the commit and create a draft release.
+
+      # - name: Draft release # BUG: THIS THINKS TOO HARD. It attempts to re-do what I've already done.  Maybe a good thing?
+      #   uses: marvinpinto/action-automatic-releases@v1.1.2
+      #   with:
+      #     automatic_release_tag: "v${{ needs.prepare.outputs.version }}"
+      #     draft: true
+      #     # files: TODO - list of artifacts with globs.
+      #     prerelease: true
+      #     repo_token: ${{ secrets.GITHUB_TOKEN }}
+      #     title: "Release ${{ needs.prepare.outputs.version }}"
+
+      - name: Create release draft
+        id: draft
+        uses: actions/github-script@v4.0.2 # When this upgrades check if the npm package @actions/github can also be upgraded: the latter is being held back at v4 due to this action's use of that version.
+        with:
+          script: |
+            const { createReleaseDraft } = require("./.github/scripts/.build/cd/create_release_draft.js");
+            const releaseInfo = await createReleaseDraft(github, context, "${{ steps.info.outputs.version }}", "${{ steps.info.outputs.changelogPath }}");
+
+            const releaseInfoSerialized = JSON.stringify(releaseInfo);
+
+            process.stdout.write(`releaseInfo=${releaseInfoSerialized}\n`);
+            process.stdout.write(`::set-output name=releaseInfo::${releaseInfoSerialized}\n`);
+
+    outputs:
+      previousVersion: ${{ steps.info.outputs.previousVersion }}
+      releaseInfo: ${{ steps.draft.outputs.releaseInfo }}
+      version: ${{ steps.info.outputs.version }}
+
+  build:
+    name: Building
+
+    needs:
+      - prepare
+
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-20.04
+          - windows-2019
+
+    steps:
+      - name: Setup NuGet.exe for use with actions
+        uses: NuGet/setup-nuget@v1.0.5
+
+      - name: Add msbuild to PATH
+        if: success() && runner.os == 'Windows'
+        uses: microsoft/setup-msbuild@v1.0.2
+
+      - name: Checkout code
+        uses: actions/checkout@v2.3.4
+
+      - name: Get npm cache directory
+        id: npmCacheDir
+        run: |
+          echo "::set-output name=dir::$(npm config get cache)"
+
+      - uses: actions/cache@v2
+        id: npmCache
+        with:
+          path: ${{ steps.npmCacheDir.outputs.dir }}
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - uses: actions/cache@v2.1.5
+        id: nuGetCache
+        with:
+          path: |
+            ${{ env.NUGET_PACKAGES }}
+          key: ${{ matrix.os }}-nuget-${{ hashFiles('**/packages.config', '**/packages.lock.json') }}
+          restore-keys: |
+            ${{ matrix.os }}-nuget-
+
+      - uses: actions/setup-node@v2.1.5
+        with:
+          node-version: 14 # TODO: pull from package.json or something.
+
+      - name: Fetch NPM dependencies
+        # Skip scripts here, as a malicious script could steal NODE_AUTH_TOKEN.
+        run: |
+          npm ci --no-fund
+        env:
+          NODE_ENV: cd # Override so that we get the dev dependencies.
+
+      - name: Prepare env vars
+        run: |
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            COMPILED_BY="Mono"
+            EDITION="Mono"
+          elif [[ "$RUNNER_OS" == "Windows" ]]; then
+            COMPILED_BY="VS2019"
+            EDITION="dotnet"
+          else
+            echo "$RUNNER_OS not supported"
+            exit 1
+          fi
+
+          echo "COMPILED_BY=$COMPILED_BY"; echo "COMPILED_BY=$COMPILED_BY" >> $GITHUB_ENV
+          echo "EDITION=$EDITION"; echo "EDITION=$EDITION" >> $GITHUB_ENV
+        shell: bash
+
+      - name: Update version data
+        run: |
+          "$(npm bin)/ts-node-script" .scripts/versioninfo_t4.ts OpenSim/Framework/Servers/VersionInfo.tt "${{ needs.prepare.outputs.version }}"
+        shell: bash
+
+      - name: Run prebuild (Linux)
+        if: success() && runner.os == 'Linux'
+        run: |
+          ./runprebuild.sh
+        shell: bash
+
+      - name: Run prebuild (Windows)
+        if: success() && runner.os == 'Windows'
+        run: |
+          ./runprebuild.bat
+        shell: cmd
+
+      - name: NuGet restore
+        # if: success() && steps.nuGetCache.outputs.cache-hit != 'true' # Enabling this causes the build to fail when the cache is filled.
+        run: nuget restore Halcyon.sln
+
+      - name: Build (Mono)
+        if: success() && runner.os == 'Linux'
+        run: msbuild /p:DefineConstants="_MONO_CLI_FLAG_" Halcyon.sln
+
+      - name: Build (Visual Studio)
+        if: success() && runner.os == 'Windows'
+        run: msbuild Halcyon.sln
+
+      - name: Fetch full version from DLL
+        id: dll
+        run: |
+          If (Test-Path "bin/OpenSim.Framework.Servers.dll") {
+            $halcyon_version = (Get-ChildItem -Path bin/OpenSim.Framework.Servers.dll | % versioninfo).ProductVersion
+            Write-Output "Detected version: $halcyon_version"
+            Write-Output "::set-output name=version::$halcyon_version"
+          }
+        shell: pwsh
+
+      - name: Install test runner
+        run: |
+          mkdir -p nunit
+          cd nunit
+          nuget install NUnit.Console -Version 3.12.0
+        shell: bash
+
+      - name: Run tests
+        run: |
+          ./nunit/NUnit.ConsoleRunner*/tools/nunit3-console.exe \
+            bin/InWorldz.Data.Assets.Stratus.dll \
+            bin/InWorldz.Phlox.Engine.dll \
+            bin/InWorldz.Region.Data.Thoosa.dll \
+            bin/OpenSim.Framework.Tests.dll \
+            bin/OpenSim.Region.FrameworkTests.dll \
+          ;
+        shell: bash
+
+      - name: Upload release build
+        env:
+          RELEASE_INFO: ${{ needs.prepare.outputs.releaseInfo }}
+        run: |
+          releaseBin='halcyon-${{ needs.prepare.outputs.version }}-'"${GITHUB_REF#refs/heads/}"'-${{ runner.os }}'
+          mv bin "$releaseBin"
+
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            artifactPath="${releaseBin}.zip"
+            artifactMimeType="application/zip"
+            7z a -tzip "$artifactPath" "$releaseBin"
+          else
+            artifactPath="${releaseBin}.tar.xz"
+            artifactMimeType="application/x-xz"
+            tar cfJ "$artifactPath" "$releaseBin"
+          fi
+
+          "$(npm bin)/ts-node-script" -- ./.github/scripts/cd/upload_release_artifact.ts "$artifactPath" "$artifactMimeType" '${{ secrets.GITHUB_TOKEN }}'
+        shell: bash
