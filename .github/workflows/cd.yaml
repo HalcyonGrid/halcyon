@@ -12,7 +12,6 @@ on:
     branches:
       - main
       - master
-      - actions # HACK for development purposes.
 
 jobs:
   prepare:
@@ -272,9 +271,8 @@ jobs:
           ;
         shell: bash
 
-      - name: Upload release build
-        env:
-          RELEASE_INFO: ${{ needs.prepare.outputs.releaseInfo }}
+      - name: Build release artifacts
+        id: artifacts
         run: |
           releaseBin='halcyon-${{ needs.prepare.outputs.version }}-'"${GITHUB_REF#refs/heads/}"'-${{ runner.os }}'
           mv bin "$releaseBin"
@@ -289,5 +287,26 @@ jobs:
             tar cfJ "$artifactPath" "$releaseBin"
           fi
 
-          "$(npm bin)/ts-node-script" -- ./.github/scripts/cd/upload_release_artifact.ts "$artifactPath" "$artifactMimeType" '${{ secrets.GITHUB_TOKEN }}'
+          echo "artifactPath=$artifactPath"; echo "::set-output name=artifactPath::$artifactPath"
+          echo "artifactMimeType=$artifactMimeType"; echo "::set-output name=artifactMimeType::$artifactMimeType"
+          echo "releaseBin=$releaseBin"; echo "::set-output name=releaseBin::$releaseBin"
+        shell: bash
+
+      - name: Upload artifacts to workflow run for diagnostic testing
+        uses: actions/upload-artifact@v2.2.3
+        with:
+          name: ${{ steps.artifacts.outputs.releaseBin }}
+          path: ${{ steps.artifacts.outputs.releaseBin }}
+          retention-days: 7
+
+      - name: Upload artifacts to release
+        env:
+          RELEASE_INFO: ${{ needs.prepare.outputs.releaseInfo }}
+        run: |
+          "$(npm bin)/ts-node-script" -- \
+            ./.github/scripts/cd/upload_release_artifact.ts \
+            '${{ steps.artifacts.outputs.artifactPath }}' \
+            '${{ steps.artifacts.outputs.artifactMimeType }}' \
+            '${{ secrets.GITHUB_TOKEN }}' \
+          ;
         shell: bash
