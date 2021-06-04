@@ -1,4 +1,4 @@
-import { promises as FS } from "fs";
+import { promises as FS, createReadStream } from "fs";
 import Path from "path";
 
 import { context, getOctokit } from "@actions/github";
@@ -34,13 +34,10 @@ export async function uploadReleaseArtifact(
     await github.repos.uploadReleaseAsset({
         ...context.repo,
         // baseUrl: releaseInfo.release.uploadUrl,
-        data: await FS.readFile(artifactPath, "binary"), // This is such a bad idea. Why didn't they utilize a file stream interface?!
+        data: createReadStream(artifactPath) as unknown as string, // This is such a bad idea. Why didn't they utilize a clean file stream interface?! No base64, no "strings", just bytes.
         headers: {
             "content-length": (await FS.stat(artifactPath)).size,
             "content-type": artifactMimeType,
-        },
-        mediaType: {
-            format: "raw",
         },
         name,
         release_id: releaseInfo.release.id,
