@@ -11,9 +11,44 @@ jobs:
   report:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v2.3.4
+
+      - name: Fetch transform code
+        run: |
+          wget https://raw.githubusercontent.com/nunit/nunit-transforms/master/nunit3-junit/nunit3-junit.xslt
+        shell: bash
+
+      - name: Get test results artifact
+        env:
+          DEBUG_GITHUB: ${{ toJSON(github.event) }}
+        uses: dawidd6/action-download-artifact@v2.14.0
+        with:
+          # There's no support for selective download: it's either ALL artifacts or an exact file name, no pattern matching.
+          #  Would be easy to add to the [downloadArtifact method](https://github.com/actions/toolkit/blob/main/packages/artifact/src/internal/artifact-client.ts#L132) and thus expose to the action.
+          #  But I'm not motifcated enough to push that through right now.
+          # name: /test-results_(.*)/
+          workflow_conclusion: completed
+          workflow: ci.yml
+
+      - name: Install NUnit
+        run: |
+          nuget install NUnit.Console -Version 3.12.0
+        shell: bash
+
+      - name: Transform NUnit3 to JUnit
+        run: |
+          Get-ChildItem . -Filter test-results_*.xml | Foreach-Object {
+            $xml = Resolve-Path $_.FullName
+            $output = Join-Path ($pwd) ($_.BaseName + '_junit.xml')
+            $xslt = New-Object System.Xml.Xsl.XslCompiledTransform;
+            $xslt.Load("nunit3-junit.xslt");
+            $xslt.Transform($xml, $output);
+          }
+        shell: pwsh
+
       - uses: dorny/test-reporter@v1.4.2
         with:
-          artifact: /test-results_(.*)/
-          name: "NUnit Tests for $1"
-          path: "*.xml"
-          reporter: nunit
+          # artifact: /test-results_(.*)/
+          name: "NUnit tests for $1"
+          path: "*_junit.xml"
+          reporter: jest-junit
