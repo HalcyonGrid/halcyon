@@ -27,8 +27,17 @@ jobs:
           #  Would be easy to add to the [downloadArtifact method](https://github.com/actions/toolkit/blob/main/packages/artifact/src/internal/artifact-client.ts#L132) and thus expose to the action.
           #  But I'm not motifcated enough to push that through right now.
           # name: /test-results_(.*)/
+          commit: ${{ github.workflow_run.head_sha }}
           workflow_conclusion: completed
-          workflow: ci.yml
+          workflow: ci.yaml
+
+      - name: Move files
+        run: |
+          for folder in test-results_*; do
+            mv "$folder/TestResult.xml" "$folder.xml"
+            rmdir "$folder"
+          done
+        shell: bash
 
       - name: Install NUnit
         run: |
@@ -48,7 +57,6 @@ jobs:
 
       - uses: dorny/test-reporter@v1.4.2
         with:
-          # artifact: /test-results_(.*)/
           name: "NUnit tests for $1"
           path: "*_junit.xml"
           reporter: jest-junit
