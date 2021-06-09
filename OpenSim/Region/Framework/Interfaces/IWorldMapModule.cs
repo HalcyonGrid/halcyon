@@ -27,6 +27,10 @@
 
 namespace OpenSim.Region.Framework.Interfaces
 {        
+    public interface IWorldMapModule
+    {
+    }
+
     /// <summary>
     /// Defines the various ways the world map could be tainted and need updating.
     /// </summary>

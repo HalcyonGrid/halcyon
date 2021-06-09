@@ -663,6 +663,12 @@
 	  <Compile Include="World\Wind\Plugins\ZephyrWind.cs">
 		<SubType>Code</SubType>
 	  </Compile>
+	  <Compile Include="World\WorldMap\MapSearchModule.cs">
+		<SubType>Code</SubType>
+	  </Compile>
+	  <Compile Include="World\WorldMap\WorldMapModule.cs">
+		<SubType>Code</SubType>
+	  </Compile>
 	</ItemGroup>
 	<Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
 	<PropertyGroup>
