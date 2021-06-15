@@ -246,7 +246,9 @@ namespace OpenSim.Region.CoreModules.Agent.BotManager
             //Send the stop message
             m_movementFlag = (uint)AgentManager.ControlFlags.NONE;
             if (fly)
+            {
                 m_movementFlag |= (uint)AgentManager.ControlFlags.AGENT_CONTROL_FLY;
+            }
             OnBotAgentUpdate(botPresence, Vector3.Zero, m_movementFlag, m_bodyDirection, false);
             //botPresence.CollisionPlane = Vector4.UnitW;
             var pa = botPresence.PhysicsActor;
@@ -283,7 +285,7 @@ namespace OpenSim.Region.CoreModules.Agent.BotManager
         {
             if (!Util.IsZeroVector(destination - presence.AbsolutePosition))
             {
-                walkTo(presence, destination);
+                WalkToInternal(presence, destination);
                 State = BotState.Walking;
                 LastFlying = false;
             }
@@ -294,7 +296,7 @@ namespace OpenSim.Region.CoreModules.Agent.BotManager
         {
             if (Util.IsZeroVector(destination - presence.AbsolutePosition) == false)
             {
-                flyTo(presence, destination);
+                FlyToInternal(presence, destination);
                 State = BotState.Flying;
                 LastFlying = true;
             }
@@ -350,7 +352,7 @@ namespace OpenSim.Region.CoreModules.Agent.BotManager
         ///     Does the actual movement of the bot
         /// </summary>
         /// <param name="pos"></param>
-        protected void walkTo(ScenePresence presence, Vector3 pos)
+        protected void WalkToInternal(ScenePresence presence, Vector3 pos)
         {
             Vector3 bot_forward = new Vector3(2, 0, 0);
             Vector3 bot_toward = Vector3.Zero;
@@ -411,10 +413,13 @@ namespace OpenSim.Region.CoreModules.Agent.BotManager
                 m_movementFlag = (uint)(AgentManager.ControlFlags.AGENT_CONTROL_AT_POS);
 
             if (presence.AllowMovement)
+            {
                 OnBotAgentUpdate(presence, bot_toward, m_movementFlag, m_bodyDirection);
+            }
             else
-                OnBotAgentUpdate(presence, Vector3.Zero, (uint)AgentManager.ControlFlags.AGENT_CONTROL_STOP,
-                                              Quaternion.Identity);
+            {
+                OnBotAgentUpdate(presence, Vector3.Zero, (uint) AgentManager.ControlFlags.AGENT_CONTROL_STOP, Quaternion.Identity);
+            }
 
             if (!isJumping)
                 m_movementFlag = (uint)AgentManager.ControlFlags.NONE;
@@ -424,7 +429,7 @@ namespace OpenSim.Region.CoreModules.Agent.BotManager
         ///     Does the actual movement of the bot
         /// </summary>
         /// <param name="pos"></param>
-        protected void flyTo(ScenePresence presence, Vector3 pos)
+        protected void FlyToInternal(ScenePresence presence, Vector3 pos)
         {
             Vector3 bot_forward = new Vector3(1, 0, 0), bot_toward = Vector3.Zero;
             if (pos - presence.AbsolutePosition != Vector3.Zero)
@@ -480,7 +485,9 @@ namespace OpenSim.Region.CoreModules.Agent.BotManager
             }
 
             if (presence.AllowMovement)
+            {
                 OnBotAgentUpdate(presence, bot_toward, m_movementFlag, m_bodyDirection);
+            }
             m_movementFlag = (uint)AgentManager.ControlFlags.AGENT_CONTROL_FLY;
         }
 

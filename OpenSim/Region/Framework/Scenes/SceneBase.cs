@@ -37,6 +37,7 @@ using OpenSim.Framework.Console;
 using OpenSim.Framework.Communications.Cache;
 using OpenSim.Region.Framework.Interfaces;
 using OpenSim.Region.Interfaces;
+using System.Threading.Tasks;
 
 namespace OpenSim.Region.Framework.Scenes
 {
@@ -509,6 +510,6 @@ namespace OpenSim.Region.Framework.Scenes
 
         public abstract void ForEachClient(System.Action<IClientAPI> action);
 
-        public abstract void InformNeighborsImUp();
+        public abstract Task InformNeighborsImUp();
     }
 }

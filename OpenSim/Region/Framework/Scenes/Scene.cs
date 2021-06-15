@@ -1908,9 +1908,9 @@ namespace OpenSim.Region.Framework.Scenes
             }
         }
 
-        public override void InformNeighborsImUp()
+        public override async Task InformNeighborsImUp()
         {
-            _surroundingRegions.RefreshNeighborsFromStorage().Wait();
+            await _surroundingRegions.RefreshNeighborsFromStorage();
             _surroundingRegions.SendRegionUpToNeighbors();
         }
 
@@ -6063,7 +6063,7 @@ namespace OpenSim.Region.Framework.Scenes
                 UserId = scenePresence.UUID,
             };
 
-            m_transitController.TryBeginTransit(args);
+            m_transitController.TryBeginTransit(args).FireAndForget(); // Trigger the attempt to transit the agent to the other region, but report any exceptions in the log.
         }
 
         internal bool AvatarIsInTransit(UUID uuid)

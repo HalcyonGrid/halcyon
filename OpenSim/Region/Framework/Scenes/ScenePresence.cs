@@ -1660,19 +1660,21 @@ namespace OpenSim.Region.Framework.Scenes
             if (update)
             {
                 // m_log.WarnFormat("[SCENE PRESENCE]: AgentUpdate: {0} {1} {2} {3} {4}", this.Name, x.Flags.ToString("X2"), x.ControlFlags.ToString("X8"), x.State.ToString(), this.Velocity.ToString());
-                AgentUpdateArgs arg = new AgentUpdateArgs();
-                arg.AgentID = x.AgentID;
-                arg.BodyRotation = x.BodyRotation;
-                arg.CameraAtAxis = x.CameraAtAxis;
-                arg.CameraCenter = x.CameraCenter;
-                arg.CameraLeftAxis = x.CameraLeftAxis;
-                arg.CameraUpAxis = x.CameraUpAxis;
-                arg.ControlFlags = x.ControlFlags;
-                arg.Far = x.Far;
-                arg.Flags = x.Flags;
-                arg.HeadRotation = x.HeadRotation;
-                arg.SessionID = x.SessionID;
-                arg.State = x.State;
+                AgentUpdateArgs arg = new AgentUpdateArgs
+                {
+                    AgentID = x.AgentID,
+                    BodyRotation = x.BodyRotation,
+                    CameraAtAxis = x.CameraAtAxis,
+                    CameraCenter = x.CameraCenter,
+                    CameraLeftAxis = x.CameraLeftAxis,
+                    CameraUpAxis = x.CameraUpAxis,
+                    ControlFlags = x.ControlFlags,
+                    Far = x.Far,
+                    Flags = x.Flags,
+                    HeadRotation = x.HeadRotation,
+                    SessionID = x.SessionID,
+                    State = x.State
+                };
 
                 m_lastAgentUpdate = arg; // save this set of arguments for nexttime
                 HandleAgentUpdate(remoteClient, arg);
@@ -1722,9 +1724,9 @@ namespace OpenSim.Region.Framework.Scenes
             return IsAtTarget(target, MOVE_TO_TARGET_TOLERANCE * 2.0f);
         }
 
-        public void UpdateForDrawDistanceChange()
+        public async Task UpdateForDrawDistanceChange()
         {
-            m_remotePresences.HandleDrawDistanceChanged((uint)m_DrawDistance);
+            await m_remotePresences.HandleDrawDistanceChanged((uint)m_DrawDistance);
         }
 
         /// <summary>
@@ -1732,7 +1734,6 @@ namespace OpenSim.Region.Framework.Scenes
         /// </summary>
         public void HandleAgentUpdate(IClientAPI remoteClient, AgentUpdateArgs agentData)
         {
-            bool recoverPhysActor = false;
             if (m_isChildAgent)
             {
                 //m_log.Warn("[CROSSING]: HandleAgentUpdate from child agent ignored "+agentData.AgentID.ToString());
@@ -1827,7 +1828,7 @@ namespace OpenSim.Region.Framework.Scenes
             if (m_DrawDistance != agentData.Far)
             {
                 m_DrawDistance = agentData.Far;
-                UpdateForDrawDistanceChange();
+                UpdateForDrawDistanceChange().FireAndForget(); // FireAndForget prevents exceptions from crashing the system and logs them. As opposed to awiting around for thi s to finish or never getting any of the exceptions.
             }
 
             if ((flags & (uint) AgentManager.ControlFlags.AGENT_CONTROL_STAND_UP) != 0)
@@ -3708,25 +3709,30 @@ namespace OpenSim.Region.Framework.Scenes
             m_LastChildAgentUpdatePosition.Y = pos.Y;
             m_LastChildAgentUpdatePosition.Z = pos.Z;
 
-            ChildAgentDataUpdate cadu = new ChildAgentDataUpdate();
-            cadu.ActiveGroupID = UUID.Zero.Guid;
-            cadu.AgentID = UUID.Guid;
-            cadu.alwaysrun = m_setAlwaysRun;
-            cadu.AVHeight = m_avHeight;
-            sLLVector3 tempCameraCenter = new sLLVector3(new Vector3(m_CameraCenter.X, m_CameraCenter.Y, m_CameraCenter.Z));
-            cadu.cameraPosition = tempCameraCenter;
-            cadu.drawdistance = m_DrawDistance;
-            if (!this.IsBot)    // bots don't need IsGod checks
-                if (m_scene.Permissions?.IsGod(new UUID(cadu.AgentID)) ?? false)
-                    cadu.godlevel = m_godlevel;
-            cadu.GroupAccess = 0;
-            cadu.Position = new sLLVector3(pos);
-            cadu.regionHandle = m_scene.RegionInfo.RegionHandle;
-
             float multiplier = CalculateNeighborBandwidthMultiplier();
             //m_log.Info("[NeighborThrottle]: " + m_scene.GetInaccurateNeighborCount().ToString() + " - m: " + multiplier.ToString());
-            cadu.throttles = ControllingClient.GetThrottlesPacked(multiplier);
-            cadu.Velocity = new sLLVector3(Velocity);
+
+            ChildAgentDataUpdate cadu = new ChildAgentDataUpdate
+            {
+                ActiveGroupID = UUID.Zero.Guid,
+                AgentID = UUID.Guid,
+                alwaysrun = m_setAlwaysRun,
+                AVHeight = m_avHeight,
+                cameraPosition = new sLLVector3(new Vector3(m_CameraCenter.X, m_CameraCenter.Y, m_CameraCenter.Z)),
+                drawdistance = m_DrawDistance,
+                GroupAccess = 0,
+                Position = new sLLVector3(pos),
+                regionHandle = m_scene.RegionInfo.RegionHandle,
+                throttles = ControllingClient.GetThrottlesPacked(multiplier),
+                Velocity = new sLLVector3(Velocity),
+            };
+            if (!this.IsBot) // bots don't need IsGod checks
+            {
+                if (m_scene.Permissions?.IsGod(new UUID(cadu.AgentID)) ?? false)
+                {
+                    cadu.godlevel = m_godlevel;
+                }
+            }
 
             AgentPosition agentpos = new AgentPosition();
             agentpos.CopyFrom(cadu);

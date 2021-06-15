@@ -221,7 +221,7 @@ namespace OpenSim.Region.CoreModules.Agent.BotManager
                 if (m_description.NumberOfTimesJumpAttempted > 0)
                 {
                     botPresence.PhysicsActor.Flying = false;
-                    walkTo(botPresence, botPresence.AbsolutePosition);
+                    WalkToInternal(botPresence, botPresence.AbsolutePosition);
                     //Fix the animation from flying > walking
                     UpdateMovementAnimations(false);
                 }

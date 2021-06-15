@@ -28,6 +28,7 @@
 using OpenMetaverse;
 //using OpenSim.Framework.Console;
 using Nini.Config;
+using System.Threading.Tasks;
 
 namespace OpenSim.Framework
 {
@@ -100,6 +101,6 @@ namespace OpenSim.Framework
 
         void ForEachClient(System.Action<IClientAPI> action);
 
-        void InformNeighborsImUp();
+        Task InformNeighborsImUp();
     }
 }
