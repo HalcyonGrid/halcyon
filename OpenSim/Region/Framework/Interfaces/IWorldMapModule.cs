@@ -29,13 +29,6 @@ namespace OpenSim.Region.Framework.Interfaces
 {        
     public interface IWorldMapModule
     {
-        void LazySaveGeneratedMaptile(byte[] data, bool temporary);
-
-        /// <summary>
-        /// Marks the world map as tainted and updates the map tile if enough time has passed.
-        /// </summary>
-        /// <param name="reason">What is the source of the taint?</param>
-        void MarkMapTileTainted(WorldMapTaintReason reason);
     }
 
     /// <summary>

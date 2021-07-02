@@ -1854,12 +1854,7 @@ namespace OpenSim.Region.Framework.Scenes
         /// <param name="reason">What is the source of the taint?</param>
         public override void MarkMapTileTainted(WorldMapTaintReason reason)
         {
-            IWorldMapModule mapModule = RequestModuleInterface<IWorldMapModule>();
-
-            if (mapModule != null)
-            {
-                mapModule.MarkMapTileTainted(reason);
-            }
+            // TODO: eventually tap into Anax server mode if so configured.
         }
 
         /// <summary>
@@ -1912,31 +1907,6 @@ namespace OpenSim.Region.Framework.Scenes
         {
             _surroundingRegions.RefreshNeighborsFromStorage().Wait();
             _surroundingRegions.SendRegionUpToNeighbors();
-        }
-
-        /// <summary>
-        /// Create a terrain texture for this scene
-        /// </summary>
-        public void CreateTerrainTexture(bool temporary)
-        {
-            //create a texture asset of the terrain
-            IMapImageGenerator terrain = RequestModuleInterface<IMapImageGenerator>();
-
-            // Cannot create a map for a nonexistant heightmap yet.
-            if (Heightmap == null)
-                return;
-
-            if (terrain == null)
-                return;
-
-            byte[] data = terrain.WriteJpeg2000Image();
-            if (data != null)
-            {
-                IWorldMapModule mapModule = RequestModuleInterface<IWorldMapModule>();
-
-                if (mapModule != null)
-                    mapModule.LazySaveGeneratedMaptile(data, temporary);
-            }
         }
 
         #endregion
