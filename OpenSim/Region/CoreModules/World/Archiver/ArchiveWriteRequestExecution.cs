@@ -80,10 +80,12 @@ namespace OpenSim.Region.CoreModules.World.Archiver
         protected internal void ReceivedAllAssets(
             ICollection<UUID> assetsFoundUuids, ICollection<UUID> assetsNotFoundUuids)
         {
+            /*
             foreach (UUID uuid in assetsNotFoundUuids)
             {
                 m_log.DebugFormat("[ARCHIVER]: Could not find asset {0}", uuid);
             }
+            */
 
             m_log.InfoFormat(
                 "[ARCHIVER]: Received {0} of {1} assets requested",
