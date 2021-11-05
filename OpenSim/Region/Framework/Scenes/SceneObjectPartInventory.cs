@@ -995,7 +995,7 @@ namespace OpenSim.Region.Framework.Scenes
 
         public class InventoryStringBuilder
         {
-            public StringBuilder BuildString = new StringBuilder();
+            public StringBuilder BuildString = new StringBuilder(1024);
 
             public InventoryStringBuilder(UUID folderID, UUID parentID)
             {
@@ -1008,12 +1008,12 @@ namespace OpenSim.Region.Framework.Scenes
 
             public void AddEnd()
             {
-                BuildString.Append("\t}");  // no terminating \n
+                BuildString.Append("\n\t}");  // add \n before \t}
             }
 
             public void AddItemStart()
             {
-                BuildString.Append("\tinv_item\t0\n");
+                BuildString.Append("\tinv_item\t0\n\t{\n");
                 AddSectionStart();
             }
 
