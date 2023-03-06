@@ -26,23 +26,17 @@
  */
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Drawing;
-using System.Drawing.Imaging;
 using System.IO;
 using System.Net;
 using System.Reflection;
 using System.Threading;
-using System.Timers;
 using log4net;
 using Nini.Config;
 using OpenMetaverse;
-using OpenMetaverse.Imaging;
 using OpenMetaverse.StructuredData;
 using OpenSim.Framework;
 using OpenSim.Framework.Communications.Capabilities;
-using OpenSim.Framework.Servers;
 using OpenSim.Framework.Servers.HttpServer;
 using OpenSim.Region.Framework.Interfaces;
 using OpenSim.Region.Framework.Scenes;
@@ -58,16 +52,12 @@ namespace OpenSim.Region.CoreModules.World.WorldMap
         private static readonly ILog m_log =
             LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
 
-        private static readonly string DEFAULT_WORLD_MAP_EXPORT_PATH = "exportmap.jpg";
-
         private static readonly string m_mapLayerPath = "0001/";
 
         //private IConfig m_config;
         protected Scene m_scene;
         private List<MapBlockData> cachedMapBlocks = new List<MapBlockData>();
         private int cachedTime = 0;
-        private byte[] myMapImageJPEG;
-        protected volatile bool m_Enabled = false;
         private Dictionary<UUID, MapRequestState> m_openRequests = new Dictionary<UUID, MapRequestState>();
         private Dictionary<string, int> m_blacklistedurls = new Dictionary<string, int>();
         private Dictionary<ulong, int> m_blacklistedregions = new Dictionary<ulong, int>();
@@ -79,76 +69,9 @@ namespace OpenSim.Region.CoreModules.World.WorldMap
 
         private Dictionary<UUID, IWorkItemResult> _currentRequests = new Dictionary<UUID, IWorkItemResult>();
 
-        /// <summary>
-        /// The path to where the generated region tile will be saved and the start of the file name.  Comes from Halcyon.ini, section WorldMap, entry RegionMapTileExportFilename.
-        /// </summary>
-        private string regionTileExportFilename = "";
-
-        private struct MapTileDataForExport {
-            public string filename;
-            public byte[] jpegData;
-        }
-
-        /// <summary>
-        /// Whether or not the map has been tainted and the map tile file needs to be updated.
-        /// </summary>
-        private bool isMapTainted = true;
-        private bool readyToDrawMap = false;
-        /// <summary>
-        /// The minimum amount of time required to pass before the next automatic write of a map tile file to the server.  Keeps the file from being constantly written to in busy situations.
-        /// </summary>
-        private TimeSpan minimumMapPushTime = new TimeSpan(1, 0, 0);
-        /// <summary>
-        /// The last time the map tile file was pushed to the map server.
-        /// </summary>
-        private DateTime lastMapPushTime = new DateTime(0); // Set to 0 initally to make sure the map tile gets drawn asap.
-        /// <summary>
-        /// Used to make sure the map tile file gets updated after a maximum amount of time if it has been tainted.
-        /// </summary>
-        private System.Timers.Timer mapTileUpdateTimer;
-
-        private bool terrainTextureCanTaintMapTile = false;
-        private bool primsCanTaintMapTile = true;
-
-        //private int CacheRegionsDistance = 256;
-
         #region INonSharedRegionModule Members
         public virtual void Initialize(IConfigSource config)
         {
-            IConfig startupConfig = config.Configs["Startup"]; // Location supported for legacy INI files.
-            IConfig worldmapConfig = config.Configs["WorldMap"];
-            if (
-                (worldmapConfig != null && worldmapConfig.GetString("WorldMapModule", "WorldMap") == "WorldMap")
-                ||
-                (startupConfig != null && startupConfig.GetString("WorldMapModule", "WorldMap") == "WorldMap") // LEGACY
-            )
-            {
-                m_Enabled = true;
-            }
-
-            if (worldmapConfig != null)
-            {
-                regionTileExportFilename = worldmapConfig.GetString("RegionMapTileExportFilename", regionTileExportFilename);
-
-                // Low values could exhaust F&F pools or cause overdue amounts of CPU usage.  No need to refresh the map faster than once a minute anyway.
-                int pushTimeSeconds = Math.Max(60, worldmapConfig.GetInt("MinimumTaintedMapTileWaitTime", (int) minimumMapPushTime.TotalSeconds));
-                minimumMapPushTime = new TimeSpan(0, 0, pushTimeSeconds);
-                m_log.DebugFormat("[WORLD MAP] Got min wait time of {0} seconds which resulted in a span of {1}", pushTimeSeconds, minimumMapPushTime);
-
-                double timerSeconds = (double) Math.Max(0, worldmapConfig.GetInt("MaximumTaintedMapTileWaitTime", 0));
-                m_log.DebugFormat("[WORLD MAP] Got max wait time of {0} seconds", timerSeconds);
-                if (timerSeconds > 0d && regionTileExportFilename.Length > 0)
-                {
-                    mapTileUpdateTimer = new System.Timers.Timer(timerSeconds * 1000.0d);
-                    mapTileUpdateTimer.Elapsed += HandleTaintedMapTimer;
-                    mapTileUpdateTimer.AutoReset = true;
-                    mapTileUpdateTimer.Enabled = false;
-                }
-
-                terrainTextureCanTaintMapTile = worldmapConfig.GetBoolean("TextureOnMapTile", terrainTextureCanTaintMapTile);
-                primsCanTaintMapTile = worldmapConfig.GetBoolean("DrawPrimOnMapTile", primsCanTaintMapTile);
-            }
-
             STPStartInfo reqPoolStartInfo = new STPStartInfo();
             reqPoolStartInfo.MaxWorkerThreads = 2;
             reqPoolStartInfo.IdleTimeout = 5 * 60 * 1000;
@@ -167,42 +90,20 @@ namespace OpenSim.Region.CoreModules.World.WorldMap
 
         public virtual void AddRegion (Scene scene)
         {
-            if (!m_Enabled)
-                return;
-
             lock (scene)
             {
                 m_scene = scene;
 
                 m_scene.RegisterModuleInterface<IWorldMapModule>(this);
 
-                m_scene.AddCommand(
-                    this, "export-map",
-                    "export-map [<path>]",
-                    "Save an image of the world map", HandleExportWorldMapConsoleCommand);
-
                 AddHandlers();
-            }
-
-            if (mapTileUpdateTimer != null)
-            {
-                mapTileUpdateTimer.Enabled = true;
             }
         }
 
         public virtual void RemoveRegion (Scene scene)
         {
-            if (!m_Enabled)
-                return;
-
-            if (mapTileUpdateTimer != null)
-            {
-                mapTileUpdateTimer.Enabled = false;
-            }
-
             lock (m_scene)
             {
-                m_Enabled = false;
                 RemoveHandlers();
                 m_scene = null;
             }
@@ -232,13 +133,6 @@ namespace OpenSim.Region.CoreModules.World.WorldMap
         // this has to be called with a lock on m_scene
         protected virtual void AddHandlers()
         {
-            myMapImageJPEG = new byte[0];
-
-            string regionimage = "regionImage" + m_scene.RegionInfo.RegionID.ToString();
-            regionimage = regionimage.Replace("-", String.Empty);
-            m_log.Info("[WORLD MAP]: JPEG Map location: http://" + m_scene.RegionInfo.ExternalHostName + ":" + m_scene.RegionInfo.HttpPort.ToString() + "/index.php?method=" + regionimage);
-
-            m_scene.CommsManager.HttpServer.AddHTTPHandler(regionimage, OnHTTPGetMapImage);
             m_scene.CommsManager.HttpServer.AddLLSDHandler(
                 "/MAP/MapItems/" + m_scene.RegionInfo.RegionHandle.ToString(), HandleRemoteMapItemRequest);
 
@@ -335,19 +229,6 @@ namespace OpenSim.Region.CoreModules.World.WorldMap
             LLSDMapLayerResponse mapResponse = new LLSDMapLayerResponse();
             mapResponse.LayerData.Array.Add(GetOSDMapLayerResponse());
             return mapResponse.ToString();
-        }
-
-        /// <summary>
-        ///
-        /// </summary>
-        /// <param name="mapReq"></param>
-        /// <returns></returns>
-        public LLSDMapLayerResponse GetMapLayer(LLSDMapRequest mapReq)
-        {
-            m_log.Debug("[WORLD MAP]: MapLayer Request in region: " + m_scene.RegionInfo.RegionName);
-            LLSDMapLayerResponse mapResponse = new LLSDMapLayerResponse();
-            mapResponse.LayerData.Array.Add(GetOSDMapLayerResponse());
-            return mapResponse;
         }
 
         /// <summary>
@@ -815,208 +696,6 @@ namespace OpenSim.Region.CoreModules.World.WorldMap
             remoteClient.SendMapBlock(mapBlocks, flag);
         }
 
-        /// <summary>
-        /// The last time a mapimage was cached
-        /// </summary>
-        private DateTime _lastImageGenerationTime = DateTime.Now;
-
-        /// <summary>
-        /// Number of days to cache a mapimage
-        /// </summary>
-        private const int MAPIMAGE_CACHE_TIME = 2;
-
-        public Hashtable OnHTTPGetMapImage(Hashtable keysvals)
-        {
-            bool forceRefresh = false;
-            if (keysvals.ContainsKey("requestvars"))
-            {
-                Hashtable rvars = (Hashtable)keysvals["requestvars"];
-                if (rvars.ContainsKey("forcerefresh")) forceRefresh = true;
-            }
-
-            if (forceRefresh)
-            {
-                // Delay/reset the timer as the map's getting updated now.
-                mapTileUpdateTimer?.Stop();
-
-                m_log.Debug("[WORLD MAP]: Forcing refresh of map tile");
-
-                try
-                {
-                    //regenerate terrain
-                    m_scene.CreateTerrainTexture(false);
-                }
-                finally // Make sure the timer actually gets restarted even in an Exceptional situation.
-                {
-                    // Do the reset after the update so that the above update's time delay cannot cause overlaps.
-                    mapTileUpdateTimer?.Start();
-                }
-            }
-
-            m_log.Debug("[WORLD MAP]: Sending map image jpeg");
-            Hashtable reply = new Hashtable();
-            int statuscode = 200;
-            byte[] jpeg = new byte[0];
-
-            if (myMapImageJPEG.Length == 0 || (DateTime.Now - _lastImageGenerationTime).TotalDays > MAPIMAGE_CACHE_TIME || forceRefresh)
-            {
-                MemoryStream imgstream = new MemoryStream();
-                Bitmap mapTexture = new Bitmap(1,1);
-                ManagedImage managedImage;
-                Image image = mapTexture;
-
-                try
-                {
-                    // Taking our jpeg2000 data, decoding it, then saving it to a byte array with regular jpeg data
-
-                    imgstream = new MemoryStream();
-
-                    // non-async because we know we have the asset immediately.
-                    AssetBase mapasset = m_scene.CommsManager.AssetCache.GetAsset(m_scene.RegionInfo.lastMapUUID, 
-                        AssetRequestInfo.InternalRequest());
-
-                    // Decode image to System.Drawing.Image
-                    if (OpenJPEG.DecodeToImage(mapasset.Data, out managedImage, out image))
-                    {
-                        // Save to bitmap
-                        mapTexture = new Bitmap(image);
-
-                        EncoderParameters myEncoderParameters = new EncoderParameters();
-                        myEncoderParameters.Param[0] = new EncoderParameter(Encoder.Quality, 95L);
-
-                        // Save bitmap to stream
-                        mapTexture.Save(imgstream, GetEncoderInfo("image/jpeg"), myEncoderParameters);
-
-                        // Write the stream to a byte array for output
-                        jpeg = imgstream.ToArray();
-                        myMapImageJPEG = jpeg;
-
-                        _lastImageGenerationTime = DateTime.Now;
-                    }
-                }
-                catch (Exception)
-                {
-                    // Dummy!
-                    m_log.Warn("[WORLD MAP]: Unable to generate Map image");
-                }
-                finally
-                {
-                    // Reclaim memory, these are unmanaged resources
-                    mapTexture.Dispose();
-                    image.Dispose();
-                    imgstream.Close();
-                    imgstream.Dispose();
-                }
-            }
-            else
-            {
-                // Use cached version so we don't have to loose our mind
-                jpeg = myMapImageJPEG;
-            }
-
-            reply["str_response_string"] = Convert.ToBase64String(jpeg);
-            reply["int_response_code"] = statuscode;
-            reply["content_type"] = "image/jpeg";
-
-            return reply;
-        }
-
-        // From msdn
-        private static ImageCodecInfo GetEncoderInfo(String mimeType)
-        {
-            ImageCodecInfo[] encoders;
-            encoders = ImageCodecInfo.GetImageEncoders();
-            for (int j = 0; j < encoders.Length; ++j)
-            {
-                if (encoders[j].MimeType == mimeType)
-                    return encoders[j];
-            }
-            return null;
-        }
-
-        /// <summary>
-        /// Export the world map
-        /// </summary>
-        /// <param name="fileName"></param>
-        public void HandleExportWorldMapConsoleCommand(string module, string[] cmdparams)
-        {
-            if (m_scene.ConsoleScene() == null)
-            {
-                // FIXME: If console region is root then this will be printed by every module.  Currently, there is no
-                // way to prevent this, short of making the entire module shared (which is complete overkill).
-                // One possibility is to return a bool to signal whether the module has completely handled the command
-                m_log.InfoFormat("[WORLD MAP]: Please change to a specific region in order to export its world map");
-                return;
-            }
-
-            if (m_scene.ConsoleScene() != m_scene)
-                return;
-
-            string exportPath;
-
-            if (cmdparams.Length > 1)
-                exportPath = cmdparams[1];
-            else
-                exportPath = DEFAULT_WORLD_MAP_EXPORT_PATH;
-
-            m_log.InfoFormat(
-                "[WORLD MAP]: Exporting world map for {0} to {1}", m_scene.RegionInfo.RegionName, exportPath);
-
-            List<MapBlockData> mapBlocks =
-                m_scene.CommsManager.GridService.RequestNeighbourMapBlocks(
-                    (int)(m_scene.RegionInfo.RegionLocX - 9),
-                    (int)(m_scene.RegionInfo.RegionLocY - 9),
-                    (int)(m_scene.RegionInfo.RegionLocX + 9),
-                    (int)(m_scene.RegionInfo.RegionLocY + 9));
-            List<AssetBase> textures = new List<AssetBase>();
-            List<Image> bitImages = new List<Image>();
-
-            foreach (MapBlockData mapBlock in mapBlocks)
-            {
-                AssetBase texAsset = m_scene.CommsManager.AssetCache.GetAsset(mapBlock.MapImageId, AssetRequestInfo.InternalRequest());
-
-                if (texAsset != null)
-                {
-                    textures.Add(texAsset);
-                }
-                else
-                {
-                    texAsset = m_scene.CommsManager.AssetCache.GetAsset(mapBlock.MapImageId, AssetRequestInfo.InternalRequest());
-                    if (texAsset != null)
-                    {
-                        textures.Add(texAsset);
-                    }
-                }
-            }
-
-            foreach (AssetBase asset in textures)
-            {
-                ManagedImage managedImage;
-                Image image;
-
-                if (OpenJPEG.DecodeToImage(asset.Data, out managedImage, out image))
-                    bitImages.Add(image);
-            }
-
-            Bitmap mapTexture = new Bitmap(2560, 2560);
-            Graphics g = Graphics.FromImage(mapTexture);
-            SolidBrush sea = new SolidBrush(Color.DarkBlue);
-            g.FillRectangle(sea, 0, 0, 2560, 2560);
-
-            for (int i = 0; i < mapBlocks.Count; i++)
-            {
-                ushort x = (ushort)((mapBlocks[i].X - m_scene.RegionInfo.RegionLocX) + 10);
-                ushort y = (ushort)((mapBlocks[i].Y - m_scene.RegionInfo.RegionLocY) + 10);
-                g.DrawImage(bitImages[i], (x * 128), (y * 128), 128, 128);
-            }
-
-            mapTexture.Save(exportPath, ImageFormat.Jpeg);
-
-            m_log.InfoFormat(
-                "[WORLD MAP]: Successfully exported world map for {0} to {1}",
-                m_scene.RegionInfo.RegionName, exportPath);
-        }
-
         public OSD HandleRemoteMapItemRequest(string path, OSD request, IPEndPoint endpoint)
         {
             uint xstart = 0;
@@ -1065,193 +744,6 @@ namespace OpenSim.Region.CoreModules.World.WorldMap
                 responsemap["6"] = responsearr;
             }
             return responsemap;
-        }
-
-        public void LazySaveGeneratedMaptile(byte[] data, bool temporary)
-        {
-            // Overwrites the local Asset cache with new maptile data
-            // Assets are single write, this causes the asset server to ignore this update,
-            // but the local asset cache does not
-
-            // this is on purpose!  The net result of this is the region always has the most up to date
-            // map tile while protecting the (grid) asset database from bloat caused by a new asset each
-            // time a mapimage is generated!
-
-            UUID lastMapRegionUUID = m_scene.RegionInfo.lastMapUUID;
-
-            int lastMapRefresh = 0;
-            const int RefreshSeconds = 172800; // 172800 = two days in seconds.
-
-            try
-            {
-                lastMapRefresh = Convert.ToInt32(m_scene.RegionInfo.lastMapRefresh);
-            }
-            catch (ArgumentException)
-            {
-            }
-            catch (FormatException)
-            {
-            }
-            catch (OverflowException)
-            {
-            }
-
-            UUID TerrainImageUUID = UUID.Random();
-
-            if (lastMapRegionUUID == UUID.Zero || (lastMapRefresh + RefreshSeconds) < Util.UnixTimeSinceEpoch())
-            {
-                m_scene.RegionInfo.SaveLastMapUUID(TerrainImageUUID);
-                m_log.Debug("[MAPTILE]: STORING MAPTILE IMAGE");
-            }
-            else
-            {
-                TerrainImageUUID = lastMapRegionUUID;
-                m_log.Debug("[MAPTILE]: REUSING OLD MAPTILE IMAGE ID");
-            }
-
-            m_scene.RegionInfo.RegionSettings.TerrainImageID = TerrainImageUUID;
-
-            AssetBase asset = new AssetBase();
-            asset.FullID = m_scene.RegionInfo.RegionSettings.TerrainImageID;
-            asset.Data = data;
-            asset.Name = "terrainImage_" + m_scene.RegionInfo.RegionID + "_" + lastMapRefresh;
-            asset.Description = m_scene.RegionInfo.RegionName;
-
-            asset.Type = 0;
-            asset.Temporary = temporary;
-
-            {
-                int t = Environment.TickCount;
-                try
-                {
-                    m_scene.CommsManager.AssetCache.AddAsset(asset, AssetRequestInfo.InternalRequest());
-                }
-                catch (AssetServerException)
-                {
-                }
-                t = Environment.TickCount - t;
-                m_log.InfoFormat("[MAPTILE] Attempted save to asset server took {0}ms", t);
-            }
-
-            readyToDrawMap = true; // This seems to be the most guaranteed place to detect that the region's got all its peices loaded up and is ready to render a map tile.
-
-            if (regionTileExportFilename.Length > 0 && isMapTainted && lastMapPushTime + minimumMapPushTime < DateTime.Now)
-            {
-                lastMapPushTime = DateTime.Now;
-
-                MapTileDataForExport exportData;
-
-                exportData.filename = regionTileExportFilename
-                    .Replace("{X}", String.Format("{0:D}", m_scene.RegionInfo.RegionLocX))
-                    .Replace("{Y}", String.Format("{0:D}", m_scene.RegionInfo.RegionLocY));
-
-                exportData.jpegData = data;
-
-                Util.FireAndForget(ExportMapTileToDisk, exportData); // Just have the disk IO go off and do its thing on its own.
-            }
-        }
-
-        /// <summary>
-        /// Marks the world map as tainted and updates the map tile if enough time has passed.
-        /// </summary>
-        /// <param name="reason">What is the source of the taint?</param>
-        public void MarkMapTileTainted(WorldMapTaintReason reason)
-        {
-            if (regionTileExportFilename.Length <= 0) // If the map tile export path isn't active, don't even worry about doing the work.
-                return;
-
-            if (
-                (reason == WorldMapTaintReason.TerrainTextureChange && !terrainTextureCanTaintMapTile)
-                ||
-                (reason == WorldMapTaintReason.PrimChange && !primsCanTaintMapTile)
-                // Elevation can always taint the map.
-            )
-            {
-                return; // These are not set up in the ini file to be able to show, and therefore taint the map.
-            }
-
-            isMapTainted = true;
-
-            //m_log.Debug("[WORLD MAP] Map tile tainted."); // Can happen A LOT.
-
-            // Skip if the region isn't ready - aka hasn't finished loading initial objects, or if not enough time has passed since the last push to disk.
-            if (readyToDrawMap && lastMapPushTime + minimumMapPushTime < DateTime.Now)
-            {
-                // Delay/reset the timer as the map's getting updated now.
-                mapTileUpdateTimer?.Stop();
-
-                m_log.Info("[WORLD MAP] Rebuilding map tile on taint as the minimum wait time has passed.");
-
-                try
-                {
-                    // Update the map tile.
-                    m_scene.CreateTerrainTexture(false);
-                }
-                finally // Make sure the timer actually gets restarted even in an Exceptional situation.
-                {
-                    // Do the reset after the update so that the above update's time delay cannot cause overlaps.
-                    mapTileUpdateTimer?.Start();
-                }
-            }
-        }
-
-        /// <summary>
-        /// Fired if the Halcyon.ini entry MaximumTaintedMapTileWaitTime is greater than zero
-        /// </summary>
-        private void HandleTaintedMapTimer(object source, ElapsedEventArgs e)
-        {
-            if (m_Enabled && isMapTainted && lastMapPushTime + minimumMapPushTime < DateTime.Now)
-            {
-                // Delay/reset the timer as the map's getting updated now.
-                mapTileUpdateTimer?.Stop();
-
-                m_log.Info("[WORLD MAP] Rebuilding map tile; map was tainted and the maximum wait time has expired.");
-
-                try
-                {
-                    // Update the map tile.
-                    m_scene.CreateTerrainTexture(false);
-                }
-                finally // Make sure the timer actually gets restarted even in an Exceptional situation.
-                {
-                    // Do the reset after the update so that the above update's time delay cannot cause overlaps.
-                    mapTileUpdateTimer?.Start();
-                }
-            }
-        }
-
-        private readonly object ExportMapTileToDiskLock = new object();
-        private void ExportMapTileToDisk(object o)
-        {
-            int t = Environment.TickCount;
-            var exportData = (MapTileDataForExport)o;
-
-            // Attempt to get a lock, but if that fails, just abort - another request to update the file will come soon enough.
-            if (Monitor.TryEnter(ExportMapTileToDiskLock))
-            {
-                try
-                {
-                    ManagedImage managedImage;
-                    Image image;
-
-                    if (OpenJPEG.DecodeToImage(exportData.jpegData, out managedImage, out image))
-                    {
-                        image.Save(exportData.filename, ImageFormat.Jpeg);
-
-                        isMapTainted = false;
-                    }
-                }
-                catch (Exception e)
-                {
-                    m_log.ErrorFormat("[WORLD MAP]: Failed to export map tile to path '{0}': {1}", exportData.filename, e);
-                }
-                finally
-                {
-                    Monitor.Exit(ExportMapTileToDiskLock);
-                }
-            }
-            t = Environment.TickCount - t;
-            m_log.InfoFormat ("[WORLD MAP] disk write of map tile took {0} ms", t);
         }
 
         private void MakeRootAgent(ScenePresence avatar)

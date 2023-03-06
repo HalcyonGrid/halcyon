@@ -529,22 +529,5 @@ namespace OpenSim.Framework
             pluginAssembly = null;
             return plug;
         }
-
-        public void forceUpdateConfigurationOneOption(string configuration_key, string configuration_value)
-        {
-            configurationPlugin.LoadData();
-            configurationPlugin.SetAttribute(configuration_key, configuration_value);
-            configurationPlugin.Commit();
-            configurationPlugin.Close();
-        }
-
-        public void forceUpdateConfigurationOptions(Dictionary<string,string>options)
-        {
-            configurationPlugin.LoadData();
-            foreach (KeyValuePair<string,string>option in options)
-                configurationPlugin.SetAttribute(option.Key, option.Value);
-            configurationPlugin.Commit();
-            configurationPlugin.Close();
-        }
     }
 }
