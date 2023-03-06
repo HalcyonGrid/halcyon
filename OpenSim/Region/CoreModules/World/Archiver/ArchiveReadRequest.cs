@@ -710,6 +710,9 @@ namespace OpenSim.Region.CoreModules.World.Archiver
         {
             bool filtered = false;
 
+            if (isWhitelistedObject(part))
+                return false;
+
             if (m_allowUserReassignment)
             {
                 if (part.OwnerID != ownerID)
@@ -822,6 +825,59 @@ namespace OpenSim.Region.CoreModules.World.Archiver
             return filtered;
         }
 
+        // Special-case overrides for common items that should be allowed but are not normally allowed by creator or owner
+        private UUID ZAUBER = new UUID("7b772b49-0dde-4e08-a8d7-6c26e09a6842");
+        const uint FULL_PERM = (uint)(PermissionMask.Copy | PermissionMask.Transfer | PermissionMask.Modify);
+        private bool isFullPerm(uint perms)
+        {
+            return ((perms & FULL_PERM) == FULL_PERM);
+        }
+        private bool isWhitelistedItem(TaskInventoryItem item)
+        {
+            if (item.Name.StartsWith("LiteRezzer", StringComparison.InvariantCultureIgnoreCase))
+                return true;
+
+            if (item.CreatorID == ZAUBER)
+            {
+                if (item.Name.ToLower().Trim().Equals("window beam"))
+                    return true;
+                if (item.Name.ToLower().Trim().Equals("shutter"))
+                    return true;
+                if (item.Name.ToUpper().Contains("OPTI"))
+                    return true;
+                if (item.Description.ToUpper().Contains("OPTI"))
+                    return true;
+                if (item.Name.ToUpper().Contains("SORTER") && isFullPerm(item.CurrentPermissions))
+                    return true;
+            }
+
+            // No other special cases.
+            return false;
+        }
+
+        private bool isWhitelistedObject(SceneObjectPart part)
+        {
+            if (part.Name.StartsWith("LiteRezzer", StringComparison.InvariantCultureIgnoreCase))
+                return true;
+
+            if (part.CreatorID == ZAUBER)
+            {
+                if (part.Name.ToLower().Equals("window beam"))
+                    return true;
+                if (part.Name.ToLower().Equals("shutter"))
+                    return true;
+                if (part.Name.ToUpper().Contains("OPTI"))
+                    return true;
+                if (part.Description.ToUpper().Contains("OPTI"))
+                    return true;
+                if (part.ParentGroup.Name.ToUpper().Contains("SORTER") && isFullPerm(part.ParentGroup.GetEffectivePermissions(false)))
+                    return true;
+            }
+
+            // No other special cases.
+            return false;
+        }
+
         // depth==0 when it's the top-level object (no need to reserialize changes as asset)
         private bool FilterContents(SceneObjectPart part, UUID ownerID, int depth)
         {
@@ -866,6 +922,13 @@ namespace OpenSim.Region.CoreModules.World.Archiver
                     {
                         if (m_debugOars >= 2)
                             m_log.InfoFormat("[ARCHIVER]: Item '{0}' in part '{1}' has owner {2} matching creator.", item.Name, part.Name, item.OwnerID);
+                        m_keptItem++;
+                    }
+                    else
+                    if (isWhitelistedItem(item))
+                    {
+                        if (m_debugOars >= 2)
+                            m_log.InfoFormat("[ARCHIVER]: Item '{0}' in part '{1}' by creator {2} is a whitelisted item.", item.Name, part.Name, item.CreatorID);
                         m_keptItem++;
                     }
                     else
