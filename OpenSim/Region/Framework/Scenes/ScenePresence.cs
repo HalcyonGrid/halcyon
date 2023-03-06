@@ -138,14 +138,17 @@ namespace OpenSim.Region.Framework.Scenes
 
         private Vector3 m_LastFinitePos;
 
-        // experimentally determined "fudge factor" to make sit-target positions
-        // the same as in SecondLife. Fudge factor was tested for 36 different
-        // test cases including prims of type box, sphere, cylinder, and torus,
-        // with varying parameters for sit target location, prim size, prim
-        // rotation, prim cut, prim twist, prim taper, and prim shear. See mantis
-        // issue #1716
-        private bool ADJUST_SIT_TARGET = true;  // do it the old OpenSim way for content compatibility
-        private static readonly Vector3 m_sitTargetCorrectionOffset = new Vector3(0.1f, 0.0f, 0.3f);
+        // Experimentally determined "fudge factor" to make sit-target positions the same as in SecondLife.
+        private Vector3 m_sitTargetCorrectionPrimSpaceOffset;
+        private Vector3 m_sitTargetCorrectionAgentSpaceOffset;
+        private enum SitTargetCorrectionMode
+        {
+            None,
+            SecondLife,
+            Legacy,
+        }
+        private readonly SitTargetCorrectionMode m_sitTargetCorrectionMode;
+
         private float m_godlevel;
 
         private bool m_invulnerable = true;
@@ -999,6 +1002,34 @@ namespace OpenSim.Region.Framework.Scenes
             if (m_connection != null)   // can be null for bots which don't have a LLCV
                 m_connection.ScenePresence = this;
 
+            var simulatorFeaturesConfig = world.Config.Configs["SimulatorFeatures"];
+            var sitTargetSystem = simulatorFeaturesConfig.GetString("SitTargetCompatibilityMode", "SecondLife");
+            switch (sitTargetSystem.Trim().Replace(" ", "").ToLower())
+            {
+                case "legacy":
+                // experimentally determined "fudge factor" to make sit-target positions
+                // the same as in SecondLife. Fudge factor was tested for 36 different
+                // test cases including prims of type box, sphere, cylinder, and torus,
+                // with varying parameters for sit target location, prim size, prim
+                // rotation, prim cut, prim twist, prim taper, and prim shear. See mantis
+                // issue #1716
+
+                // Note from much farther in the future: the offsets from where this came from looked nothing like SL...
+
+                m_sitTargetCorrectionPrimSpaceOffset = new Vector3(0.1f, 0.0f, 0.3f);
+                m_sitTargetCorrectionAgentSpaceOffset = new Vector3(0.0f, 0.0f, 0.0f);
+                m_sitTargetCorrectionMode = SitTargetCorrectionMode.Legacy;
+                break;
+                case "secondlife":
+                m_sitTargetCorrectionPrimSpaceOffset = new Vector3(0.0f, 0.0f, 0.4f);
+                m_sitTargetCorrectionAgentSpaceOffset = new Vector3(0.0f, 0.0f, -0.05f);
+                m_sitTargetCorrectionMode = SitTargetCorrectionMode.SecondLife;
+                break;
+                default:
+                    m_sitTargetCorrectionMode = SitTargetCorrectionMode.None;
+                    break;
+            }
+
             // Prime (cache) the user's group list.
             m_scene.UserGroupsGet(this.UUID);
         }
@@ -1318,7 +1349,7 @@ namespace OpenSim.Region.Framework.Scenes
                     if (m_avatarMovesWithPart)
                     {
                         Vector3 newPos = sitInfo.Offset;
-                        newPos += m_sitTargetCorrectionOffset;
+                        newPos += m_sitTargetCorrectionPrimSpaceOffset + m_sitTargetCorrectionAgentSpaceOffset * sitInfo.Rotation;
                         m_bodyRot = sitInfo.Rotation;
                         //Rotation = sitTargetOrient;
                         SetAgentPositionInfo(null, true, newPos, part, part.AbsolutePosition, Vector3.Zero);
@@ -1564,7 +1595,7 @@ namespace OpenSim.Region.Framework.Scenes
                             if (AvatarMovesWithPart && (m_requestedSitTargetID != 0))
                             {
                                 // now make it all consistent with updated parent ID while inside the lock
-                                SetAgentPositionInfo(null, true, m_sitTargetCorrectionOffset, parent, pos, m_velocity);
+                                SetAgentPositionInfo(null, true, m_sitTargetCorrectionPrimSpaceOffset, parent, pos, m_velocity);
                             }
                         }
                     }
@@ -2339,7 +2370,7 @@ namespace OpenSim.Region.Framework.Scenes
                     {
                         m_log.ErrorFormat("[SCENE PRESENCE]: StandUp for {0} with parentID={1} NOT FOUND in scene. Recovering position.", this.Name, (info.Parent == null) ? 0 : info.Parent.LocalId);
                         // Recover, by emulating a default sit, for the code below.
-                        info.Position = m_sitTargetCorrectionOffset + m_LastRegionPosition;
+                        info.Position = m_sitTargetCorrectionPrimSpaceOffset + m_LastRegionPosition;
                     }
                     else
                     {
@@ -2447,7 +2478,7 @@ namespace OpenSim.Region.Framework.Scenes
                                     {
                                         // Can't find the prim they were on so put them back where they
                                         // were with the sit target on the poseball set with the offset.
-                                        newpos = partPos - (info.Position - m_sitTargetCorrectionOffset);
+                                        newpos = partPos - (info.Position - m_sitTargetCorrectionPrimSpaceOffset);
                                     }
 
                                     // And let's assume that the sit pos is roughly at vertical center of the avatar, and that when standing,
@@ -2575,7 +2606,7 @@ namespace OpenSim.Region.Framework.Scenes
                 SceneObjectPart rootPart = part.ParentGroup.RootPart;
                 vParentID = rootPart.UUID;         // parentID to send to viewer, always the root prim
                 vPos = Vector3.Zero;            // viewer position of avatar relative to root prim
-                vRot = Quaternion.Identity;  // viewer rotation of avatar relative to root prim
+                vRot = m_sitTargetCorrectionMode == SitTargetCorrectionMode.SecondLife ? rootPart.RotationOffset : Quaternion.Identity;  // viewer rotation of avatar relative to root prim
                 avSitPos = Vector3.Zero;
                 avSitRot = rootPart.RotationOffset;
 
@@ -2585,24 +2616,25 @@ namespace OpenSim.Region.Framework.Scenes
                     avSitRot *= part.RotationOffset;
                 }
 
-                // Viewer seems to draw the avatar based on the hip position.
-                // If you don't include HipOffset (which is raising the avatar 
-                // since it's normally negative), then the viewer will draw 
-                // the avatar walking with toes underground/inside prim.
-                // Full updates were missing this, so a rebake would reproduce it.
-                // This adjustment gives the viewer the position it expects.
-                vPos.Z -= m_appearance.HipOffset;
+                if (m_sitTargetCorrectionMode == SitTargetCorrectionMode.Legacy)
+                {
+                    // Viewer seems to draw the avatar based on the hip position.
+                    // If you don't include HipOffset (which is raising the avatar 
+                    // since it's normally negative), then the viewer will draw 
+                    // the avatar walking with toes underground/inside prim.
+                    // Full updates were missing this, so a rebake would reproduce it.
+                    // This adjustment gives the viewer the position it expects.
+                    vPos.Z -= m_appearance.HipOffset;
+                }
 
                 if (sitInfo.IsActive)
                 {
-                    avSitPos += sitInfo.Offset;
-                    if (ADJUST_SIT_TARGET)
-                    {
-                        // If we want to support previous IW sit target offsets, rather than SL-accurate sit targets,
-                        // we need to apply the OpenSim sit target correction adjustment.
-                        avSitPos += m_sitTargetCorrectionOffset;
-                    }
+                    avSitPos += sitInfo.Offset + m_sitTargetCorrectionPrimSpaceOffset + m_sitTargetCorrectionAgentSpaceOffset * sitInfo.Rotation;
                     avSitRot *= sitInfo.Rotation;
+                    if (m_sitTargetCorrectionMode == SitTargetCorrectionMode.SecondLife)
+                    {
+                        vPos += sitInfo.Offset + m_sitTargetCorrectionPrimSpaceOffset + m_sitTargetCorrectionAgentSpaceOffset * sitInfo.Rotation;
+                    }
                     vRot *= sitInfo.Rotation;
                 }
                 else
@@ -3339,13 +3371,16 @@ namespace OpenSim.Region.Framework.Scenes
                 return;
             }
 
-            // Viewer seems to draw the avatar based on the hip position.
-            // If you don't include HipOffset (which is raising the avatar 
-            // since it's normally negative), then the viewer will draw 
-            // the avatar walking with toes underground/inside prim.
-            // Full updates were missing this, so a rebake would reproduce it.
-            // This adjustment gives the viewer the position it expects.
-            vPos.Z -= m_appearance.HipOffset;
+            if (m_sitTargetCorrectionMode == SitTargetCorrectionMode.Legacy)
+            {
+                // Viewer seems to draw the avatar based on the hip position.
+                // If you don't include HipOffset (which is raising the avatar 
+                // since it's normally negative), then the viewer will draw 
+                // the avatar walking with toes underground/inside prim.
+                // Full updates were missing this, so a rebake would reproduce it.
+                // This adjustment gives the viewer the position it expects.
+                vPos.Z -= m_appearance.HipOffset;
+            }
 
             // Actual rotation is rootPart.RotationOffset * part.RotationOffset * part.SitTargetOrientation
             // but we need to specify it relative to the root prim.
@@ -3358,13 +3393,11 @@ namespace OpenSim.Region.Framework.Scenes
                 if (sitInfo.Offset != Vector3.Zero)
                 {
                     vPos = sitInfo.Offset;  // start with the sit target position
-                    vPos.Z -= m_appearance.HipOffset;   // reapply correction
-                    if (ADJUST_SIT_TARGET)
+                    if (m_sitTargetCorrectionMode == SitTargetCorrectionMode.Legacy)
                     {
-                        // If we want to support previous IW sit target offsets, rather than SL-accurate sit targets,
-                        // we need to apply the OpenSim sit target correction adjustment.
-                        vPos += m_sitTargetCorrectionOffset;
+                        vPos.Z -= m_appearance.HipOffset;   // reapply correction
                     }
+                    vPos += m_sitTargetCorrectionPrimSpaceOffset + m_sitTargetCorrectionAgentSpaceOffset * sitInfo.Rotation;
 
                     if (part != rootPart)      // sitting on a child prim
                     {
