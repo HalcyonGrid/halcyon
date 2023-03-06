@@ -28,6 +28,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Threading.Tasks;
 using log4net;
 using Nini.Config;
 using OpenMetaverse;
@@ -112,7 +113,7 @@ namespace OpenSim.Region.CoreModules.Avatar.Chat
             client.OnChatFromClient += OnChatFromClient;
         }
 
-        private bool PrefilterChat(Object sender, OSChatMessage c)
+        private async Task<bool> PrefilterChat(Object sender, OSChatMessage c)
         {
             if (c.Type != ChatTypeEnum.Say)
                 return false;
@@ -129,16 +130,21 @@ namespace OpenSim.Region.CoreModules.Avatar.Chat
 
             if (sender is IClientAPI)
             {
-                HandleChatCommand((IClientAPI)sender, c, args);
+                await HandleChatCommand((IClientAPI)sender, c, args);
                 return true;
             }
 
             return false;
         }
 
-        public virtual void OnChatFromClient(Object sender, OSChatMessage c)
+        public virtual void OnChatFromClient(object sender, OSChatMessage c)
         {
-            if (PrefilterChat(sender, c))
+            OnChatFromClientInternal(sender, c).FireAndForget(); // FireAndForget prevents exceptions from crashing the system and logs them vs an async void method that does the former and not the latter.
+        }
+
+        public virtual async Task OnChatFromClientInternal(object sender, OSChatMessage c)
+        {
+            if (await PrefilterChat(sender, c))
                 return;
 
             // redistribute to interested subscribers
@@ -663,7 +669,7 @@ namespace OpenSim.Region.CoreModules.Avatar.Chat
             return false;   // if we get here, it wasn't updated.
         }
 
-        private void HandleChatCommand(IClientAPI client, OSChatMessage c, string[] args)
+        private async Task HandleChatCommand(IClientAPI client, OSChatMessage c, string[] args)
         {
             SendClientChat(client, "{0}", string.Join(" ",args));
             switch (args[0].ToLower())
@@ -713,9 +719,10 @@ namespace OpenSim.Region.CoreModules.Avatar.Chat
                         {
                             if (NeighborsRange(client, args[2]))    // if changed
                             {
-                                ScenePresence avatar;
-                                if ((client.Scene as Scene).TryGetAvatar(c.SenderUUID, out avatar))
-                                    avatar.UpdateForDrawDistanceChange();   // update the visible neighbors
+                                if ((client.Scene as Scene).TryGetAvatar(c.SenderUUID, out ScenePresence avatar))
+                                {
+                                    await avatar.UpdateForDrawDistanceChange();   // update the visible neighbors
+                                }
                                 ShowNeighborsRange(client, true);
                             }
                             break;

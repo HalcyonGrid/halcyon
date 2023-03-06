@@ -105,11 +105,7 @@ namespace OpenSim.Region.Framework.AvatarTransit.SendStates
             //there is nothing else we need to do in this state
             await _avatar.TriggerOnTransitStageChanged(TransitStage.SendBegin, _avatar.RideOnPrims);
 
-            RollbackActions.Push(() => 
-                {
-                    var task = _avatar.TriggerOnTransitStageChanged(TransitStage.SendError, _avatar.RideOnPrims);
-                    task.Wait();
-                });
+            RollbackActions.Push(async () =>  await _avatar.TriggerOnTransitStageChanged(TransitStage.SendError, _avatar.RideOnPrims));
 
             var nextState = new SendAvatarState(_avatar, this);
             await _avatar.SetNewState(nextState);

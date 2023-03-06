@@ -43,6 +43,7 @@
 	  <NoWarn></NoWarn>
 	  <PlatformTarget>x64</PlatformTarget>
 		<PreBuildEventUseInBuild>true</PreBuildEventUseInBuild>
+	  <WarningsAsErrors>CS4014</WarningsAsErrors>
 	</PropertyGroup>
 	<PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x64' ">
 	  <AllowUnsafeBlocks>False</AllowUnsafeBlocks>

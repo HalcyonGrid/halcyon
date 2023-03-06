@@ -133,7 +133,7 @@ namespace OpenSim.ApplicationPlugins.LoadRegions
 
             foreach (var region in loadedRegions)
             {
-                region.InformNeighborsImUp();
+                region.InformNeighborsImUp().FireAndForget();
             }
         }
 

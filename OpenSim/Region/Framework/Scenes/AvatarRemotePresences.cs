@@ -134,7 +134,7 @@ namespace OpenSim.Region.Framework.Scenes
                 //set up our initial connections to neighbors
                 //let the task run async in the background
                 const int CROSSING_RESYNC_DELAY = 500;
-                this.CalculateAndResyncNeighbors((uint)presence.DrawDistance, presence.ControllingClient.NeighborsRange, CROSSING_RESYNC_DELAY);
+                CalculateAndResyncNeighbors((uint)presence.DrawDistance, presence.ControllingClient.NeighborsRange, CROSSING_RESYNC_DELAY).FireAndForget();
             }
         }
 
@@ -190,11 +190,11 @@ namespace OpenSim.Region.Framework.Scenes
             switch (changeType)
             {
                 case NeighborStateChangeType.NeighborUp:
-                    this.HandleNeighborUp(neighbor);
+                    HandleNeighborUp(neighbor).FireAndForget();
                     break;
 
                 case NeighborStateChangeType.NeighborDown:
-                    this.HandleNeighborDown(neighbor);
+                    HandleNeighborDown(neighbor).FireAndForget();
                     break;
             }
         }
@@ -529,14 +529,13 @@ namespace OpenSim.Region.Framework.Scenes
         /// Resyncs the user with our view of the neighbors
         /// </summary>
         /// <param name="newDrawDistance">The new DD for the user</param>
+        /// <param name="maxRange">Maximum per-axis distance in number of regions</param>
         /// <param name="resyncDelay">Delay before executing the resync. We  delay on a region crossing because the viewer locks up sometimes when freeing memory</param>
         /// <returns></returns>
         private async Task CalculateAndResyncNeighbors(uint newDrawDistance, uint maxRange, int resyncDelay)
         {
-            uint xmin, xmax, ymin, ymax;
-
-            Util.GetDrawDistanceBasedRegionRectangle((uint)newDrawDistance, maxRange, _scene.RegionInfo.RegionLocX,
-                _scene.RegionInfo.RegionLocY, out xmin, out xmax, out ymin, out ymax);
+            Util.GetDrawDistanceBasedRegionRectangle(newDrawDistance, maxRange, _scene.RegionInfo.RegionLocX,
+                _scene.RegionInfo.RegionLocY, out uint xmin, out uint xmax, out uint ymin, out uint ymax);
 
             //get our current neighbor list
             List<SimpleRegionInfo> knownNeighborsList = _scene.SurroundingRegions.GetKnownNeighborsWithinClientDD(newDrawDistance, maxRange);

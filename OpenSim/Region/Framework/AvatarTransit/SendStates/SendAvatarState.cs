@@ -77,7 +77,7 @@ namespace OpenSim.Region.Framework.AvatarTransit.SendStates
                         String.Format("Could not establish presence on remote region: {0}", result.Item2));
                 }
 
-                RollbackActions.Push(() => { _avatar.ScenePresence.RemotePresences.DropRemotePresenceLocked(destination, true).Wait(); });
+                RollbackActions.Push(async () => await _avatar.ScenePresence.RemotePresences.DropRemotePresenceLocked(destination, true));
             }
 
             AvatarRemotePresence remotePresence = null;

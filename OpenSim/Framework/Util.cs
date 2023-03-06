@@ -52,6 +52,7 @@ using OpenMetaverse.StructuredData;
 using Amib.Threading;
 using System.Drawing;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 
 #if !_MONO_CLI_FLAG_
 using System.DirectoryServices.AccountManagement;
@@ -75,7 +76,7 @@ namespace OpenSim.Framework
     /// <summary>
     /// Miscellaneous utility functions
     /// </summary>
-    public class Util
+    public static class Util
     {
         private static readonly ILog m_log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
 
@@ -1677,6 +1678,30 @@ namespace OpenSim.Framework
         #region FireAndForget Threading Pattern
 
         /// <summary>
+        /// <para>Use to execute a function or method that is declared as async in a manner where you just want it to go do something and don't care if or when it returns.
+        /// Handles logging any exceptions emitted by the task.</para>
+        /// 
+        /// <para>When the await keyword results in too much delay, the Task.Wait() method is likewise too much delay and too risky, and just calling the async function without any decoration risks losing track of any excpetions, use this.</para>
+        /// 
+        /// <para>Examples:</para>
+        /// <para><code>  DoWorkAsync().FireAndForget();</code></para>
+        /// <para><code>  Util.FireAndForget(DoWorkAsync());</code></para>
+        /// <para>Both forms do the same thing.</para>
+        /// </summary>
+        /// <param name="task"></param>
+        public static async void FireAndForget(this Task task)
+        {
+            try
+            {
+                await task;
+            }
+            catch (Exception e)
+            {
+                m_log.Error("Exception caught processing an async Task:", e);
+            }
+        }
+
+        /// <summary>
         /// Created to work around a limitation in Mono with nested delegates
         /// </summary>
         private class FireAndForgetWrapper
@@ -2417,6 +2442,7 @@ namespace OpenSim.Framework
         /// Returns x/y min and max for a draw distance based region area around the given region location
         /// </summary>
         /// <param name="drawDistance">The draw distance we're checking</param>
+        /// <param name="maxRange">Maximum per-axis distance in number of regions</param>
         /// <param name="regionLocX">The X location of the current region</param>
         /// <param name="regionLocY">The Y location of the current region</param>
         /// <param name="xmin">Outputs the X minimum for the DD rectangle</param>
@@ -2435,14 +2461,8 @@ namespace OpenSim.Framework
 
             if (maxRange > 0)   // apply it
             {
-                if ((regionLocX - xmin) > maxRange)
-                    xmin = regionLocX - maxRange;
-                if ((regionLocY - ymin) > maxRange)
-                    ymin = regionLocY - maxRange;
-                if ((xmax - regionLocX) > maxRange)
-                    xmax = regionLocX + maxRange;
-                if ((ymax - regionLocY) > maxRange)
-                    ymax = regionLocY + maxRange;
+                xmin = Util.Clamp(xmin, regionLocX - maxRange, regionLocX + maxRange);
+                ymin = Util.Clamp(ymin, regionLocY - maxRange, regionLocY + maxRange);
             }
         }
 
